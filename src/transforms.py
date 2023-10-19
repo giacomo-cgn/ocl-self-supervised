@@ -1,0 +1,93 @@
+from typing import Any
+from torchvision import transforms
+
+from PIL import ImageFilter
+import random
+
+
+def get_dataset_transforms(dataset: str):
+    """Get corresponding normalization transform for each dataset."""
+
+    if dataset == 'cifar100':
+        return transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(
+            (0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)
+        )])
+    elif dataset == 'cifar10':
+        return transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(
+            (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
+        )])
+    elif dataset == 'tinyimagenet':
+        return transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(
+            (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
+    )])
+    else:
+        raise ValueError("Dataset not supported. Must be 'cifar100', 'cifar10' or 'tinyimagenet'")
+
+
+def get_dataset_crop(dataset: str):
+    """Get corresponding crop transform for each dataset."""
+
+    if dataset == 'cifar100':
+        # return transforms.RandomCrop(32, padding=4),
+        return transforms.RandomResizedCrop(32, scale=(0.2, 1.), antialias=False)
+    elif dataset == 'cifar10':
+        # return transforms.RandomCrop(32, padding=4)
+        return transforms.RandomResizedCrop(32, scale=(0.2, 1.), antialias=False)
+    elif dataset == 'tinyimagenet':
+        # return transforms.RandomCrop(64, padding=8)
+        return transforms.RandomResizedCrop(32, scale=(0.2, 1.), antialias=False)
+    else:
+        raise ValueError("Dataset not supported. Must be 'cifar100', 'cifar10' or 'tinyimagenet'")
+
+
+class TwoCropsTransform:
+    """Take two random crops of one image as the query and key."""
+
+    def __init__(self, base_transform):
+        self.base_transform = base_transform
+
+    def __call__(self, x):
+        q = self.base_transform(x)
+        k = self.base_transform(x)
+        return q, k
+
+
+class GaussianBlur(object):
+    """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
+
+    def __init__(self, sigma=[.1, 2.]):
+        self.sigma = sigma
+
+    def __call__(self, x):
+        sigma = random.uniform(self.sigma[0], self.sigma[1])
+        x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
+        return x
+
+def get_transforms_simsiam(dataset: str = 'cifar100'):
+    """Returns SimSiam augmentations with dataset specific crop."""
+
+    all_transforms = [
+        transforms.RandomApply([
+            transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
+        ], p=0.8),
+        transforms.RandomGrayscale(p=0.2),
+        # transforms.RandomApply([GaussianBlur([.1, 2.])], p=0.5),
+        transforms.RandomHorizontalFlip()
+    ]
+    
+    all_transforms.append(get_dataset_crop(dataset))
+
+    return TwoCropsTransform(transforms.Compose(all_transforms))
+    
+
+        
+
+        
+        
+
