@@ -8,6 +8,7 @@ from torchvision.models import resnet18
 
 from src.replay_simsiam import ReplaySimSiam
 from src.transforms import get_dataset_transforms
+from src.probing import LinearProbing
 
 save_folder = './logs'
 
@@ -20,6 +21,7 @@ shuffle = True
 class_ids_from_zero_in_each_exp = False
 class_ids_from_zero_from_first_exp = True
 use_transforms = True
+num_classes = 100
 
 benchmark = SplitCIFAR100(
             n_experiences,
@@ -44,11 +46,22 @@ else:
 
 
 # Model
-model = ReplaySimSiam(device=device, save_folder=save_folder)
+dim_encoder_features = 2048
+model = ReplaySimSiam(device=device, dim_features=dim_encoder_features, save_folder=save_folder)
 
 # Self supervised training over the experiences
 for exp_idx, experience in enumerate(benchmark.train_stream):
-    print('Beginning self supervised training for experience:', exp_idx)
-    network = model.train_experience(experience, exp_idx)      
+    print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
+    network = model.train_experience(experience, exp_idx)
+
+    # Do linear probing on current encoder forr all experiences (past, current and future)
+    for probe_exp_idx, probe_tr_experience in enumerate(benchmark.train_stream):
+        probe = LinearProbing(network.encoder, dim_features=dim_encoder_features, num_classes=num_classes, device=device)
+        print(f'-- Probing on experience: {probe_exp_idx} --')
+        train_loss, train_accuracy, test_accuracy = probe.probe(
+             probe_tr_experience, benchmark.test_stream[exp_idx])
+
+
+ 
 
 

@@ -10,16 +10,16 @@ from torchvision import models
 
 from avalanche.benchmarks.scenarios import NCExperience
 
-from reservoir_buffer import ReservoirBufferUnlabeled
-from utilities import UnsupervisedDataset
-from simsiam import SimSiam
-from transforms import get_transforms_simsiam
+from .reservoir_buffer import ReservoirBufferUnlabeled
+from .utilities import UnsupervisedDataset
+from .simsiam import SimSiam
+from .transforms import get_transforms_simsiam
 
 class ReplaySimSiam():
 
     def __init__(self,
                encoder: str = 'resnet18',
-               lr: float = 0.05,
+               lr: float = 0.001,
                momentum: float = 0.9,
                weight_decay: float = 1e-4,
                dim_features: int = 2048,
