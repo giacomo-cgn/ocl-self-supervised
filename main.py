@@ -2,6 +2,7 @@ from avalanche.benchmarks.classic import SplitCIFAR100
 
 import torch
 import os
+import datetime
 import tqdm as tqdm
 
 from torchvision.models import resnet18
@@ -10,11 +11,24 @@ from src.replay_simsiam import ReplaySimSiam
 from src.transforms import get_dataset_transforms
 from src.probing import LinearProbing
 
+# Configs TODO: parse args for these
+dataset_name = 'cifar100'
+model_name = 'replay_simsiam'
+n_experiences = 20
 save_folder = './logs'
 
+# Save path
+str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
+folder_name = f'{model_name}_{dataset_name}_{str_now}'
+save_pth = os.path.join(save_folder, folder_name)
+if not os.path.exists(save_pth):
+    os.makedirs(save_pth)
+
+probing_pth = os.path.join(save_pth, 'probing')
+if not os.path.exists(probing_pth):
+    os.makedirs(probing_pth)
+
 # Dataset
-dataset_name = 'cifar100'
-n_experiences = 20
 first_exp_with_half_classes = False
 return_task_id = False
 shuffle = True
@@ -47,19 +61,23 @@ else:
 
 # Model
 dim_encoder_features = 2048
-model = ReplaySimSiam(device=device, dim_features=dim_encoder_features, save_folder=save_folder)
+model = ReplaySimSiam(device=device, dim_features=dim_encoder_features, save_pth=save_pth)
+
 
 # Self supervised training over the experiences
 for exp_idx, experience in enumerate(benchmark.train_stream):
     print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
     network = model.train_experience(experience, exp_idx)
 
-    # Do linear probing on current encoder forr all experiences (past, current and future)
+    # Do linear probing on current encoder for all experiences (past, current and future)
     for probe_exp_idx, probe_tr_experience in enumerate(benchmark.train_stream):
-        probe = LinearProbing(network.encoder, dim_features=dim_encoder_features, num_classes=num_classes, device=device)
+        probe_save_file = os.path.join(probing_pth, f'probe_exp_{exp_idx}.csv')
+
+        probe = LinearProbing(network.encoder, dim_features=dim_encoder_features, num_classes=num_classes,
+                               device=device, save_file=probe_save_file, test_every_epoch=True, exp_idx=probe_exp_idx)
         print(f'-- Probing on experience: {probe_exp_idx} --')
         train_loss, train_accuracy, test_accuracy = probe.probe(
-             probe_tr_experience, benchmark.test_stream[exp_idx])
+             probe_tr_experience, benchmark.test_stream[probe_exp_idx])
 
 
  

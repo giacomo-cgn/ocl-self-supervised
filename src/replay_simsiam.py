@@ -1,4 +1,3 @@
-import datetime
 import os
 from tqdm import tqdm
 
@@ -31,7 +30,7 @@ class ReplaySimSiam():
                mb_passes: int = 5,
                device = 'cpu',
                dataset_name: str = 'cifar100',
-               save_folder: str  = None,
+               save_pth: str  = None,
                save_model: bool = False):
 
         if replay_mb_size is None:
@@ -52,6 +51,7 @@ class ReplaySimSiam():
         self.mb_passes = mb_passes
         self.device = device
         self.dataset_name = dataset_name
+        self.save_pth = save_pth
         self.save_model = save_model
 
         # Set up buffer
@@ -81,16 +81,8 @@ class ReplaySimSiam():
         self.criterion = nn.CosineSimilarity(dim=1)
 
 
-        # Set save subfolder
-        if save_folder is not None:
-            str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
-            folder_name = f'{self.model_name}_{self.dataset_name}_{str_now}'
 
-            self.save_pth = os.path.join(save_folder, folder_name)
-            if not os.path.exists(self.save_pth):
-                os.makedirs(self.save_pth)
-
-
+        if self.save_pth is not None:
             # Save model configuration
             with open(self.save_pth + '/config.txt', 'w') as f:
                 # Write hyperparameters
@@ -110,10 +102,7 @@ class ReplaySimSiam():
 
                 # Write loss file column names
                 with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
-                    f.write('loss, exp_idx, epoch, mb_idx, mb_pass\n')
-
-        else:
-            self.save_pth = None
+                    f.write('loss,exp_idx,epoch,mb_idx,mb_pass\n')
 
 
     def train_experience(self, 
@@ -154,7 +143,7 @@ class ReplaySimSiam():
                     # Save loss, exp_idx, epoch, mb_idx and k in csv
                     if self.save_pth is not None:
                         with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
-                            f.write(f'{loss.item()}, {exp_idx}, {epoch}, {mb_idx}, {k}\n')
+                            f.write(f'{loss.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
 
                 # Update buffer with new samples
                 self.buffer.add(new_mbatch.detach())

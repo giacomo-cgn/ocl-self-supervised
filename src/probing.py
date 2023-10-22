@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -11,10 +13,14 @@ class LinearProbing:
                  dim_features: nn,
                  num_classes: int,
                  lr: float = 0.01,
-                 weight_decay: float = 2e-4,
+                 weight_decay: float = 1e-4,
                  momentum: float = 0,
                  device: str = 'cpu',
-                 mb_size: int = 32):
+                 mb_size: int = 32,
+                 test_every_epoch: bool =  False,
+                 save_file: str = None,
+                 exp_idx: int = 0,
+                 ):
         """
         Initialize the Linear Probing classifier.
 
@@ -30,15 +36,27 @@ class LinearProbing:
         self.momentum = momentum
         self.device = device
         self.mb_size = mb_size
+        self.test_every_epoch = test_every_epoch
+        self.save_file = save_file
+        self.exp_idx = exp_idx
 
         self.probe_layer = nn.Linear(self.dim_features, num_classes).to(device)
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.SGD(self.probe_layer.parameters(), lr=self.lr, weight_decay=self.weight_decay, momentum=self.momentum)
 
+        if self.save_file is not None:
+            with open(self.save_file, 'a') as f:
+                # Write header for probing log file
+                if not os.path.exists(self.save_file) or os.path.getsize(self.save_file) == 0:
+                    if self.test_every_epoch:
+                        f.write('exp_idx,epoch,tr_loss,tr_acc,test_acc\n')
+                    else:
+                        f.write('exp_idx,tr_loss,tr_acc,test_acc\n')
+
     def probe(self,
               tr_experience: NCExperience,
               test_experience: NCExperience,
-              num_epochs: int=10):
+              num_epochs: int=5):
         """
         Train the probing classifier on a training dataset and test it on a test dataset.
 
@@ -76,7 +94,29 @@ class LinearProbing:
             train_accuracy = 100 * correct / total
             train_loss = running_loss / len(train_loader)
 
-            # Test the probing classifier
+            if self.test_every_epoch:
+                # Test the probing classifier at current epoch
+                self.probe_layer.eval()
+                correct = 0
+                total = 0
+                with torch.no_grad():
+                    for inputs, labels, _ in test_loader:
+                        inputs, labels = inputs.to(self.device), labels.to(self.device)
+                        outputs = self.probe_layer(self.encoder(inputs))
+                        _, predicted = outputs.max(1)
+                        total += labels.size(0)
+                        correct += predicted.eq(labels).sum().item()
+
+                test_accuracy = 100 * correct / total
+
+                print(f'Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}%, Test Accuracy: {test_accuracy:.4f}%')
+                if self.save_file is not None:
+                    with open(self.save_file, 'a') as f:
+                        f.write(f'{self.exp_idx},{epoch},{train_loss},{train_accuracy},{test_accuracy}\n')
+
+
+        if not self.test_every_epoch:
+            # Test the probing classifier at the end of training
             self.probe_layer.eval()
             correct = 0
             total = 0
@@ -90,6 +130,10 @@ class LinearProbing:
 
             test_accuracy = 100 * correct / total
 
-            print(f'Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}%, Test Accuracy: {test_accuracy:.4f}%')
+            print(f'Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}%, Test Accuracy: {test_accuracy:.4f}%')
+            if self.save_file is not None:
+                with open(self.save_file, 'a') as f:
+                    f.write(f'{self.exp_idx},{train_loss},{train_accuracy},{test_accuracy}\n')
+
 
         return train_loss, train_accuracy, test_accuracy
