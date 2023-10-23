@@ -6,12 +6,11 @@ from torch.utils.data import DataLoader
 
 from avalanche.benchmarks.scenarios import NCExperience
 
-from .reservoir_buffer import ReservoirBufferUnlabeled
 from .utilities import UnsupervisedDataset, get_encoder, get_optim
 from .simsiam import SimSiam
 from .transforms import get_transforms_simsiam
 
-class ReplaySimSiam():
+class NoStrategySimSiam():
 
     def __init__(self,
                encoder: str = 'resnet18',
@@ -22,7 +21,6 @@ class ReplaySimSiam():
                dim_features: int = 2048,
                dim_pred: int = 512,
                mem_size: int = 2000,
-               replay_mb_size: int = 32,
                train_mb_size: int = 32,
                train_epochs: int = 1,
                mb_passes: int = 5,
@@ -38,7 +36,6 @@ class ReplaySimSiam():
         self.dim_features = dim_features
         self.dim_pred = dim_pred
         self.mem_size = mem_size
-        self.replay_mb_size = replay_mb_size
         self.train_mb_size = train_mb_size
         self.train_epochs = train_epochs
         self.mb_passes = mb_passes
@@ -46,9 +43,6 @@ class ReplaySimSiam():
         self.dataset_name = dataset_name
         self.save_pth = save_pth
         self.save_model = save_model
-
-        # Set up buffer
-        self.buffer = ReservoirBufferUnlabeled(self.mem_size)
 
         # Set up transforms
         self.transforms = get_transforms_simsiam(self.dataset_name)
@@ -58,7 +52,7 @@ class ReplaySimSiam():
 
         # Set up model
         self.model = SimSiam(self.encoder, dim_features, dim_pred).to(self.device)
-        self.model_name = 'replay_simsiam'
+        self.model_name = 'no_strategy_simsiam'
 
         # Set up optimizer
         self.optimizer = get_optim(optim, self.model.parameters(), lr=self.lr,
@@ -75,8 +69,6 @@ class ReplaySimSiam():
                 f.write(f'weight_decay: {self.weight_decay}\n')
                 f.write(f'dim_features: {self.dim_features}\n')
                 f.write(f'dim_pred: {self.dim_pred}\n')
-                f.write(f'mem_size: {self.mem_size}\n')
-                f.write(f'replay_mb_size: {self.replay_mb_size}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
@@ -102,16 +94,8 @@ class ReplaySimSiam():
                 new_mbatch = mbatch
 
                 for k in range(self.mb_passes):
-                    if len(self.buffer.buffer) > self.train_mb_size:
-                        # Sample from buffer and concat
-                        replay_batch = self.buffer.sample(self.replay_mb_size).to(self.device)
-                        combined_batch = torch.cat((replay_batch, mbatch), dim=0)
-                    else:
-                        # Do not sample buffer if not enough elements in it
-                        combined_batch = mbatch
-
                     # Apply transforms
-                    x1, x2 = self.transforms(combined_batch)
+                    x1, x2 = self.transforms(mbatch)
 
                     # Forward pass
                     loss = self.model(x1, x2)
@@ -125,9 +109,6 @@ class ReplaySimSiam():
                     if self.save_pth is not None:
                         with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
                             f.write(f'{loss.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
-
-                # Update buffer with new samples
-                self.buffer.add(new_mbatch.detach())
 
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:

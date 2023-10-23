@@ -49,9 +49,9 @@ class LinearProbing:
                 # Write header for probing log file
                 if not os.path.exists(self.save_file) or os.path.getsize(self.save_file) == 0:
                     if self.test_every_epoch:
-                        f.write('exp_idx,epoch,tr_loss,tr_acc,test_acc\n')
+                        f.write('probing_exp_idx,epoch,tr_loss,tr_acc,test_acc\n')
                     else:
-                        f.write('exp_idx,tr_loss,tr_acc,test_acc\n')
+                        f.write('probing_exp_idx,tr_loss,tr_acc,test_acc\n')
 
     def probe(self,
               tr_experience: NCExperience,
@@ -109,7 +109,7 @@ class LinearProbing:
 
                 test_accuracy = 100 * correct / total
 
-                print(f'Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}%, Test Accuracy: {test_accuracy:.4f}%')
+                #print(f'Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}%, Test Accuracy: {test_accuracy:.4f}%')
                 if self.save_file is not None:
                     with open(self.save_file, 'a') as f:
                         f.write(f'{self.exp_idx},{epoch},{train_loss},{train_accuracy},{test_accuracy}\n')
@@ -130,7 +130,7 @@ class LinearProbing:
 
             test_accuracy = 100 * correct / total
 
-            print(f'Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}%, Test Accuracy: {test_accuracy:.4f}%')
+            #print(f'Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}%, Test Accuracy: {test_accuracy:.4f}%')
             if self.save_file is not None:
                 with open(self.save_file, 'a') as f:
                     f.write(f'{self.exp_idx},{train_loss},{train_accuracy},{test_accuracy}\n')
