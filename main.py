@@ -16,6 +16,7 @@ dataset_name = 'cifar100'
 model_name = 'replay_simsiam'
 n_experiences = 20
 save_folder = './logs'
+probing_epochs = 1
 
 # Save path
 str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
@@ -60,8 +61,7 @@ else:
 
 
 # Model
-dim_encoder_features = 2048
-model = ReplaySimSiam(device=device, dim_features=dim_encoder_features, save_pth=save_pth)
+model = ReplaySimSiam(device=device, save_pth=save_pth)
 
 
 # Self supervised training over the experiences
@@ -73,11 +73,12 @@ for exp_idx, experience in enumerate(benchmark.train_stream):
     for probe_exp_idx, probe_tr_experience in enumerate(benchmark.train_stream):
         probe_save_file = os.path.join(probing_pth, f'probe_exp_{exp_idx}.csv')
 
-        probe = LinearProbing(network.encoder, dim_features=dim_encoder_features, num_classes=num_classes,
+        dim_features = network.projector[0].weight.shape[1]
+        probe = LinearProbing(network.encoder, dim_features=dim_features, num_classes=num_classes,
                                device=device, save_file=probe_save_file, test_every_epoch=True, exp_idx=probe_exp_idx)
         print(f'-- Probing on experience: {probe_exp_idx} --')
         train_loss, train_accuracy, test_accuracy = probe.probe(
-             probe_tr_experience, benchmark.test_stream[probe_exp_idx])
+             probe_tr_experience, benchmark.test_stream[probe_exp_idx], num_epochs=probing_epochs)
 
 
  

@@ -1,7 +1,7 @@
 from typing import Any
 from torchvision import transforms
 
-from PIL import ImageFilter
+from PIL import ImageFilter, ImageOps
 import random
 
 
@@ -68,11 +68,22 @@ class GaussianBlur(object):
         sigma = random.uniform(self.sigma[0], self.sigma[1])
         x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
         return x
+    
+class Solarization(object):
+    def __init__(self, p):
+        self.p = p
+
+    def __call__(self, img):
+        if random.random() < self.p:
+            return ImageOps.solarize(img)
+        else:
+            return img
 
 def get_transforms_simsiam(dataset: str = 'cifar100'):
     """Returns SimSiam augmentations with dataset specific crop."""
 
     all_transforms = [
+        get_dataset_crop(dataset),
         transforms.RandomApply([
             transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
         ], p=0.8),
@@ -84,6 +95,25 @@ def get_transforms_simsiam(dataset: str = 'cifar100'):
     all_transforms.append(get_dataset_crop(dataset))
 
     return TwoCropsTransform(transforms.Compose(all_transforms))
+
+def get_transforms_barlow_twins(dataset: str = 'cifar100'):
+    """Returns SimSiam augmentations with dataset specific crop."""
+
+    all_transforms = [
+            get_dataset_crop(dataset),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomApply(
+                [transforms.ColorJitter(brightness=0.4, contrast=0.4,
+                                        saturation=0.2, hue=0.1)],
+                p=0.8
+            ),
+            transforms.RandomGrayscale(p=0.2),
+            GaussianBlur(p=1.0),
+            Solarization(p=0.0),
+        ]
+
+    return TwoCropsTransform(transforms.Compose(all_transforms))
+
     
 
         

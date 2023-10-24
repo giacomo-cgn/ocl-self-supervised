@@ -10,7 +10,7 @@ from avalanche.benchmarks.scenarios import NCExperience
 class LinearProbing:
     def __init__(self,
                  encoder: nn,
-                 dim_features: nn,
+                 dim_features: int,
                  num_classes: int,
                  lr: float = 0.01,
                  weight_decay: float = 1e-4,

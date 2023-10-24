@@ -4,10 +4,10 @@ class SimSiam(nn.Module):
     """
     Build a SimSiam model.
     """
-    def __init__(self, base_encoder, dim=2048, pred_dim=512):
+    def __init__(self, base_encoder, dim_proj=2048, dim_pred=512):
         """
-        dim: feature dimension (default: 2048)
-        pred_dim: hidden dimension of the predictor (default: 512)
+        dim_proj: feature dimension (default: 2048)
+        dim_pred: hidden dimension of the predictor (default: 512)
         """
         super(SimSiam, self).__init__()
         # Set up criterion
@@ -15,11 +15,11 @@ class SimSiam(nn.Module):
 
         # Create the encoder
         # num_classes is the output fc dimension, zero-initialize last BNs
-        self.encoder = base_encoder(num_classes=dim, zero_init_residual=True)
-
+        self.encoder = base_encoder(num_classes=dim_proj, zero_init_residual=True)
 
         # Build a 3-layer projector
         prev_dim = self.encoder.fc.weight.shape[1]
+
         self.projector = nn.Sequential(nn.Linear(prev_dim, prev_dim, bias=False),
                                         nn.BatchNorm1d(prev_dim),
                                         nn.ReLU(inplace=True), # first layer
@@ -27,18 +27,18 @@ class SimSiam(nn.Module):
                                         nn.BatchNorm1d(prev_dim),
                                         nn.ReLU(inplace=True), # second layer
                                         self.encoder.fc,
-                                        nn.BatchNorm1d(dim, affine=False)) # output layer
-        self.encoder.fc[6].bias.requires_grad = False # hack: not use bias as it is followed by BN
+                                        nn.BatchNorm1d(dim_proj, affine=False)) # output layer
+        self.projector[6].bias.requires_grad = False # hack: not use bias as it is followed by BN
 
-        # Replace the fc clf layer with nn.Identity()
+        # Replace the fc clf layer with nn.Identity(),
         # so the encoder outputs feature maps instead of clf outputs
         self.encoder.fc = nn.Identity()
 
         # Build a 2-layer predictor
-        self.predictor = nn.Sequential(nn.Linear(dim, pred_dim, bias=False),
-                                        nn.BatchNorm1d(pred_dim),
+        self.predictor = nn.Sequential(nn.Linear(dim_proj, dim_pred, bias=False),
+                                        nn.BatchNorm1d(dim_pred),
                                         nn.ReLU(inplace=True), # hidden layer
-                                        nn.Linear(pred_dim, dim)) # output layer
+                                        nn.Linear(dim_pred, dim_proj)) # output layer
 
     def forward(self, x1, x2):
         """

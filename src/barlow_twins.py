@@ -20,7 +20,7 @@ class BarlowTwins(nn.Module):
                                         nn.ReLU(inplace=True), # second layer
                                         self.encoder.fc,
                                         nn.BatchNorm1d(dim_features, affine=False)) # output layer
-        self.encoder.fc[6].bias.requires_grad = False # hack: not use bias as it is followed by BN
+        self.projector[6].bias.requires_grad = False # hack: not use bias as it is followed by BN
 
         # Replace the fc clf layer with nn.Identity()
         # so the encoder outputs feature maps instead of clf outputs

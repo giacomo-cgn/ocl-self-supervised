@@ -19,7 +19,7 @@ class ReplaySimSiam():
                lr: float = 5e-4,
                momentum: float = 0.9,
                weight_decay: float = 1e-4,
-               dim_features: int = 2048,
+               dim_proj: int = 2048,
                dim_pred: int = 512,
                mem_size: int = 2000,
                replay_mb_size: int = 32,
@@ -35,7 +35,7 @@ class ReplaySimSiam():
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
-        self.dim_features = dim_features
+        self.dim_proj = dim_proj
         self.dim_pred = dim_pred
         self.mem_size = mem_size
         self.replay_mb_size = replay_mb_size
@@ -57,7 +57,7 @@ class ReplaySimSiam():
         self.encoder = get_encoder(encoder)
 
         # Set up model
-        self.model = SimSiam(self.encoder, dim_features, dim_pred).to(self.device)
+        self.model = SimSiam(self.encoder, dim_proj, dim_pred).to(self.device)
         self.model_name = 'replay_simsiam'
 
         # Set up optimizer
@@ -73,7 +73,7 @@ class ReplaySimSiam():
                 f.write(f'lr: {self.lr}\n')
                 f.write(f'momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
-                f.write(f'dim_features: {self.dim_features}\n')
+                f.write(f'dim_proj: {self.dim_proj}\n')
                 f.write(f'dim_pred: {self.dim_pred}\n')
                 f.write(f'mem_size: {self.mem_size}\n')
                 f.write(f'replay_mb_size: {self.replay_mb_size}\n')
