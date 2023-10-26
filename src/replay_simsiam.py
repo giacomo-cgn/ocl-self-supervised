@@ -8,7 +8,7 @@ from avalanche.benchmarks.scenarios import NCExperience
 
 from .reservoir_buffer import ReservoirBufferUnlabeled
 from .utilities import UnsupervisedDataset, get_encoder, get_optim
-from .simsiam import SimSiam
+from .ssl_models.simsiam import SimSiam
 from .transforms import get_transforms_simsiam
 
 class ReplaySimSiam():
@@ -67,7 +67,7 @@ class ReplaySimSiam():
 
         if self.save_pth is not None:
             # Save model configuration
-            with open(self.save_pth + '/config.txt', 'w') as f:
+            with open(self.save_pth + '/config.txt', 'a') as f:
                 # Write hyperparameters
                 f.write(f'encoder: {self.encoder}\n')
                 f.write(f'lr: {self.lr}\n')

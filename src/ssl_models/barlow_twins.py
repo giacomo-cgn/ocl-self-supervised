@@ -4,7 +4,7 @@ import torch
 class BarlowTwins(nn.Module):
 
     def __init__(self, encoder, dim_features=2048, lambd=5e-3):
-        super().__init__()
+        super(BarlowTwins, self).__init__()
         self.lambd = lambd
 
         # Create encoder
@@ -27,15 +27,14 @@ class BarlowTwins(nn.Module):
         self.encoder.fc = nn.Identity()
 
     def forward(self, x1, x2):
+        batch_size = x1.shape[0]
         z1 = self.projector(self.encoder(x1))
         z2 = self.projector(self.encoder(x2))
 
         # empirical cross-correlation matrix
         c = z1.T @ z2
 
-        # sum the cross-correlation matrix between all gpus
-        c.div_(self.args.batch_size)
-        torch.distributed.all_reduce(c)
+        c.div_(batch_size)
 
         on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
         off_diag = off_diagonal(c).pow_(2).sum()

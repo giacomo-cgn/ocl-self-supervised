@@ -7,10 +7,10 @@ from torch.utils.data import DataLoader
 from avalanche.benchmarks.scenarios import NCExperience
 
 from .utilities import UnsupervisedDataset, get_encoder, get_optim
-from .ssl_models.simsiam import SimSiam
-from .transforms import get_transforms_simsiam
+from .ssl_models.barlow_twins import BarlowTwins
+from .transforms import get_transforms_barlow_twins
 
-class NoStrategySimSiam():
+class NoStrategyBarlowTwins():
 
     def __init__(self,
                encoder: str = 'resnet18',
@@ -18,9 +18,8 @@ class NoStrategySimSiam():
                lr: float = 5e-4,
                momentum: float = 0.9,
                weight_decay: float = 1e-4,
+               lambd: float = 5e-3,
                dim_proj: int = 2048,
-               dim_pred: int = 512,
-               mem_size: int = 2000,
                train_mb_size: int = 32,
                train_epochs: int = 1,
                mb_passes: int = 5,
@@ -29,13 +28,12 @@ class NoStrategySimSiam():
                save_pth: str  = None,
                save_model: bool = False):
 
+        self.lambd = lambd
         self.momentum = momentum
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
         self.dim_proj = dim_proj
-        self.dim_pred = dim_pred
-        self.mem_size = mem_size
         self.train_mb_size = train_mb_size
         self.train_epochs = train_epochs
         self.mb_passes = mb_passes
@@ -45,14 +43,14 @@ class NoStrategySimSiam():
         self.save_model = save_model
 
         # Set up transforms
-        self.transforms = get_transforms_simsiam(self.dataset_name)
+        self.transforms = get_transforms_barlow_twins(self.dataset_name)
 
         # Set up encoder
         self.encoder = get_encoder(encoder)
 
         # Set up model
-        self.model = SimSiam(self.encoder, dim_proj, dim_pred).to(self.device)
-        self.model_name = 'no_strategy_simsiam'
+        self.model = BarlowTwins(self.encoder, dim_proj, self.lambd).to(self.device)
+        self.model_name = 'no_strategy_barlow_twins'
 
         # Set up optimizer
         self.optimizer = get_optim(optim, self.model.parameters(), lr=self.lr,
@@ -68,7 +66,6 @@ class NoStrategySimSiam():
                 f.write(f'momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
                 f.write(f'dim_proj: {self.dim_proj}\n')
-                f.write(f'dim_pred: {self.dim_pred}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')

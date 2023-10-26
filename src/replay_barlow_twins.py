@@ -8,10 +8,10 @@ from avalanche.benchmarks.scenarios import NCExperience
 
 from .reservoir_buffer import ReservoirBufferUnlabeled
 from .utilities import UnsupervisedDataset, get_encoder, get_optim
-from .barlow_twins import BarlowTwins
+from .ssl_models.barlow_twins import BarlowTwins
 from .transforms import get_transforms_barlow_twins
 
-class ReplaySimSiam():
+class ReplayBarlowTwins():
 
     def __init__(self,
                encoder: str = 'resnet18',
@@ -67,14 +67,13 @@ class ReplaySimSiam():
 
         if self.save_pth is not None:
             # Save model configuration
-            with open(self.save_pth + '/config.txt', 'w') as f:
+            with open(self.save_pth + '/config.txt', 'a') as f:
                 # Write hyperparameters
-                f.write(f'encoder: {self.encoder}\n')
+                f.write(f'encoder: {encoder}\n')
                 f.write(f'lr: {self.lr}\n')
                 f.write(f'momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
                 f.write(f'dim_proj: {self.dim_proj}\n')
-                f.write(f'dim_pred: {self.dim_pred}\n')
                 f.write(f'mem_size: {self.mem_size}\n')
                 f.write(f'replay_mb_size: {self.replay_mb_size}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')

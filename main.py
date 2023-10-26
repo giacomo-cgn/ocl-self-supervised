@@ -5,29 +5,57 @@ import os
 import datetime
 import tqdm as tqdm
 
-from torchvision.models import resnet18
-
 from src.replay_simsiam import ReplaySimSiam
+from src.replay_barlow_twins import ReplayBarlowTwins
+from src.no_strategy_simsiam import NoStrategySimSiam
+from src.no_strategy_barlow_twins import NoStrategyBarlowTwins
+
 from src.transforms import get_dataset_transforms
 from src.probing import LinearProbing
 
-# Configs TODO: parse args for these
-dataset_name = 'cifar100'
-model_name = 'replay_simsiam'
-n_experiences = 20
-save_folder = './logs'
-probing_epochs = 1
+import argparse
 
-# Save path
+# Parse arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('--model', type=str, default='no_strategy_simsiasm')
+parser.add_argument('--encoder', type=str, default='resnet18')
+parser.add_argument('--optim', type=str, default='SGD')
+parser.add_argument('--dataset', type=str, default='cifar100')
+parser.add_argument('--num-exps', type=int, default=20)
+parser.add_argument('--save-folder', type=str, default='./logs')
+parser.add_argument('--probing-epochs', type=int, default=1)
+parser.add_argument('--mem-size', type=int, default=2000)
+parser.add_argument('--mb-passes', type=int, default=5)
+parser.add_argument('--tr-mb-size', type=int, default=32)
+parser.add_argument('--repl-mb-size', type=int, default=32)
+parser.add_argument('--lambd', type=float, default=5e-3)
+
+args = parser.parse_args()
+
+
+# Set up save folders
 str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
-folder_name = f'{model_name}_{dataset_name}_{str_now}'
-save_pth = os.path.join(save_folder, folder_name)
+folder_name = f'{args.model}_{args.dataset}_{str_now}'
+save_pth = os.path.join(args.save_folder, folder_name)
 if not os.path.exists(save_pth):
     os.makedirs(save_pth)
 
 probing_pth = os.path.join(save_pth, 'probing')
 if not os.path.exists(probing_pth):
     os.makedirs(probing_pth)
+
+# Save args
+with open(save_pth + '/config.txt', 'a') as f:
+    f.write(f'Model: {args.model}\n')
+    f.write(f'Encoder: {args.encoder}\n')
+    f.write(f'Optimizer: {args.optim}\n')
+    f.write(f'Dataset: {args.dataset}\n')
+    f.write(f'Number of Experiences: {args.num_exps}\n')
+    f.write(f'Probing Epochs: {args.probing_epochs}\n')
+    f.write(f'Memory Size: {args.mem_size}\n')
+    f.write(f'MB Passes: {args.mb_passes}\n')
+    f.write(f'Train MB Size: {args.tr_mb_size}\n')
+    f.write(f'Replay MB Size: {args.repl_mb_size}\n')
 
 # Dataset
 first_exp_with_half_classes = False
@@ -37,16 +65,15 @@ class_ids_from_zero_in_each_exp = False
 class_ids_from_zero_from_first_exp = True
 use_transforms = True
 num_classes = 100
-
 benchmark = SplitCIFAR100(
-            n_experiences,
+            args.num_exps,
             first_exp_with_half_classes=first_exp_with_half_classes,
             return_task_id=return_task_id,
             shuffle=shuffle,
             class_ids_from_zero_in_each_exp=class_ids_from_zero_in_each_exp,
             class_ids_from_zero_from_first_exp=class_ids_from_zero_from_first_exp,
-            train_transform=get_dataset_transforms(dataset_name),
-            eval_transform=get_dataset_transforms(dataset_name),
+            train_transform=get_dataset_transforms(args.dataset),
+            eval_transform=get_dataset_transforms(args.dataset),
         )
 
 # Device
@@ -61,8 +88,29 @@ else:
 
 
 # Model
-model = ReplaySimSiam(device=device, save_pth=save_pth)
-
+if args.model == 'no_strategy_simsiam':
+     model = NoStrategySimSiam(encoder=args.encoder, optim=args.optim, mem_size=args.mem_size,
+                               train_mb_size=args.tr_mb_size, mb_passes=args.mb_passes,
+                               dataset_name=args.dataset, save_pth=save_pth, device=device,
+                               save_model=False)
+elif args.model == 'replay_simsiam':
+     model = ReplaySimSiam(encoder=args.encoder, optim=args.optim, mem_size=args.mem_size,
+                           train_mb_size=args.tr_mb_size, replay_mb_size=args.repl_mb_size,
+                           mb_passes=args.mb_passes, dataset_name=args.dataset, save_pth=save_pth,
+                           device=device, save_model=False)
+     
+elif args.model == 'replay_barlow_twins':
+     model = ReplayBarlowTwins(lambd=args.lambd, encoder=args.encoder, optim=args.optim, train_mb_size=args.tr_mb_size,
+                               mb_passes=args.mb_passes, dataset_name=args.dataset, save_pth=save_pth,
+                               device=device, save_model=False)
+elif args.model == 'no_strategy_barlow_twins':
+     model = NoStrategyBarlowTwins(lambd=args.lambd, encoder=args.encoder, optim=args.optim,
+                                   train_mb_size=args.tr_mb_size,
+                                   mb_passes=args.mb_passes, dataset_name=args.dataset, save_pth=save_pth,
+                                   device=device, save_model=False)
+else:
+     # Throw exception
+     raise Exception(f"Model {args.model} not supported")
 
 # Self supervised training over the experiences
 for exp_idx, experience in enumerate(benchmark.train_stream):
@@ -78,7 +126,7 @@ for exp_idx, experience in enumerate(benchmark.train_stream):
                                device=device, save_file=probe_save_file, test_every_epoch=True, exp_idx=probe_exp_idx)
         print(f'-- Probing on experience: {probe_exp_idx} --')
         train_loss, train_accuracy, test_accuracy = probe.probe(
-             probe_tr_experience, benchmark.test_stream[probe_exp_idx], num_epochs=probing_epochs)
+             probe_tr_experience, benchmark.test_stream[probe_exp_idx], num_epochs=args.probing_epochs)
 
 
  

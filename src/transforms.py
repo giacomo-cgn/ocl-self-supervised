@@ -108,8 +108,8 @@ def get_transforms_barlow_twins(dataset: str = 'cifar100'):
                 p=0.8
             ),
             transforms.RandomGrayscale(p=0.2),
-            GaussianBlur(p=1.0),
-            Solarization(p=0.0),
+            #GaussianBlur(p=1.0),
+            #Solarization(p=0.0),
         ]
 
     return TwoCropsTransform(transforms.Compose(all_transforms))
