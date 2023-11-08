@@ -37,9 +37,9 @@ args = parser.parse_args()
 
 # Ratios of tr set used for training linear probe
 if args.use_probing_tr_ratios:
-     probing_tr_ratios = [0.1, 0.2, 0.5, 1]
+     probing_tr_ratio_arr = [0.1, 0.2, 0.5, 1]
 else:
-     probing_tr_ratios = [1]
+     probing_tr_ratio_arr = [1]
 
 
 # Set up save folders
@@ -50,7 +50,7 @@ if not os.path.exists(save_pth):
     os.makedirs(save_pth)
 
 probing_pth_dict = {}
-for probing_tr_ratio in probing_tr_ratios:  
+for probing_tr_ratio in probing_tr_ratio_arr:  
     probing_pth = os.path.join(save_pth, f'probing_ratio{probing_tr_ratio}')
     if not os.path.exists(probing_pth):
         os.makedirs(probing_pth)
@@ -131,7 +131,7 @@ for exp_idx, experience in enumerate(benchmark.train_stream):
     for probe_exp_idx, probe_tr_experience in enumerate(benchmark.train_stream):
 
         # Sample only a portion of the tr samples for probing
-        for probe_tr_ratio in probing_tr_ratios:
+        for probing_tr_ratio in probing_tr_ratio_arr:
 
             probe_save_file = os.path.join(probing_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
             dim_features = network.projector[0].weight.shape[1] 
@@ -143,8 +143,3 @@ for exp_idx, experience in enumerate(benchmark.train_stream):
 
             train_loss, train_accuracy, test_accuracy = probe.probe(
                 probe_tr_experience, benchmark.test_stream[probe_exp_idx], num_epochs=args.probing_epochs)
-
-
- 
-
-
