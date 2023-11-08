@@ -8,7 +8,7 @@ from avalanche.benchmarks.scenarios import NCExperience
 
 from .utilities import UnsupervisedDataset, get_encoder, get_optim
 from .ssl_models.barlow_twins import BarlowTwins
-from .transforms import get_transforms_barlow_twins
+from .transforms import get_transforms_barlow_twins, get_common_transforms
 
 class NoStrategyBarlowTwins():
 
@@ -26,7 +26,8 @@ class NoStrategyBarlowTwins():
                device = 'cpu',
                dataset_name: str = 'cifar100',
                save_pth: str  = None,
-               save_model: bool = False):
+               save_model: bool = False,
+               common_transforms: bool = True):
 
         self.lambd = lambd
         self.momentum = momentum
@@ -41,9 +42,13 @@ class NoStrategyBarlowTwins():
         self.dataset_name = dataset_name
         self.save_pth = save_pth
         self.save_model = save_model
+        self.common_transforms = common_transforms
 
         # Set up transforms
-        self.transforms = get_transforms_barlow_twins(self.dataset_name)
+        if self.common_transforms:
+            self.transforms = get_common_transforms(self.dataset_name)
+        else:
+            self.transforms = get_transforms_barlow_twins(self.dataset_name)
 
         # Set up encoder
         self.encoder = get_encoder(encoder)

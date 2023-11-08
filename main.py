@@ -28,6 +28,8 @@ parser.add_argument('--mem-size', type=int, default=2000)
 parser.add_argument('--mb-passes', type=int, default=5)
 parser.add_argument('--tr-mb-size', type=int, default=32)
 parser.add_argument('--repl-mb-size', type=int, default=32)
+parser.add_argument('--common-transforms', type=bool, default=True)
+# Models specific params
 parser.add_argument('--lambd', type=float, default=5e-3)
 
 args = parser.parse_args()
@@ -56,6 +58,7 @@ with open(save_pth + '/config.txt', 'a') as f:
     f.write(f'MB Passes: {args.mb_passes}\n')
     f.write(f'Train MB Size: {args.tr_mb_size}\n')
     f.write(f'Replay MB Size: {args.repl_mb_size}\n')
+    f.write(f'Use Common Transforms: {args.common_transforms}\n')
 
 # Dataset
 first_exp_with_half_classes = False
@@ -88,22 +91,22 @@ if args.model == 'no_strategy_simsiam':
      model = NoStrategySimSiam(encoder=args.encoder, optim=args.optim, mem_size=args.mem_size,
                                train_mb_size=args.tr_mb_size, mb_passes=args.mb_passes,
                                dataset_name=args.dataset, save_pth=save_pth, device=device,
-                               save_model=False)
+                               save_model=False, common_transforms=args.common_transforms)
 elif args.model == 'replay_simsiam':
      model = ReplaySimSiam(encoder=args.encoder, optim=args.optim, mem_size=args.mem_size,
                            train_mb_size=args.tr_mb_size, replay_mb_size=args.repl_mb_size,
                            mb_passes=args.mb_passes, dataset_name=args.dataset, save_pth=save_pth,
-                           device=device, save_model=False)
+                           device=device, save_model=False, common_transforms=args.common_transforms)
      
 elif args.model == 'replay_barlow_twins':
      model = ReplayBarlowTwins(lambd=args.lambd, encoder=args.encoder, optim=args.optim, train_mb_size=args.tr_mb_size,
                                mb_passes=args.mb_passes, dataset_name=args.dataset, save_pth=save_pth,
-                               device=device, save_model=False)
+                               device=device, save_model=False, common_transforms=args.common_transforms)
 elif args.model == 'no_strategy_barlow_twins':
      model = NoStrategyBarlowTwins(lambd=args.lambd, encoder=args.encoder, optim=args.optim,
                                    train_mb_size=args.tr_mb_size,
                                    mb_passes=args.mb_passes, dataset_name=args.dataset, save_pth=save_pth,
-                                   device=device, save_model=False)
+                                   device=device, save_model=False, common_transforms=args.common_transforms)
 else:
      # Throw exception
      raise Exception(f"Model {args.model} not supported")

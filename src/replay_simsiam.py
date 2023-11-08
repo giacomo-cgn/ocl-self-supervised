@@ -9,7 +9,7 @@ from avalanche.benchmarks.scenarios import NCExperience
 from .reservoir_buffer import ReservoirBufferUnlabeled
 from .utilities import UnsupervisedDataset, get_encoder, get_optim
 from .ssl_models.simsiam import SimSiam
-from .transforms import get_transforms_simsiam
+from .transforms import get_transforms_simsiam, get_common_transforms
 
 class ReplaySimSiam():
 
@@ -29,7 +29,8 @@ class ReplaySimSiam():
                device = 'cpu',
                dataset_name: str = 'cifar100',
                save_pth: str  = None,
-               save_model: bool = False):
+               save_model: bool = False, 
+               common_transforms: bool = True):
 
         self.momentum = momentum
         self.lr = lr
@@ -46,12 +47,16 @@ class ReplaySimSiam():
         self.dataset_name = dataset_name
         self.save_pth = save_pth
         self.save_model = save_model
+        self.common_transforms = common_transforms
 
         # Set up buffer
         self.buffer = ReservoirBufferUnlabeled(self.mem_size)
 
         # Set up transforms
-        self.transforms = get_transforms_simsiam(self.dataset_name)
+        if self.common_transforms:
+            self.transforms = get_common_transforms(self.dataset_name)
+        else:
+            self.transforms = get_transforms_simsiam(self.dataset_name)
 
         # Set up encoder
         self.encoder = get_encoder(encoder)
