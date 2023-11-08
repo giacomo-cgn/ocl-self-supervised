@@ -29,10 +29,17 @@ parser.add_argument('--mb-passes', type=int, default=5)
 parser.add_argument('--tr-mb-size', type=int, default=32)
 parser.add_argument('--repl-mb-size', type=int, default=32)
 parser.add_argument('--common-transforms', type=bool, default=True)
+parser.add_argument('--use-probing-tr-ratios', type=bool, default=True)
 # Models specific params
 parser.add_argument('--lambd', type=float, default=5e-3)
 
 args = parser.parse_args()
+
+# Ratios of tr set used for training linear probe
+if args.use_probing_tr_ratios:
+     probing_tr_ratios = [0.1, 0.2, 0.5, 1]
+else:
+     probing_tr_ratios = [1]
 
 
 # Set up save folders
@@ -42,9 +49,12 @@ save_pth = os.path.join(args.save_folder, folder_name)
 if not os.path.exists(save_pth):
     os.makedirs(save_pth)
 
-probing_pth = os.path.join(save_pth, 'probing')
-if not os.path.exists(probing_pth):
-    os.makedirs(probing_pth)
+probing_pth_dict = {}
+for probing_tr_ratio in probing_tr_ratios:  
+    probing_pth = os.path.join(save_pth, f'probing_ratio{probing_tr_ratio}')
+    if not os.path.exists(probing_pth):
+        os.makedirs(probing_pth)
+    probing_pth_dict[probing_tr_ratio] = probing_pth
 
 # Save args
 with open(save_pth + '/config.txt', 'a') as f:
@@ -59,6 +69,7 @@ with open(save_pth + '/config.txt', 'a') as f:
     f.write(f'Train MB Size: {args.tr_mb_size}\n')
     f.write(f'Replay MB Size: {args.repl_mb_size}\n')
     f.write(f'Use Common Transforms: {args.common_transforms}\n')
+    f.write(f'Use Probing Train Ratios: {args.use_probing_tr_ratios}\n')
 
 # Dataset
 first_exp_with_half_classes = False
@@ -118,14 +129,20 @@ for exp_idx, experience in enumerate(benchmark.train_stream):
 
     # Do linear probing on current encoder for all experiences (past, current and future)
     for probe_exp_idx, probe_tr_experience in enumerate(benchmark.train_stream):
-        probe_save_file = os.path.join(probing_pth, f'probe_exp_{exp_idx}.csv')
 
-        dim_features = network.projector[0].weight.shape[1]
-        probe = LinearProbing(network.encoder, dim_features=dim_features, num_classes=num_classes,
-                               device=device, save_file=probe_save_file, test_every_epoch=True, exp_idx=probe_exp_idx)
-        print(f'-- Probing on experience: {probe_exp_idx} --')
-        train_loss, train_accuracy, test_accuracy = probe.probe(
-             probe_tr_experience, benchmark.test_stream[probe_exp_idx], num_epochs=args.probing_epochs)
+        # Sample only a portion of the tr samples for probing
+        for probe_tr_ratio in probing_tr_ratios:
+
+            probe_save_file = os.path.join(probing_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
+            dim_features = network.projector[0].weight.shape[1] 
+
+            probe = LinearProbing(network.encoder, dim_features=dim_features, num_classes=num_classes,
+                                device=device, save_file=probe_save_file, test_every_epoch=True, exp_idx=probe_exp_idx)
+            
+            print(f'-- Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
+
+            train_loss, train_accuracy, test_accuracy = probe.probe(
+                probe_tr_experience, benchmark.test_stream[probe_exp_idx], num_epochs=args.probing_epochs)
 
 
  

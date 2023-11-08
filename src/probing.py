@@ -20,6 +20,7 @@ class LinearProbing:
                  test_every_epoch: bool =  False,
                  save_file: str = None,
                  exp_idx: int = 0,
+                 tr_samples_ratio: float = 1.0,
                  ):
         """
         Initialize the Linear Probing classifier.
@@ -39,6 +40,7 @@ class LinearProbing:
         self.test_every_epoch = test_every_epoch
         self.save_file = save_file
         self.exp_idx = exp_idx
+        self.tr_samples_ratio = tr_samples_ratio
 
         self.probe_layer = nn.Linear(self.dim_features, num_classes).to(device)
         self.criterion = nn.CrossEntropyLoss()
@@ -77,7 +79,15 @@ class LinearProbing:
             correct = 0
             total = 0
 
+            # Train on a predefined ratio of samples for probing (find the ratio of batches to use)
+            last_batch_idx = int(len(train_loader) * self.tr_samples_ratio)
+            batch_idx = 0
+
             for inputs, labels, _ in train_loader:
+                if batch_idx > last_batch_idx:
+                    # Reached ratio of tr set to use for probing
+                    break
+
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
                 self.optimizer.zero_grad()
 
@@ -90,6 +100,8 @@ class LinearProbing:
                 _, predicted = outputs.max(1)
                 total += labels.size(0)
                 correct += predicted.eq(labels).sum().item()
+
+                batch_idx += 1
 
             train_accuracy = 100 * correct / total
             train_loss = running_loss / len(train_loader)
