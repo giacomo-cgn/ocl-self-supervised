@@ -17,7 +17,7 @@ import argparse
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument('--model', type=str, default='no_strategy_simsiasm')
+parser.add_argument('--model', type=str, default='no_strategy_simsiam')
 parser.add_argument('--encoder', type=str, default='resnet18')
 parser.add_argument('--optim', type=str, default='SGD')
 parser.add_argument('--dataset', type=str, default='cifar100')
@@ -61,8 +61,6 @@ with open(save_pth + '/config.txt', 'a') as f:
 first_exp_with_half_classes = False
 return_task_id = False
 shuffle = True
-class_ids_from_zero_in_each_exp = False
-class_ids_from_zero_from_first_exp = True
 use_transforms = True
 num_classes = 100
 benchmark = SplitCIFAR100(
@@ -70,8 +68,6 @@ benchmark = SplitCIFAR100(
             first_exp_with_half_classes=first_exp_with_half_classes,
             return_task_id=return_task_id,
             shuffle=shuffle,
-            class_ids_from_zero_in_each_exp=class_ids_from_zero_in_each_exp,
-            class_ids_from_zero_from_first_exp=class_ids_from_zero_from_first_exp,
             train_transform=get_dataset_transforms(args.dataset),
             eval_transform=get_dataset_transforms(args.dataset),
         )
