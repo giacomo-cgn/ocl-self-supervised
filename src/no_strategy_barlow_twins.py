@@ -22,7 +22,7 @@ class NoStrategyBarlowTwins():
                dim_proj: int = 2048,
                train_mb_size: int = 32,
                train_epochs: int = 1,
-               mb_passes: int = 5,
+               mb_passes: int = 3,
                device = 'cpu',
                dataset_name: str = 'cifar100',
                save_pth: str  = None,

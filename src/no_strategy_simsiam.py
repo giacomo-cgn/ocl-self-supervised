@@ -23,7 +23,7 @@ class NoStrategySimSiam():
                mem_size: int = 2000,
                train_mb_size: int = 32,
                train_epochs: int = 1,
-               mb_passes: int = 5,
+               mb_passes: int = 3,
                device = 'cpu',
                dataset_name: str = 'cifar100',
                save_pth: str  = None,
