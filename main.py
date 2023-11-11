@@ -37,7 +37,7 @@ args = parser.parse_args()
 
 # Ratios of tr set used for training linear probe
 if args.use_probing_tr_ratios:
-     probing_tr_ratio_arr = [0.1, 0.2, 0.5, 1]
+     probing_tr_ratio_arr = [0.01, 0.1, 0.5, 1]
 else:
      probing_tr_ratio_arr = [1]
 
