@@ -41,6 +41,12 @@ class BarlowTwins(nn.Module):
         loss = on_diag + self.lambd * off_diag
         return loss
     
+    def get_encoder(self):
+        return self.encoder
+        
+    def get_embedding_dim(self):
+        return self.projector[0].weight.shape[1]
+    
     
 def off_diagonal(x):
     # return a flattened view of the off-diagonal elements of a square matrix

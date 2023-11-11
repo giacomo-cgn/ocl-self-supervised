@@ -49,6 +49,7 @@ class SimSiam(nn.Module):
             p1, p2, z1, z2: predictors and targets of the network
             See Sec. 3 of https://arxiv.org/abs/2011.10566 for detailed notations
         """
+        # TODO: Check stop gradient for z2
 
         # compute features for one view
         z1 = self.projector(self.encoder(x1)) # NxC
@@ -57,6 +58,12 @@ class SimSiam(nn.Module):
         p1 = self.predictor(z1) # NxC
         p2 = self.predictor(z2) # NxC
 
-        loss = -(self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
+        loss = -(self.criterion(p1, z2.detach()).mean() + self.criterion(p2, z1.detach()).mean()) * 0.5
 
         return loss
+    
+    def get_encoder(self):
+       return self.encoder
+        
+    def get_embedding_dim(self):
+        return self.projector[0].weight.shape[1]

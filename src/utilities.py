@@ -18,7 +18,7 @@ class UnsupervisedDataset(Dataset):
         return input_tensor
     
 
-def get_encoder(encoder_name: str):
+def find_encoder(encoder_name: str):
     if encoder_name == 'resnet18':
         return models.resnet18
     elif encoder_name == 'resnet34':
@@ -30,7 +30,7 @@ def get_encoder(encoder_name: str):
 
     
     
-def get_optim(optim_name, params, lr, momentum, weight_decay):
+def init_optim(optim_name, params, lr, momentum, weight_decay):
     if optim_name == 'SGD':
         return torch.optim.SGD(params, lr=lr, momentum=momentum, weight_decay=weight_decay)
     elif optim_name == 'Adam':

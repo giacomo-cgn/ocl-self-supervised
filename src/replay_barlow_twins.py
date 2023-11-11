@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from avalanche.benchmarks.scenarios import NCExperience
 
 from .reservoir_buffer import ReservoirBufferUnlabeled
-from .utilities import UnsupervisedDataset, get_encoder, get_optim
+from .utilities import UnsupervisedDataset, find_encoder, init_optim
 from .ssl_models.barlow_twins import BarlowTwins
 from .transforms import get_transforms_barlow_twins, get_common_transforms
 
@@ -59,14 +59,14 @@ class ReplayBarlowTwins():
             self.transforms = get_transforms_barlow_twins(self.dataset_name)
 
         # Set up encoder
-        self.encoder = get_encoder(encoder)
+        self.encoder = find_encoder(encoder)
 
         # Set up model
         self.model = BarlowTwins(self.encoder, dim_proj, self.lambd).to(self.device)
         self.model_name = 'replay_barlow_twins'
 
         # Set up optimizer
-        self.optimizer = get_optim(optim, self.model.parameters(), lr=self.lr,
+        self.optimizer = init_optim(optim, self.model.parameters(), lr=self.lr,
                                    momentum=self.momentum, weight_decay=self.weight_decay)
 
 

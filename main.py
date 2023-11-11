@@ -134,9 +134,9 @@ for exp_idx, experience in enumerate(benchmark.train_stream):
         for probing_tr_ratio in probing_tr_ratio_arr:
 
             probe_save_file = os.path.join(probing_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
-            dim_features = network.projector[0].weight.shape[1] 
+            dim_features = network.get_embedding_dim() 
 
-            probe = LinearProbing(network.encoder, dim_features=dim_features, num_classes=num_classes,
+            probe = LinearProbing(network.get_encoder(), dim_features=dim_features, num_classes=num_classes,
                                 device=device, save_file=probe_save_file, test_every_epoch=True, exp_idx=probe_exp_idx)
             
             print(f'-- Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
