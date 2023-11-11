@@ -72,6 +72,8 @@ class LinearProbing:
         train_loader = DataLoader(dataset=tr_experience.dataset, batch_size=self.mb_size, shuffle=True)
         test_loader = DataLoader(dataset=test_experience.dataset, batch_size=self.mb_size, shuffle=False)
 
+        # Put encoder in eval mode, as even with no gradient it could interfere with batchnorm
+        self.encoder.eval()
 
         for epoch in range(num_epochs):
             self.probe_layer.train()

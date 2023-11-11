@@ -99,6 +99,8 @@ class ReplayBarlowTwins():
         # Prepare data
         exp_data = UnsupervisedDataset(experience.dataset)  
         data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True)
+
+        self.model.train()
         
         for epoch in range(self.train_epochs):
             for mb_idx, mbatch in tqdm(enumerate(data_loader)):
