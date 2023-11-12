@@ -103,8 +103,6 @@ class LinearProbing:
                 total += labels.size(0)
                 correct += predicted.eq(labels).sum().item()
 
-                print(f'batch number : {batch_idx}, for ratio: {self.tr_samples_ratio}')
-
                 batch_idx += 1
 
             train_accuracy = 100 * correct / total
