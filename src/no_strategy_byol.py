@@ -7,10 +7,10 @@ from torch.utils.data import DataLoader
 from avalanche.benchmarks.scenarios import NCExperience
 
 from .utilities import UnsupervisedDataset, find_encoder, init_optim
-from .ssl_models.simsiam import SimSiam
-from .transforms import get_transforms_simsiam, get_common_transforms
+from .ssl_models.byol import BYOL
+from .transforms import get_transforms_byol, get_common_transforms
 
-class NoStrategySimSiam():
+class NoStrategyBYOL():
 
     def __init__(self,
                encoder: str = 'resnet18',
@@ -18,6 +18,8 @@ class NoStrategySimSiam():
                lr: float = 5e-4,
                momentum: float = 0.9,
                weight_decay: float = 1e-4,
+               byol_momentum: float = 0.9,
+               return_momentum_encoder: bool = True,
                dim_proj: int = 2048,
                dim_pred: int = 512,
                train_mb_size: int = 32,
@@ -33,6 +35,8 @@ class NoStrategySimSiam():
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
+        self.byol_momentum = byol_momentum
+        self.return_momentum_encoder = return_momentum_encoder
         self.dim_proj = dim_proj
         self.dim_pred = dim_pred
         self.train_mb_size = train_mb_size
@@ -48,14 +52,15 @@ class NoStrategySimSiam():
         if self.common_transforms:
             self.transforms = get_common_transforms(self.dataset_name)
         else:
-            self.transforms = get_transforms_simsiam(self.dataset_name)
+            self.transforms = get_transforms_byol(self.dataset_name)
 
         # Set up encoder
         self.encoder = find_encoder(encoder)
 
         # Set up model
-        self.model = SimSiam(self.encoder, dim_proj, dim_pred).to(self.device)
-        self.model_name = 'no_strategy_simsiam'
+        self.model = BYOL(self.encoder, dim_proj, dim_pred,
+                           self.byol_momentum, self.return_momentum_encoder).to(self.device)
+        self.model_name = 'no_strategy_byol'
 
         # Set up optimizer
         self.optimizer = init_optim(optim, self.model.parameters(), lr=self.lr,
@@ -70,6 +75,8 @@ class NoStrategySimSiam():
                 f.write(f'lr: {self.lr}\n')
                 f.write(f'momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
+                f.write(f'byol_momentum: {self.byol_momentum}\n')
+                f.write(f'return_momentum_encoder: {self.return_momentum_encoder}\n')
                 f.write(f'dim_proj: {self.dim_proj}\n')
                 f.write(f'dim_pred: {self.dim_pred}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
@@ -108,6 +115,9 @@ class NoStrategySimSiam():
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
+
+                    # Update target momentum network
+                    self.model.update_momentum()
 
                     # Save loss, exp_idx, epoch, mb_idx and k in csv
                     if self.save_pth is not None:

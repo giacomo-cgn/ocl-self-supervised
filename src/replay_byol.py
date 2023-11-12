@@ -6,11 +6,12 @@ from torch.utils.data import DataLoader
 
 from avalanche.benchmarks.scenarios import NCExperience
 
+from .reservoir_buffer import ReservoirBufferUnlabeled
 from .utilities import UnsupervisedDataset, find_encoder, init_optim
-from .ssl_models.simsiam import SimSiam
-from .transforms import get_transforms_simsiam, get_common_transforms
+from .ssl_models.byol import BYOL
+from .transforms import get_transforms_byol, get_common_transforms
 
-class NoStrategySimSiam():
+class ReplayBYOL():
 
     def __init__(self,
                encoder: str = 'resnet18',
@@ -18,23 +19,31 @@ class NoStrategySimSiam():
                lr: float = 5e-4,
                momentum: float = 0.9,
                weight_decay: float = 1e-4,
+               byol_momentum: float = 0.9,
+               return_momentum_encoder: bool = True,
                dim_proj: int = 2048,
                dim_pred: int = 512,
+               mem_size: int = 2000,
+               replay_mb_size: int = 32,
                train_mb_size: int = 32,
                train_epochs: int = 1,
                mb_passes: int = 3,
                device = 'cpu',
                dataset_name: str = 'cifar100',
                save_pth: str  = None,
-               save_model: bool = False,
+               save_model: bool = False, 
                common_transforms: bool = True):
 
         self.momentum = momentum
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
+        self.byol_momentum = byol_momentum
+        self.return_momentum_encoder = return_momentum_encoder
         self.dim_proj = dim_proj
         self.dim_pred = dim_pred
+        self.mem_size = mem_size
+        self.replay_mb_size = replay_mb_size
         self.train_mb_size = train_mb_size
         self.train_epochs = train_epochs
         self.mb_passes = mb_passes
@@ -44,18 +53,22 @@ class NoStrategySimSiam():
         self.save_model = save_model
         self.common_transforms = common_transforms
 
+        # Set up buffer
+        self.buffer = ReservoirBufferUnlabeled(self.mem_size)
+
         # Set up transforms
         if self.common_transforms:
             self.transforms = get_common_transforms(self.dataset_name)
         else:
-            self.transforms = get_transforms_simsiam(self.dataset_name)
+            self.transforms = get_transforms_byol(self.dataset_name)
 
         # Set up encoder
         self.encoder = find_encoder(encoder)
 
         # Set up model
-        self.model = SimSiam(self.encoder, dim_proj, dim_pred).to(self.device)
-        self.model_name = 'no_strategy_simsiam'
+        self.model = BYOL(self.encoder, dim_proj, dim_pred,
+                           self.byol_momentum, self.return_momentum_encoder).to(self.device)
+        self.model_name = 'replay_byol'
 
         # Set up optimizer
         self.optimizer = init_optim(optim, self.model.parameters(), lr=self.lr,
@@ -66,12 +79,16 @@ class NoStrategySimSiam():
             # Save model configuration
             with open(self.save_pth + '/config.txt', 'a') as f:
                 # Write hyperparameters
-                f.write(f'encoder: {encoder}\n')
+                f.write(f'encoder: {self.encoder}\n')
                 f.write(f'lr: {self.lr}\n')
                 f.write(f'momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
+                f.write(f'byol_momentum: {self.byol_momentum}\n')
+                f.write(f'return_momentum_encoder: {self.return_momentum_encoder}\n')
                 f.write(f'dim_proj: {self.dim_proj}\n')
                 f.write(f'dim_pred: {self.dim_pred}\n')
+                f.write(f'mem_size: {self.mem_size}\n')
+                f.write(f'replay_mb_size: {self.replay_mb_size}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
@@ -96,10 +113,19 @@ class NoStrategySimSiam():
         for epoch in range(self.train_epochs):
             for mb_idx, mbatch in tqdm(enumerate(data_loader)):
                 mbatch = mbatch.to(self.device)
+                new_mbatch = mbatch
 
                 for k in range(self.mb_passes):
+                    if len(self.buffer.buffer) > self.train_mb_size:
+                        # Sample from buffer and concat
+                        replay_batch = self.buffer.sample(self.replay_mb_size).to(self.device)
+                        combined_batch = torch.cat((replay_batch, mbatch), dim=0)
+                    else:
+                        # Do not sample buffer if not enough elements in it
+                        combined_batch = mbatch
+
                     # Apply transforms
-                    x1, x2 = self.transforms(mbatch)
+                    x1, x2 = self.transforms(combined_batch)
 
                     # Forward pass
                     loss = self.model(x1, x2)
@@ -113,6 +139,12 @@ class NoStrategySimSiam():
                     if self.save_pth is not None:
                         with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
                             f.write(f'{loss.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
+                
+                    # Update target momentum network
+                    self.model.update_momentum()
+
+                # Update buffer with new samples
+                self.buffer.add(new_mbatch.detach())
 
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:

@@ -9,6 +9,8 @@ from src.replay_simsiam import ReplaySimSiam
 from src.replay_barlow_twins import ReplayBarlowTwins
 from src.no_strategy_simsiam import NoStrategySimSiam
 from src.no_strategy_barlow_twins import NoStrategyBarlowTwins
+from src.no_strategy_byol import NoStrategyBYOL
+from src.replay_byol import ReplayBYOL
 
 from src.transforms import get_dataset_transforms
 from src.probing import LinearProbing
@@ -32,12 +34,15 @@ parser.add_argument('--common-transforms', type=bool, default=True)
 parser.add_argument('--use-probing-tr-ratios', type=bool, default=True)
 # Models specific params
 parser.add_argument('--lambd', type=float, default=5e-3)
+parser.add_argument('--byol-momentum', type=float, default=0.9)
+parser.add_argument('--return-momentum-encoder', type=bool, default=True)
+
 
 args = parser.parse_args()
 
 # Ratios of tr set used for training linear probe
 if args.use_probing_tr_ratios:
-     probing_tr_ratio_arr = [0.01, 0.1, 0.5, 1]
+     probing_tr_ratio_arr = [0.05, 0.1, 0.5, 1]
 else:
      probing_tr_ratio_arr = [1]
 
@@ -56,7 +61,7 @@ for probing_tr_ratio in probing_tr_ratio_arr:
         os.makedirs(probing_pth)
     probing_pth_dict[probing_tr_ratio] = probing_pth
 
-# Save args
+# Save general args
 with open(save_pth + '/config.txt', 'a') as f:
     f.write(f'Model: {args.model}\n')
     f.write(f'Encoder: {args.encoder}\n')
@@ -99,7 +104,7 @@ else:
 
 # Model
 if args.model == 'no_strategy_simsiam':
-     model = NoStrategySimSiam(encoder=args.encoder, optim=args.optim, mem_size=args.mem_size,
+     model = NoStrategySimSiam(encoder=args.encoder, optim=args.optim,
                                train_mb_size=args.tr_mb_size, mb_passes=args.mb_passes,
                                dataset_name=args.dataset, save_pth=save_pth, device=device,
                                save_model=False, common_transforms=args.common_transforms)
@@ -110,7 +115,8 @@ elif args.model == 'replay_simsiam':
                            device=device, save_model=False, common_transforms=args.common_transforms)
      
 elif args.model == 'replay_barlow_twins':
-     model = ReplayBarlowTwins(lambd=args.lambd, encoder=args.encoder, optim=args.optim, train_mb_size=args.tr_mb_size,
+     model = ReplayBarlowTwins(lambd=args.lambd, encoder=args.encoder, optim=args.optim,
+                               mem_size=args.mem_size, train_mb_size=args.tr_mb_size,
                                mb_passes=args.mb_passes, dataset_name=args.dataset, save_pth=save_pth,
                                device=device, save_model=False, common_transforms=args.common_transforms)
 elif args.model == 'no_strategy_barlow_twins':
@@ -118,6 +124,20 @@ elif args.model == 'no_strategy_barlow_twins':
                                    train_mb_size=args.tr_mb_size,
                                    mb_passes=args.mb_passes, dataset_name=args.dataset, save_pth=save_pth,
                                    device=device, save_model=False, common_transforms=args.common_transforms)
+elif args.model == 'no_strategy_byol':
+     model =  NoStrategyBYOL(byol_momentum=args.byol_momentum, return_momentum_encoder=args.return_momentum_encoder,
+                            encoder=args.encoder, optim=args.optim,
+                            train_mb_size=args.tr_mb_size,
+                            mb_passes=args.mb_passes, dataset_name=args.dataset, save_pth=save_pth,
+                            device=device, save_model=False, common_transforms=args.common_transforms)
+     
+elif args.model == 'replay_byol':
+     model = ReplayBYOL(byol_momentum=args.byol_momentum, return_momentum_encoder=args.return_momentum_encoder,
+                               encoder=args.encoder, optim=args.optim, mem_size=args.mem_size,
+                               train_mb_size=args.tr_mb_size,
+                               mb_passes=args.mb_passes, dataset_name=args.dataset, save_pth=save_pth,
+                               device=device, save_model=False, common_transforms=args.common_transforms)
+     
 else:
      # Throw exception
      raise Exception(f"Model {args.model} not supported")
@@ -137,7 +157,8 @@ for exp_idx, experience in enumerate(benchmark.train_stream):
             dim_features = network.get_embedding_dim() 
 
             probe = LinearProbing(network.get_encoder(), dim_features=dim_features, num_classes=num_classes,
-                                device=device, save_file=probe_save_file, test_every_epoch=True, exp_idx=probe_exp_idx)
+                                device=device, save_file=probe_save_file, test_every_epoch=True,
+                                exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio)
             
             print(f'-- Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
 
