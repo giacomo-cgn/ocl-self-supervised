@@ -32,6 +32,7 @@ parser.add_argument('--tr-mb-size', type=int, default=32)
 parser.add_argument('--repl-mb-size', type=int, default=32)
 parser.add_argument('--common-transforms', type=bool, default=True)
 parser.add_argument('--use-probing-tr-ratios', type=bool, default=True)
+parser.add_argument('-iid', '--iid', type=bool, default=False)
 # Models specific params
 parser.add_argument('--lambd', type=float, default=5e-3)
 parser.add_argument('--byol-momentum', type=float, default=0.9)
@@ -50,6 +51,8 @@ else:
 # Set up save folders
 str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
 folder_name = f'{args.model}_{args.dataset}_{str_now}'
+if args.iid:
+    folder_name = 'iid_' + folder_name
 save_pth = os.path.join(args.save_folder, folder_name)
 if not os.path.exists(save_pth):
     os.makedirs(save_pth)
@@ -75,6 +78,7 @@ with open(save_pth + '/config.txt', 'a') as f:
     f.write(f'Replay MB Size: {args.repl_mb_size}\n')
     f.write(f'Use Common Transforms: {args.common_transforms}\n')
     f.write(f'Use Probing Train Ratios: {args.use_probing_tr_ratios}\n')
+    f.write(f'IID pretraining: {args.iid}\n')
 
 # Dataset
 first_exp_with_half_classes = False
@@ -82,7 +86,7 @@ return_task_id = False
 shuffle = True
 use_transforms = True
 num_classes = 100
-benchmark = SplitCIFAR100(
+probe_benchmark = SplitCIFAR100(
             args.num_exps,
             first_exp_with_half_classes=first_exp_with_half_classes,
             return_task_id=return_task_id,
@@ -90,6 +94,20 @@ benchmark = SplitCIFAR100(
             train_transform=get_dataset_transforms(args.dataset),
             eval_transform=get_dataset_transforms(args.dataset),
         )
+if args.iid:
+    # If pretraining iid, create benchmark with only 1 experience
+    pretr_benchmark  = SplitCIFAR100(
+            1,
+            first_exp_with_half_classes=first_exp_with_half_classes,
+            return_task_id=return_task_id,
+            shuffle=shuffle,
+            train_transform=get_dataset_transforms(args.dataset),
+            eval_transform=get_dataset_transforms(args.dataset),
+    )
+else:
+     # Use same benchmark for pretraining and probing
+     pretr_benchmark = probe_benchmark
+         
 
 # Device
 if torch.cuda.is_available():       
@@ -143,12 +161,12 @@ else:
      raise Exception(f"Model {args.model} not supported")
 
 # Self supervised training over the experiences
-for exp_idx, experience in enumerate(benchmark.train_stream):
+for exp_idx, experience in enumerate(pretr_benchmark.train_stream):
     print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
     network = model.train_experience(experience, exp_idx)
 
     # Do linear probing on current encoder for all experiences (past, current and future)
-    for probe_exp_idx, probe_tr_experience in enumerate(benchmark.train_stream):
+    for probe_exp_idx, probe_tr_experience in enumerate(probe_benchmark.train_stream):
 
         # Sample only a portion of the tr samples for probing
         for probing_tr_ratio in probing_tr_ratio_arr:
@@ -163,4 +181,4 @@ for exp_idx, experience in enumerate(benchmark.train_stream):
             print(f'-- Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
 
             train_loss, train_accuracy, test_accuracy = probe.probe(
-                probe_tr_experience, benchmark.test_stream[probe_exp_idx], num_epochs=args.probing_epochs)
+                probe_tr_experience, probe_benchmark.test_stream[probe_exp_idx], num_epochs=args.probing_epochs)
