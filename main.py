@@ -25,14 +25,17 @@ parser.add_argument('--optim', type=str, default='SGD')
 parser.add_argument('--dataset', type=str, default='cifar100')
 parser.add_argument('--num-exps', type=int, default=20)
 parser.add_argument('--save-folder', type=str, default='./logs')
-parser.add_argument('--probing-epochs', type=int, default=1)
+parser.add_argument('--probing-epochs', type=int, default=50)
+parser.add_argument('--probing-use-val-stop', type=bool, default=True)
+parser.add_argument('--probing-val-ratio', type=float, default=0.1)
 parser.add_argument('--mem-size', type=int, default=2000)
 parser.add_argument('--mb-passes', type=int, default=3)
 parser.add_argument('--tr-mb-size', type=int, default=32)
 parser.add_argument('--repl-mb-size', type=int, default=32)
 parser.add_argument('--common-transforms', type=bool, default=True)
-parser.add_argument('--use-probing-tr-ratios', type=bool, default=True)
+parser.add_argument('--use-probing-tr-ratios', type=bool, default=False)
 parser.add_argument('-iid', '--iid', type=bool, default=False)
+
 # Models specific params
 parser.add_argument('--lambd', type=float, default=5e-3)
 parser.add_argument('--byol-momentum', type=float, default=0.9)
@@ -72,12 +75,14 @@ with open(save_pth + '/config.txt', 'a') as f:
     f.write(f'Dataset: {args.dataset}\n')
     f.write(f'Number of Experiences: {args.num_exps}\n')
     f.write(f'Probing Epochs: {args.probing_epochs}\n')
+    f.write(f'Probing Use Validation Stop: {args.probing_use_val_stop}\n')
+    f.write(f'Probing Validation Ratio: {args.probing_val_ratio}\n')
     f.write(f'Memory Size: {args.mem_size}\n')
     f.write(f'MB Passes: {args.mb_passes}\n')
     f.write(f'Train MB Size: {args.tr_mb_size}\n')
     f.write(f'Replay MB Size: {args.repl_mb_size}\n')
     f.write(f'Use Common Transforms: {args.common_transforms}\n')
-    f.write(f'Use Probing Train Ratios: {args.use_probing_tr_ratios}\n')
+    f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
     f.write(f'IID pretraining: {args.iid}\n')
 
 # Dataset
@@ -175,10 +180,11 @@ for exp_idx, experience in enumerate(pretr_benchmark.train_stream):
             dim_features = network.get_embedding_dim() 
 
             probe = LinearProbing(network.get_encoder(), dim_features=dim_features, num_classes=num_classes,
-                                device=device, save_file=probe_save_file, test_every_epoch=True,
-                                exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio)
+                                device=device, save_file=probe_save_file,
+                                exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio, num_epochs=args.probing_epochs,
+                                use_val_stop=args.probing_use_val_stop, val_ratio=args.probing_val_ratio)
             
             print(f'-- Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
 
             train_loss, train_accuracy, test_accuracy = probe.probe(
-                probe_tr_experience, probe_benchmark.test_stream[probe_exp_idx], num_epochs=args.probing_epochs)
+                probe_tr_experience, probe_benchmark.test_stream[probe_exp_idx])
