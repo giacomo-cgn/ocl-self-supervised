@@ -170,19 +170,19 @@ class LinearProbing:
             with open(self.save_file, 'a') as f:
                 f.write(f'{self.exp_idx},{train_loss},{train_accuracy},{test_accuracy},{epoch}\n')
 
-        if self.use_val_stop:
-            fig = plt.figure(figsize=(16, 8))
+        # if self.use_val_stop:
+        #     fig = plt.figure(figsize=(16, 8))
 
-            plt.subplot(1, 2, 1)
-            plt.plot(val_acc_list, label='Validation Accuracy')
-            plt.title('Validation Accuracy')
-            plt.subplot(1, 2, 2)
-            plt.plot(val_loss_list, label='Validation Loss', color='orange')
-            plt.title('Validation Loss')
-            tr_exp = self.save_file[-5]
-            pth = os.path.dirname(self.save_file)
-            plt.savefig(os.path.join(pth, f'val_curve_tr_exp_{tr_exp}_probe_exp_{self.exp_idx}.png'))
-            plt.clf()
+        #     plt.subplot(1, 2, 1)
+        #     plt.plot(val_acc_list, label='Validation Accuracy')
+        #     plt.title('Validation Accuracy')
+        #     plt.subplot(1, 2, 2)
+        #     plt.plot(val_loss_list, label='Validation Loss', color='orange')
+        #     plt.title('Validation Loss')
+        #     tr_exp = self.save_file[-5]
+        #     pth = os.path.dirname(self.save_file)
+        #     plt.savefig(os.path.join(pth, f'val_curve_tr_exp_{tr_exp}_probe_exp_{self.exp_idx}.png'))
+        #     plt.clf()
 
 
         return train_loss, train_accuracy, test_accuracy
