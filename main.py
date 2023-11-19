@@ -35,6 +35,7 @@ parser.add_argument('--repl-mb-size', type=int, default=32)
 parser.add_argument('--common-transforms', type=bool, default=True)
 parser.add_argument('--use-probing-tr-ratios', type=bool, default=False)
 parser.add_argument('-iid', '--iid', type=bool, default=False)
+parser.add_argument('--save-model-final', type=bool, default=True)
 
 # Models specific params
 parser.add_argument('--lambd', type=float, default=5e-3)
@@ -84,6 +85,8 @@ with open(save_pth + '/config.txt', 'a') as f:
     f.write(f'Use Common Transforms: {args.common_transforms}\n')
     f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
     f.write(f'IID pretraining: {args.iid}\n')
+    f.write(f'Save final model: {args.save_model_final}\n')
+
 
 # Dataset
 first_exp_with_half_classes = False
@@ -188,3 +191,9 @@ for exp_idx, experience in enumerate(pretr_benchmark.train_stream):
 
             train_loss, train_accuracy, test_accuracy = probe.probe(
                 probe_tr_experience, probe_benchmark.test_stream[probe_exp_idx])
+            
+
+# Save final pretrained model
+if args.save_model_final:
+     torch.save(network.state_dict(),
+                 os.path.join(save_pth, f'final_model_state.pth'))
