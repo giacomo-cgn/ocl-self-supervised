@@ -14,6 +14,7 @@ from src.replay_byol import ReplayBYOL
 
 from src.transforms import get_dataset_transforms
 from src.probing import LinearProbing
+from src.probing_sklearn import LinearProbingSklearn
 
 import argparse
 
@@ -32,6 +33,7 @@ parser.add_argument('--mem-size', type=int, default=2000)
 parser.add_argument('--mb-passes', type=int, default=3)
 parser.add_argument('--tr-mb-size', type=int, default=32)
 parser.add_argument('--repl-mb-size', type=int, default=32)
+parser.add_argument('--eval-mb-size', type=int, default=1024)
 parser.add_argument('--common-transforms', type=bool, default=True)
 parser.add_argument('--use-probing-tr-ratios', type=bool, default=False)
 parser.add_argument('-iid', '--iid', type=bool, default=False)
@@ -82,6 +84,7 @@ with open(save_pth + '/config.txt', 'a') as f:
     f.write(f'MB Passes: {args.mb_passes}\n')
     f.write(f'Train MB Size: {args.tr_mb_size}\n')
     f.write(f'Replay MB Size: {args.repl_mb_size}\n')
+    f.write(f'Evaluation MB Size: {args.eval_mb_size}\n')
     f.write(f'Use Common Transforms: {args.common_transforms}\n')
     f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
     f.write(f'IID pretraining: {args.iid}\n')
@@ -182,15 +185,18 @@ for exp_idx, experience in enumerate(pretr_benchmark.train_stream):
             probe_save_file = os.path.join(probing_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
             dim_features = network.get_embedding_dim() 
 
-            probe = LinearProbing(network.get_encoder(), dim_features=dim_features, num_classes=num_classes,
-                                device=device, save_file=probe_save_file,
-                                exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio, num_epochs=args.probing_epochs,
-                                use_val_stop=args.probing_use_val_stop, val_ratio=args.probing_val_ratio)
+            # probe = LinearProbing(network.get_encoder(), dim_features=dim_features, num_classes=num_classes,
+            #                     device=device, save_file=probe_save_file,
+            #                     exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio, num_epochs=args.probing_epochs,
+            #                     use_val_stop=args.probing_use_val_stop, val_ratio=args.probing_val_ratio)
+            probe = LinearProbingSklearn(network.get_encoder(), device=device, save_file=probe_save_file,
+                                        exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio,
+                                        val_ratio=args.probing_val_ratio, mb_size=args.eval_mb_size)
+                                         
             
             print(f'-- Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
 
-            train_loss, train_accuracy, test_accuracy = probe.probe(
-                probe_tr_experience, probe_benchmark.test_stream[probe_exp_idx])
+            probe.probe(probe_tr_experience, probe_benchmark.test_stream[probe_exp_idx])
             
 
 # Save final pretrained model

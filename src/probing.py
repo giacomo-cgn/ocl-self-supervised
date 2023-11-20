@@ -184,5 +184,3 @@ class LinearProbing:
         #     plt.savefig(os.path.join(pth, f'val_curve_tr_exp_{tr_exp}_probe_exp_{self.exp_idx}.png'))
         #     plt.clf()
 
-
-        return train_loss, train_accuracy, test_accuracy
