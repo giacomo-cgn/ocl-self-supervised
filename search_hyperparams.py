@@ -39,7 +39,7 @@ args = parser.parse_args()
 model_name = 'no_strategy_simsiam' 
 # Define current searched hyperparams in lists
 hyperparam_dict = {
-    'lr': [1e-3, 3e-4, 1e-4],
+    'lr': [3e-3, 1e-3, 3e-4],
 }
 str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
 folder_name = f'hypertune_{model_name}_{str_now}'
@@ -81,8 +81,11 @@ for combination in param_combinations:
     # Recover results from experiment
     results_df = pd.read_csv(os.path.join(experiment_save_folder, 'final_scores.csv'))
 
-    val_acc = results_df['avg_val_acc'].values[-1] # Probing ratio = 1
-    test_acc = results_df['avg_test_acc'].values[-1]
+    # Only row with probe_ratio = 1
+    results_df = results_df[results_df['probe_ratio'] == 1]
+
+    val_acc = results_df['avg_val_acc'].values[0]
+    test_acc = results_df['avg_test_acc'].values[0]
 
     if val_acc > best_val_acc:
         best_val_acc = val_acc

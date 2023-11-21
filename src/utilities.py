@@ -75,7 +75,7 @@ def write_final_scores(folder_path):
             final_avg_test_acc =  final_df['test_acc'].mean()
             final_avg_val_acc = final_df['val_acc'].mean()
 
-            output_f.write(f"{probing_tr_ratio}, {final_avg_val_acc}, {final_avg_test_acc}\n")
+            output_f.write(f"{probing_tr_ratio},{final_avg_val_acc},{final_avg_test_acc}\n")
 
 
 
