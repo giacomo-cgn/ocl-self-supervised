@@ -103,35 +103,40 @@ def exec_experiment(**kwargs):
 
     # Model
     if kwargs["model"] == 'no_strategy_simsiam':
-        model = NoStrategySimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"],
+        model = NoStrategySimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"], 
+                                lr=kwargs["lr"],
                                 train_mb_size=kwargs["tr_mb_size"], mb_passes=kwargs["mb_passes"],
                                 dataset_name=kwargs["dataset"], save_pth=save_pth, device=device,
                                 save_model=False, common_transforms=kwargs["common_transforms"])
     elif kwargs["model"] == 'replay_simsiam':
         model = ReplaySimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
+                              lr=kwargs["lr"],
                             train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
                             mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                             device=device, save_model=False, common_transforms=kwargs["common_transforms"])
         
     elif kwargs["model"] == 'replay_barlow_twins':
         model = ReplayBarlowTwins(lambd=kwargs["lambd"], encoder=kwargs["encoder"], optim=kwargs["optim"],
+                                  lr=kwargs["lr"], lambd=kwargs["lambd"],
                                 mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"],
                                 mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                 device=device, save_model=False, common_transforms=kwargs["common_transforms"])
     elif kwargs["model"] == 'no_strategy_barlow_twins':
         model = NoStrategyBarlowTwins(lambd=kwargs["lambd"], encoder=kwargs["encoder"], optim=kwargs["optim"],
+                                    lr=kwargs["lr"], lambd=kwargs["lambd"],  
                                     train_mb_size=kwargs["tr_mb_size"],
                                     mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                     device=device, save_model=False, common_transforms=kwargs["common_transforms"])
     elif kwargs["model"] == 'no_strategy_byol':
         model =  NoStrategyBYOL(byol_momentum=kwargs["byol_momentum"], return_momentum_encoder=kwargs["return_momentum_encoder"],
-                                encoder=kwargs["encoder"], optim=kwargs["optim"],
-                                train_mb_size=kwargs["tr_mb_size"],
+                                lr=kwargs["lr"], byol_momentum=kwargs["byol_momentum"],
+                                encoder=kwargs["encoder"], optim=kwargs["optim"], train_mb_size=kwargs["tr_mb_size"],
                                 mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                 device=device, save_model=False, common_transforms=kwargs["common_transforms"])
         
     elif kwargs["model"] == 'replay_byol':
         model = ReplayBYOL(byol_momentum=kwargs["byol_momentum"], return_momentum_encoder=kwargs["return_momentum_encoder"],
+                                lr=kwargs["lr"], byol_momentum=kwargs["byol_momentum"],
                                 encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
                                 train_mb_size=kwargs["tr_mb_size"],
                                 mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,

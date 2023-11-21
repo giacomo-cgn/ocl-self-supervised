@@ -48,7 +48,7 @@ if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
 # Save hyperparams
-with open(os.path.join(save_folder, 'hyperparams_config_results.txt'), 'w') as f:
+with open(os.path.join(save_folder, 'hyperparams_config_results.txt'), 'a') as f:
     f.write(str(hyperparam_dict))
     f.write('\n')
 

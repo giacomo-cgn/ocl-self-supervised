@@ -80,7 +80,7 @@ class ReplayBYOL():
             with open(self.save_pth + '/config.txt', 'a') as f:
                 # Write hyperparameters
                 f.write(f'encoder: {self.encoder}\n')
-                f.write(f'lr: {self.lr}\n')
+                f.write(f'Learning Rate: {self.lr}\n')
                 f.write(f'momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
                 f.write(f'byol_momentum: {self.byol_momentum}\n')
