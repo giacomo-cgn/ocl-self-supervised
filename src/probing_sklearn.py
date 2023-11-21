@@ -135,4 +135,4 @@ class LinearProbingSklearn:
 
         if self.save_file is not None:
             with open(self.save_file, 'a') as f:
-                f.write(f'{self.exp_idx},{val_loss},{val_acc},{test_acc},\n')
+                f.write(f'{self.exp_idx},{val_loss},{val_acc},{test_acc}\n')
