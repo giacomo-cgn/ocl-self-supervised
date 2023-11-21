@@ -48,7 +48,7 @@ if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
 # Save hyperparams
-with open(os.path.join(save_folder, 'hyperparams_config_results.txt'), 'a') as f:
+with open(os.path.join(save_folder, 'hyperparams_config_results.txt'), 'w') as f:
     f.write(str(hyperparam_dict))
     f.write('\n')
 
@@ -87,6 +87,9 @@ for combination in param_combinations:
     val_acc = results_df['avg_val_acc'].values[0]
     test_acc = results_df['avg_test_acc'].values[0]
 
+    with open(os.path.join(save_folder, 'hyperparams_config_results.txt'), 'a') as f:
+         f.write(f"{param_dict}, Val Acc: {val_acc}, Test Acc: {test_acc} \n")
+
     if val_acc > best_val_acc:
         best_val_acc = val_acc
         best_test_acc = test_acc
@@ -95,11 +98,11 @@ for combination in param_combinations:
 
 print(f"Best hyperparameter combination found: {best_combination}")
 # Save to file best combination of hyperparams, test and val accuracies
-with open(os.path.join(save_folder, 'hyperparams_config_results.txt'), 'w') as f:
-     f.write(f"Best hyperparameter combination: {best_combination}\n")
+with open(os.path.join(save_folder, 'hyperparams_config_results.txt'), 'a') as f:
+     f.write(f"\nBest hyperparameter combination: {best_combination}\n")
      f.write(f"Best Val Acc: {best_val_acc}\n")
      f.write(f"Best Test Acc: {best_test_acc}\n")
-     f.write(f'Tr MB size: {args.tr_mb_size}\n')
+     f.write(f'\nTr MB size: {args.tr_mb_size}\n')
      f.write(f'MB passes: {args.mb_passes}\n')
 
 
