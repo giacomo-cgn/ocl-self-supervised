@@ -76,6 +76,7 @@ class ReplayBarlowTwins():
                 # Write hyperparameters
                 f.write(f'encoder: {encoder}\n')
                 f.write(f'Learning Rate: {self.lr}\n')
+                f.write(f'Lambda Barlow Twins: {self.lambd}\n')
                 f.write(f'momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
                 f.write(f'dim_proj: {self.dim_proj}\n')
