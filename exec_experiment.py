@@ -49,6 +49,7 @@ def exec_experiment(**kwargs):
         f.write(f'Learning Rate: {kwargs["lr"]}\n')
         f.write(f'Dataset: {kwargs["dataset"]}\n')
         f.write(f'Number of Experiences: {kwargs["num_exps"]}\n')
+        f.write(f'Epochs: {kwargs["epochs"]}\n')
         f.write(f'Probing Epochs: {kwargs["probing_epochs"]}\n')
         f.write(f'Probing Use Validation Stop: {kwargs["probing_use_val_stop"]}\n')
         f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
@@ -103,39 +104,39 @@ def exec_experiment(**kwargs):
 
     # Model
     if kwargs["model"] == 'no_strategy_simsiam':
-        model = NoStrategySimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"], 
+        model = NoStrategySimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"], train_epochs=kwargs["epochs"],
                                 lr=kwargs["lr"],
                                 train_mb_size=kwargs["tr_mb_size"], mb_passes=kwargs["mb_passes"],
                                 dataset_name=kwargs["dataset"], save_pth=save_pth, device=device,
                                 save_model=False, common_transforms=kwargs["common_transforms"])
     elif kwargs["model"] == 'replay_simsiam':
         model = ReplaySimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
-                              lr=kwargs["lr"],
+                            train_epochs=kwargs["epochs"], lr=kwargs["lr"],
                             train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
                             mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                             device=device, save_model=False, common_transforms=kwargs["common_transforms"])
         
     elif kwargs["model"] == 'replay_barlow_twins':
-        model = ReplayBarlowTwins(encoder=kwargs["encoder"], optim=kwargs["optim"],
-                                  lr=kwargs["lr"], lambd=kwargs["lambd"],
+        model = ReplayBarlowTwins(encoder=kwargs["encoder"], optim=kwargs["optim"], train_epochs=kwargs["epochs"],
+                                lr=kwargs["lr"], lambd=kwargs["lambd"],
                                 mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"],
                                 mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                 device=device, save_model=False, common_transforms=kwargs["common_transforms"])
     elif kwargs["model"] == 'no_strategy_barlow_twins':
-        model = NoStrategyBarlowTwins(encoder=kwargs["encoder"], optim=kwargs["optim"],
+        model = NoStrategyBarlowTwins(encoder=kwargs["encoder"], optim=kwargs["optim"], train_epochs=kwargs["epochs"],
                                     lr=kwargs["lr"], lambd=kwargs["lambd"],  
                                     train_mb_size=kwargs["tr_mb_size"],
                                     mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                     device=device, save_model=False, common_transforms=kwargs["common_transforms"])
     elif kwargs["model"] == 'no_strategy_byol':
-        model =  NoStrategyBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"],
+        model =  NoStrategyBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"], train_epochs=kwargs["epochs"],
                                 lr=kwargs["lr"], byol_momentum=kwargs["byol_momentum"],
                                 encoder=kwargs["encoder"], optim=kwargs["optim"], train_mb_size=kwargs["tr_mb_size"],
                                 mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                 device=device, save_model=False, common_transforms=kwargs["common_transforms"])
         
     elif kwargs["model"] == 'replay_byol':
-        model = ReplayBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"],
+        model = ReplayBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"], train_epochs=kwargs["epochs"],
                                 lr=kwargs["lr"], byol_momentum=kwargs["byol_momentum"],
                                 encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
                                 train_mb_size=kwargs["tr_mb_size"],
