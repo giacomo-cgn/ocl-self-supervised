@@ -39,10 +39,12 @@ args = parser.parse_args()
 model_name = 'no_strategy_simsiam' 
 # Define current searched hyperparams in lists
 hyperparam_dict = {
-    'lr': [3e-3, 1e-3, 3e-4],
+    'lr': [0.3, 0.1, 0.03],
 }
 str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
 folder_name = f'hypertune_{model_name}_{str_now}'
+if args.iid:
+     folder_name = f'hypertune_iid_{model_name}_{str_now}'
 save_folder = os.path.join('./logs', folder_name)
 if not os.path.exists(save_folder):
         os.makedirs(save_folder)
