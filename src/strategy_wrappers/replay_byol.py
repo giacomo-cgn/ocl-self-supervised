@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from avalanche.benchmarks.scenarios import NCExperience
 
 from .reservoir_buffer import ReservoirBufferUnlabeled
-from .utilities import UnsupervisedDataset, find_encoder, init_optim
+from .utils import UnsupervisedDataset, find_encoder, init_optim
 from .ssl_models.byol import BYOL
 from .transforms import get_transforms_byol, get_common_transforms
 

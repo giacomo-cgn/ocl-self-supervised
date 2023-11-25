@@ -5,17 +5,17 @@ import os
 import datetime
 import tqdm as tqdm
 
-from src.replay_simsiam import ReplaySimSiam
-from src.replay_barlow_twins import ReplayBarlowTwins
-from src.no_strategy_simsiam import NoStrategySimSiam
-from src.no_strategy_barlow_twins import NoStrategyBarlowTwins
-from src.no_strategy_byol import NoStrategyBYOL
-from src.replay_byol import ReplayBYOL
+from src.strategy_wrappers.replay_simsiam import ReplaySimSiam
+from src.strategy_wrappers.replay_barlow_twins import ReplayBarlowTwins
+from src.strategy_wrappers.no_strategy_simsiam import NoStrategySimSiam
+from src.strategy_wrappers.no_strategy_barlow_twins import NoStrategyBarlowTwins
+from src.strategy_wrappers.no_strategy_byol import NoStrategyBYOL
+from src.strategy_wrappers.replay_byol import ReplayBYOL
 
 from src.transforms import get_dataset_transforms
 from src.probing import LinearProbing
 from src.probing_sklearn import LinearProbingSklearn
-from src.utilities import write_final_scores
+from src.utils import write_final_scores
 
 def exec_experiment(**kwargs):
     # Ratios of tr set used for training linear probe
@@ -161,7 +161,7 @@ def exec_experiment(**kwargs):
                 probe_save_file = os.path.join(probing_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
                 dim_features = network.get_embedding_dim() 
 
-                # probe = LinearProbing(network.get_encoder(), dim_features=dim_features, num_classes=num_classes,
+                # probe = LinearProbing(network.get_encoder(), dim_features=dim_features, num_classes=100,
                 #                     device=device, save_file=probe_save_file,
                 #                     exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio, num_epochs=kwargs["probing_epochs"],
                 #                     use_val_stop=kwargs["probing_use_val_stop"], val_ratio=kwargs["probing_val_ratio"])
