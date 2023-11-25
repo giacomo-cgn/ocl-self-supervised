@@ -4,10 +4,10 @@ from matplotlib import pyplot as plt
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from torch.utils.data import DataLoader, random_split
+from torch.utils.data.dataset import Dataset
 
-from sklearn.linear_model import LogisticRegression, RidgeClassifier
+from sklearn.linear_model import RidgeClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 
@@ -50,24 +50,26 @@ class LinearProbingSklearn:
                     f.write('probing_exp_idx,val_loss,val_acc,test_acc\n')
 
     def probe(self,
-              tr_experience: NCExperience,
-              test_experience: NCExperience,
+              tr_dataset: Dataset,
+              test_dataset: Dataset,
               ):
 
         # Prepare dataloaders
 
         # Split train into train and validation
-        val_size = int(len(tr_experience.dataset) * self.val_ratio)
-        tr_size = len(tr_experience.dataset) - val_size
-        tr_dataset, val_dataset = random_split(tr_experience.dataset, [tr_size, val_size])
+        val_size = int(len(tr_dataset) * self.val_ratio)
+        tr_size = len(tr_dataset) - val_size
+        tr_dataset, val_dataset = random_split(tr_dataset, [tr_size, val_size],
+                                               generator=torch.Generator().manual_seed(42)) # Generator to ensure same splits
 
         # Select only a random ratio of the train data for probing
         used_ratio_samples = int(len(tr_dataset) * self.tr_samples_ratio)
-        tr_dataset, _ = random_split(tr_dataset, [used_ratio_samples, len(tr_dataset) - used_ratio_samples])
+        tr_dataset, _ = random_split(tr_dataset, [used_ratio_samples, len(tr_dataset) - used_ratio_samples],
+                                     generator=torch.Generator().manual_seed(42)) # Generator to ensure same splits
     
         train_loader = DataLoader(dataset=tr_dataset, batch_size=self.mb_size, shuffle=True)
         val_loader = DataLoader(dataset=val_dataset, batch_size=self.mb_size, shuffle=False)
-        test_loader = DataLoader(dataset=test_experience.dataset, batch_size=self.mb_size, shuffle=False)
+        test_loader = DataLoader(dataset=test_dataset, batch_size=self.mb_size, shuffle=False)
 
         # Put encoder in eval mode, as even with no gradient it could interfere with batchnorm
         self.encoder.eval()
@@ -122,10 +124,6 @@ class LinearProbingSklearn:
         val_preds = log_reg.predict(val_activations)
         # Calculate validation accuracy and loss
         val_acc = accuracy_score(val_labels, val_preds)
-        # torch_labels = torch.from_numpy(val_labels)
-        # torch_logits = torch.from_numpy(val_logits)
-        # print('Torch val shapes:', torch_labels.shape, torch_logits.shape)
-        val_loss = 0# self.criterion(torch.from_numpy(val_logits), torch.from_numpy(val_labels)).item()
 
         # Predict test
         test_activations = scaler.transform(test_activations)
@@ -135,4 +133,4 @@ class LinearProbingSklearn:
 
         if self.save_file is not None:
             with open(self.save_file, 'a') as f:
-                f.write(f'{self.exp_idx},{val_loss},{val_acc},{test_acc}\n')
+                f.write(f'{self.exp_idx},{val_acc},{test_acc}\n')

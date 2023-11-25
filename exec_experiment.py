@@ -1,4 +1,5 @@
 from avalanche.benchmarks.classic import SplitCIFAR100
+from avalanche.benchmarks.utils.utils import concat_datasets
 
 import torch
 import os
@@ -33,13 +34,23 @@ def exec_experiment(**kwargs):
     save_pth = os.path.join(kwargs["save_folder"], folder_name)
     if not os.path.exists(save_pth):
         os.makedirs(save_pth)
+    
+    if kwargs['probing_separate']:
+        probing_separate_pth_dict = {}
+        for probing_tr_ratio in probing_tr_ratio_arr:  
+            probing_pth = os.path.join(save_pth, f'probing_separate/probing_ratio{probing_tr_ratio}')
+            if not os.path.exists(probing_pth):
+                os.makedirs(probing_pth)
+            probing_separate_pth_dict[probing_tr_ratio] = probing_pth
+    
+    if kwargs['probing_upto']:
+        probing_upto_pth_dict = {}
+        for probing_tr_ratio in probing_tr_ratio_arr:  
+            probing_pth = os.path.join(save_pth, f'probing_upto/probing_ratio{probing_tr_ratio}')
+            if not os.path.exists(probing_pth):
+                os.makedirs(probing_pth)
+            probing_upto_pth_dict[probing_tr_ratio] = probing_pth
 
-    probing_pth_dict = {}
-    for probing_tr_ratio in probing_tr_ratio_arr:  
-        probing_pth = os.path.join(save_pth, f'probing_ratio{probing_tr_ratio}')
-        if not os.path.exists(probing_pth):
-            os.makedirs(probing_pth)
-        probing_pth_dict[probing_tr_ratio] = probing_pth
 
     # Save general kwargs
     with open(save_pth + '/config.txt', 'a') as f:
@@ -50,6 +61,8 @@ def exec_experiment(**kwargs):
         f.write(f'Dataset: {kwargs["dataset"]}\n')
         f.write(f'Number of Experiences: {kwargs["num_exps"]}\n')
         f.write(f'Epochs: {kwargs["epochs"]}\n')
+        f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')
+        f.write(f'Probing on joint exps Up To current: {kwargs["probing_upto"]}\n')
         f.write(f'Probing Epochs: {kwargs["probing_epochs"]}\n')
         f.write(f'Probing Use Validation Stop: {kwargs["probing_use_val_stop"]}\n')
         f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
@@ -70,6 +83,7 @@ def exec_experiment(**kwargs):
     shuffle = True
     probe_benchmark = SplitCIFAR100(
                 kwargs["num_exps"],
+                seed=42, # Fixed seed for reproducibility
                 first_exp_with_half_classes=first_exp_with_half_classes,
                 return_task_id=return_task_id,
                 shuffle=shuffle,
@@ -80,6 +94,7 @@ def exec_experiment(**kwargs):
         # If pretraining iid, create benchmark with only 1 experience
         pretr_benchmark  = SplitCIFAR100(
                 1,
+                seed=42, # Fixed seed for reproducibility
                 first_exp_with_half_classes=first_exp_with_half_classes,
                 return_task_id=return_task_id,
                 shuffle=shuffle,
@@ -119,7 +134,7 @@ def exec_experiment(**kwargs):
     elif kwargs["model"] == 'replay_barlow_twins':
         model = ReplayBarlowTwins(encoder=kwargs["encoder"], optim=kwargs["optim"], train_epochs=kwargs["epochs"],
                                 lr=kwargs["lr"], lambd=kwargs["lambd"],
-                                mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"],
+                                mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
                                 mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                 device=device, save_model=False, common_transforms=kwargs["common_transforms"])
     elif kwargs["model"] == 'no_strategy_barlow_twins':
@@ -130,7 +145,7 @@ def exec_experiment(**kwargs):
                                     device=device, save_model=False, common_transforms=kwargs["common_transforms"])
     elif kwargs["model"] == 'no_strategy_byol':
         model =  NoStrategyBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"], train_epochs=kwargs["epochs"],
-                                lr=kwargs["lr"], byol_momentum=kwargs["byol_momentum"],
+                                lr=kwargs["lr"], byol_momentum=kwargs["byol_momentum"], replay_mb_size=kwargs["repl_mb_size"],
                                 encoder=kwargs["encoder"], optim=kwargs["optim"], train_mb_size=kwargs["tr_mb_size"],
                                 mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                 device=device, save_model=False, common_transforms=kwargs["common_transforms"])
@@ -152,15 +167,22 @@ def exec_experiment(**kwargs):
         print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
         network = model.train_experience(experience, exp_idx)
 
-        # Do linear probing on current encoder for all experiences (past, current and future)
+        # Linear probing on current encoder
+
+        # Probing on all experiences up to current
+        probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
+        # TODO
+
+        # Probing on separate experiences
         for probe_exp_idx, probe_tr_experience in enumerate(probe_benchmark.train_stream):
+            probe_test_experience = probe_benchmark.test_stream[probe_exp_idx]
 
             # Sample only a portion of the tr samples for probing
             for probing_tr_ratio in probing_tr_ratio_arr:
 
-                probe_save_file = os.path.join(probing_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
-                dim_features = network.get_embedding_dim() 
+                probe_save_file = os.path.join(probing_separate_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
 
+                # dim_features = network.get_embedding_dim() 
                 # probe = LinearProbing(network.get_encoder(), dim_features=dim_features, num_classes=100,
                 #                     device=device, save_file=probe_save_file,
                 #                     exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio, num_epochs=kwargs["probing_epochs"],
@@ -172,7 +194,7 @@ def exec_experiment(**kwargs):
                 
                 print(f'-- Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
 
-                probe.probe(probe_tr_experience, probe_benchmark.test_stream[probe_exp_idx])
+                probe.probe(probe_tr_experience.dataset, probe_test_experience.dataset)
                 
 
     # Save final pretrained model

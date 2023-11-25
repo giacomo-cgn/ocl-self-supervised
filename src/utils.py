@@ -93,6 +93,8 @@ def read_command_line_args():
     parser.add_argument('--num-exps', type=int, default=20)
     parser.add_argument('--save-folder', type=str, default='./logs')
     parser.add_argument('--epochs', type=int, default=1)
+    parser.add_argument('--probing-separate', type=bool, default=True)
+    parser.add_argument('--probing-upto', type=bool, default=True)
     parser.add_argument('--probing-epochs', type=int, default=50)
     parser.add_argument('--probing-use-val-stop', type=bool, default=True)
     parser.add_argument('--probing-val-ratio', type=float, default=0.1)
