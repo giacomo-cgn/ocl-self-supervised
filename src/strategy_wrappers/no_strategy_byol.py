@@ -6,9 +6,9 @@ from torch.utils.data import DataLoader
 
 from avalanche.benchmarks.scenarios import NCExperience
 
-from .utils import UnsupervisedDataset, find_encoder, init_optim
-from .ssl_models.byol import BYOL
-from .transforms import get_transforms_byol, get_common_transforms
+from ..utils import UnsupervisedDataset, find_encoder, init_optim
+from ..ssl_models.byol import BYOL
+from ..transforms import get_transforms_byol, get_common_transforms
 
 class NoStrategyBYOL():
 

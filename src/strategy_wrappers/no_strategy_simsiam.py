@@ -6,9 +6,9 @@ from torch.utils.data import DataLoader
 
 from avalanche.benchmarks.scenarios import NCExperience
 
-from .utils import UnsupervisedDataset, find_encoder, init_optim
-from .ssl_models.simsiam import SimSiam
-from .transforms import get_transforms_simsiam, get_common_transforms
+from ..utils import UnsupervisedDataset, find_encoder, init_optim
+from ..ssl_models.simsiam import SimSiam
+from ..transforms import get_transforms_simsiam, get_common_transforms
 
 class NoStrategySimSiam():
 

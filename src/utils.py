@@ -46,19 +46,19 @@ def init_optim(optim_name, params, lr, momentum, weight_decay):
     
 
 
-def write_final_scores(folder_path):
+def write_final_scores(folder_input_path, output_file):
     """
     Report final aggregated scores of the probing
 
     """
-    output_file = os.path.join(folder_path, "final_scores.csv")
+    # output_file = os.path.join(folder_path, "final_scores.csv")
     with open(output_file, "w") as output_f:
         # Write header
         output_f.write("probe_ratio,avg_val_acc,avg_test_acc\n")
 
         # Get all subfolder paths starting with "probing_ratio"
-        probing_ratios_subfolders = [os.path.join(folder_path, f) for f in os.listdir(folder_path) 
-                                    if os.path.isdir(os.path.join(folder_path, f)) and f.startswith("probing_ratio")]
+        probing_ratios_subfolders = [os.path.join(folder_input_path, f) for f in os.listdir(folder_input_path) 
+                                    if os.path.isdir(os.path.join(folder_input_path, f)) and f.startswith("probing_ratio")]
         
         # For each probing tr ratio
         for subfolder in probing_ratios_subfolders:

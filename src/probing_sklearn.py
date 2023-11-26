@@ -21,7 +21,7 @@ class LinearProbingSklearn:
                  device: str = 'cpu',
                  mb_size: int = 1024,
                  save_file: str = None,
-                 exp_idx: int = 0,
+                 exp_idx: int = None,
                  tr_samples_ratio: float = 1.0,
                  val_ratio: float = 0.1
                  ):
@@ -34,7 +34,7 @@ class LinearProbingSklearn:
         self.device = device
         self.mb_size = mb_size
         self.save_file = save_file
-        self.exp_idx = exp_idx # Task index on which probing is executed
+        self.exp_idx = exp_idx # Task index on which probing is executed, if None, we are in joint probing
         self.tr_samples_ratio = tr_samples_ratio
         self.val_ratio = val_ratio
         
@@ -47,7 +47,10 @@ class LinearProbingSklearn:
             with open(self.save_file, 'a') as f:
                 # Write header for probing log file
                 if not os.path.exists(self.save_file) or os.path.getsize(self.save_file) == 0:
-                    f.write('probing_exp_idx,val_loss,val_acc,test_acc\n')
+                    if self.exp_idx is not None:
+                        f.write('probing_exp_idx,val_acc,test_acc\n')
+                    else:
+                        f.write(f'val_acc,test_acc\n')
 
     def probe(self,
               tr_dataset: Dataset,
@@ -73,11 +76,6 @@ class LinearProbingSklearn:
 
         # Put encoder in eval mode, as even with no gradient it could interfere with batchnorm
         self.encoder.eval()
-
-        # Train on a predefined ratio of samples for probing (find the ratio of batches to use)
-        last_batch_idx = int(len(train_loader) * self.tr_samples_ratio)
-        batch_idx = 0
-
 
         # Get encoder activations for tr dataloader
         tr_activations_list = []
@@ -133,4 +131,7 @@ class LinearProbingSklearn:
 
         if self.save_file is not None:
             with open(self.save_file, 'a') as f:
-                f.write(f'{self.exp_idx},{val_acc},{test_acc}\n')
+                if self.exp_idx is not None:
+                    f.write(f'{self.exp_idx},{val_acc},{test_acc}\n')
+                else:
+                    f.write(f'{val_acc},{test_acc}\n')

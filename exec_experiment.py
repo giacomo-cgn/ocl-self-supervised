@@ -167,34 +167,48 @@ def exec_experiment(**kwargs):
         print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
         network = model.train_experience(experience, exp_idx)
 
-        # Linear probing on current encoder
-
         # Probing on all experiences up to current
-        probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
-        # TODO
+        if kwargs['probing_upto']:
+            # Generate upto current exp probing datasets
+            probe_upto_dataset_tr = concat_datasets([probe_benchmark.train_stream[i].dataset for i in range(exp_idx+1)])
+            probe_upto_dataset_test = concat_datasets([probe_benchmark.test_stream[i].dataset for i in range(exp_idx+1)])
 
-        # Probing on separate experiences
-        for probe_exp_idx, probe_tr_experience in enumerate(probe_benchmark.train_stream):
-            probe_test_experience = probe_benchmark.test_stream[probe_exp_idx]
-
-            # Sample only a portion of the tr samples for probing
             for probing_tr_ratio in probing_tr_ratio_arr:
+                probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
 
-                probe_save_file = os.path.join(probing_separate_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
-
-                # dim_features = network.get_embedding_dim() 
-                # probe = LinearProbing(network.get_encoder(), dim_features=dim_features, num_classes=100,
-                #                     device=device, save_file=probe_save_file,
-                #                     exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio, num_epochs=kwargs["probing_epochs"],
-                #                     use_val_stop=kwargs["probing_use_val_stop"], val_ratio=kwargs["probing_val_ratio"])
                 probe = LinearProbingSklearn(network.get_encoder(), device=device, save_file=probe_save_file,
-                                            exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio,
+                                            exp_idx=None, tr_samples_ratio=probing_tr_ratio,
                                             val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"])
                                             
                 
-                print(f'-- Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
+                print(f'-- Upto Probing, probe tr ratio: {probing_tr_ratio} --')
 
-                probe.probe(probe_tr_experience.dataset, probe_test_experience.dataset)
+                probe.probe(probe_upto_dataset_tr, probe_upto_dataset_test)
+
+
+        # Probing on separate experiences
+        if kwargs['probing_separate']:
+            for probe_exp_idx, probe_tr_experience in enumerate(probe_benchmark.train_stream):
+                probe_test_experience = probe_benchmark.test_stream[probe_exp_idx]
+
+                # Sample only a portion of the tr samples for probing
+                for probing_tr_ratio in probing_tr_ratio_arr:
+
+                    probe_save_file = os.path.join(probing_separate_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
+
+                    # dim_features = network.get_embedding_dim() 
+                    # probe = LinearProbing(network.get_encoder(), dim_features=dim_features, num_classes=100,
+                    #                     device=device, save_file=probe_save_file,
+                    #                     exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio, num_epochs=kwargs["probing_epochs"],
+                    #                     use_val_stop=kwargs["probing_use_val_stop"], val_ratio=kwargs["probing_val_ratio"])
+                    probe = LinearProbingSklearn(network.get_encoder(), device=device, save_file=probe_save_file,
+                                                exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio,
+                                                val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"])
+                                                
+                    
+                    print(f'-- Separate Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
+
+                    probe.probe(probe_tr_experience.dataset, probe_test_experience.dataset)
                 
 
     # Save final pretrained model
@@ -203,6 +217,12 @@ def exec_experiment(**kwargs):
                     os.path.join(save_pth, f'final_model_state.pth'))
         
     # Calculate and save final probing scores
-    write_final_scores(save_pth)
+    if kwargs['probing_separate']:
+        write_final_scores(folder_input_path=os.path.join(save_pth, 'probing_separate'),
+                           output_file=os.path.join(save_pth, 'final_scores_separate.csv'))
+    if kwargs['probing_upto']:
+        write_final_scores(folder_input_path=os.path.join(save_pth, 'probing_upto'),
+                           output_file=os.path.join(save_pth, 'final_scores_upto.csv'))
+
 
     return save_pth
