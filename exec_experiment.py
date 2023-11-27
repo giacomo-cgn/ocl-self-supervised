@@ -1,7 +1,7 @@
 from avalanche.benchmarks.classic import SplitCIFAR100
-from avalanche.benchmarks.utils.utils import concat_datasets
 
 import torch
+from torch.utils.data import ConcatDataset
 import os
 import datetime
 import tqdm as tqdm
@@ -170,8 +170,8 @@ def exec_experiment(**kwargs):
         # Probing on all experiences up to current
         if kwargs['probing_upto']:
             # Generate upto current exp probing datasets
-            probe_upto_dataset_tr = concat_datasets([probe_benchmark.train_stream[i].dataset for i in range(exp_idx+1)])
-            probe_upto_dataset_test = concat_datasets([probe_benchmark.test_stream[i].dataset for i in range(exp_idx+1)])
+            probe_upto_dataset_tr = ConcatDataset([probe_benchmark.train_stream[i].dataset for i in range(exp_idx+1)])
+            probe_upto_dataset_test = ConcatDataset([probe_benchmark.test_stream[i].dataset for i in range(exp_idx+1)])
 
             for probing_tr_ratio in probing_tr_ratio_arr:
                 probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')

@@ -59,22 +59,25 @@ def write_final_scores(folder_input_path, output_file):
         # Get all subfolder paths starting with "probing_ratio"
         probing_ratios_subfolders = [os.path.join(folder_input_path, f) for f in os.listdir(folder_input_path) 
                                     if os.path.isdir(os.path.join(folder_input_path, f)) and f.startswith("probing_ratio")]
-        
+
         # For each probing tr ratio
         for subfolder in probing_ratios_subfolders:
             probing_tr_ratio = subfolder.split("probing_ratio")[1]
-            probe_df_list = []
+            probe_exp_df_list = [] # List of tuples (Dataframe, exp_index)
 
             # Read all csv, one for each experience on which probing has been executed
             for file in os.listdir(subfolder):
                 if file.endswith('.csv'):
+                    probe_exp = int(file.split('.csv')[0].split('probe_exp_')[-1]) # Finds exp_idx from filename
                     df = pd.read_csv(os.path.join(subfolder, file))
-                    probe_df_list.append(df)
+                    probe_exp_df_list.append((df, probe_exp))
 
+            # Find df with highest exp_index in probe_exp_df_list
+            final_df = max(probe_exp_df_list, key=lambda x: x[1])[0]
             # Get final test and validation accuracies
-            final_df = probe_df_list[-1]
             final_avg_test_acc =  final_df['test_acc'].mean()
             final_avg_val_acc = final_df['val_acc'].mean()
+
 
             output_f.write(f"{probing_tr_ratio},{final_avg_val_acc},{final_avg_test_acc}\n")
 
