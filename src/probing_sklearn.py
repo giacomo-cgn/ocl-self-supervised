@@ -12,9 +12,6 @@ from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 
 
-
-from avalanche.benchmarks.scenarios import NCExperience
-
 class LinearProbingSklearn:
     def __init__(self,
                  encoder: nn,
