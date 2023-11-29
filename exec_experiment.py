@@ -169,7 +169,7 @@ def exec_experiment(**kwargs):
         network = model.train_experience(experience, exp_idx)
 
         # Probing on all experiences up to current
-        if kwargs['probing_upto'] and not kwargs:
+        if kwargs['probing_upto'] and not kwargs['iid']:
             # Generate upto current exp probing datasets
             probe_upto_dataset_tr = ConcatDataset([probe_benchmark.train_stream[i].dataset for i in range(exp_idx+1)])
             probe_upto_dataset_test = ConcatDataset([probe_benchmark.test_stream[i].dataset for i in range(exp_idx+1)])
