@@ -169,7 +169,7 @@ def exec_experiment(**kwargs):
         network = model.train_experience(experience, exp_idx)
 
         # Probing on all experiences up to current
-        if kwargs['probing_upto']:
+        if kwargs['probing_upto'] and not kwargs:
             # Generate upto current exp probing datasets
             probe_upto_dataset_tr = ConcatDataset([probe_benchmark.train_stream[i].dataset for i in range(exp_idx+1)])
             probe_upto_dataset_test = ConcatDataset([probe_benchmark.test_stream[i].dataset for i in range(exp_idx+1)])
@@ -210,6 +210,25 @@ def exec_experiment(**kwargs):
                     print(f'-- Separate Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
 
                     probe.probe(probe_tr_experience.dataset, probe_test_experience.dataset)
+    
+        # If iid training, probe upto each experience
+        if kwargs['probe_upto'] and kwargs['iid']:
+            for exp_idx, _ in enumerate(pretr_benchmark.train_stream):
+                # Generate upto current exp probing datasets
+                probe_upto_dataset_tr = ConcatDataset([probe_benchmark.train_stream[i].dataset for i in range(exp_idx+1)])
+                probe_upto_dataset_test = ConcatDataset([probe_benchmark.test_stream[i].dataset for i in range(exp_idx+1)])
+
+                for probing_tr_ratio in probing_tr_ratio_arr:
+                    probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
+
+                    probe = LinearProbingSklearn(network.get_encoder(), device=device, save_file=probe_save_file,
+                                                exp_idx=None, tr_samples_ratio=probing_tr_ratio,
+                                                val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"])
+                                                
+                    
+                    print(f'-- Upto Probing, probe tr ratio: {probing_tr_ratio} --')
+
+                    probe.probe(probe_upto_dataset_tr, probe_upto_dataset_test)
                 
 
     # Save final pretrained model
