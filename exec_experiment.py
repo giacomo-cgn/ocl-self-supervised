@@ -212,7 +212,7 @@ def exec_experiment(**kwargs):
                     probe.probe(probe_tr_experience.dataset, probe_test_experience.dataset)
     
         # If iid training, probe upto each experience
-        if kwargs['probe_upto'] and kwargs['iid']:
+        if kwargs['probing_upto'] and kwargs['iid']:
             for exp_idx, _ in enumerate(pretr_benchmark.train_stream):
                 # Generate upto current exp probing datasets
                 probe_upto_dataset_tr = ConcatDataset([probe_benchmark.train_stream[i].dataset for i in range(exp_idx+1)])
