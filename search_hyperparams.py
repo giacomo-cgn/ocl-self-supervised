@@ -11,10 +11,11 @@ use_eval_on_upto_probing = True
 # Parse arguments
 args = read_command_line_args()
 
-model_name = 'no_strategy_simsiam' 
+model_name = 'no_strategy_byol' 
 # Define current searched hyperparams in lists
 hyperparam_dict = {
     'lr': [0.3, 0.1, 0.03],
+    'byol-momentum': [0.99, 0.999],
 }
 str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
 folder_name = f'hypertune_{model_name}_{str_now}'
@@ -45,6 +46,9 @@ for combination in param_combinations:
      # Update args with hyperparams
      for k, v in param_dict.items():
           args.__setattr__(k, v)
+          # Add also variant with param name with "-" substituted with "_" and vice versa
+          args.__setattr__(k.replace("_", "-"), v)
+          args.__setattr__(k.replace("-", "_"), v)
 
      # Set args model 
      args.model = model_name
