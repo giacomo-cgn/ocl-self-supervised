@@ -1,0 +1,74 @@
+{
+    "common_params":
+    {
+        "mb-passes": 12,
+        "tr-mb-size": 10,
+        "repl-mb-size": 128
+    },
+    "experiments":
+    [
+        {
+            "model": "no_strategy_simsiam",
+            "iid": true,
+            "hyperparams_search": {
+                "lr": [0.1, 0.03, 0.01]
+            }
+        },
+        {
+            "model": "no_strategy_simsiam",
+            "hyperparams_search": {
+                "lr": [0.1, 0.03, 0.01]
+            }
+        },
+        {
+            "model": "replay_simsiam",
+            "hyperparams_search": {
+                "lr": [0.1, 0.03, 0.01]
+            }
+        },
+        {
+            "model": "no_strategy_barlow_twins",
+            "iid": true,
+            "hyperparams_search": {
+                "lr": [0.1, 0.03, 0.01],
+                "lambd": [0.01, 0.005]
+            }
+        },
+        {
+            "model": "no_strategy_barlow_twins",
+            "hyperparams_search": {
+                "lr": [0.1, 0.03, 0.01],
+                "lambd": [0.01, 0.005]
+            }
+        },
+        {
+            "model": "replay_barlow_twins",
+            "hyperparams_search": {
+                "lr": [0.1, 0.03, 0.01],
+                "lambd": [0.01, 0.005]
+            }
+        },
+        {
+            "model": "no_strategy_byol",
+            "iid": true,
+            "hyperparams_search": {
+                "lr": [0.1, 0.03, 0.01],
+                "byol-momentum": [0.9, 0.999]
+            }
+        },
+        {
+            "model": "no_strategy_byol",
+            "hyperparams_search": {
+                "lr": [0.1, 0.03, 0.01],
+                "byol-momentum": [0.9, 0.999]
+            }
+        },
+        {
+            "model": "replay_byol",
+            "hyperparams_search": {
+                "lr": [0.1, 0.03, 0.01],
+                "byol-momentum": [0.9, 0.999]
+        }
+        }
+    ]
+}
