@@ -109,7 +109,7 @@ class ReplaySimSiam():
                 new_mbatch = mbatch
 
                 for k in range(self.mb_passes):
-                    if len(self.buffer.buffer) > self.train_mb_size:
+                    if len(self.buffer.buffer) > self.replay_mb_size:
                         # Sample from buffer and concat
                         replay_batch = self.buffer.sample(self.replay_mb_size).to(self.device)
                         combined_batch = torch.cat((replay_batch, mbatch), dim=0)
