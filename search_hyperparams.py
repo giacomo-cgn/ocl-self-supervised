@@ -8,7 +8,7 @@ from src.utils import read_command_line_args
 
 def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=True, parent_log_folder='./logs'):
 
-     model_name = 'no_strategy_simsiam' 
+     # model_name = 'no_strategy_simsiam' 
      if hyperparams_dict is None:
           # Define current searched hyperparams in lists
           hyperparams_dict = {
@@ -16,9 +16,9 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=Tru
           # 'byol-momentum': [0.99, 0.999],
           }
      str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
-     folder_name = f'hypertune_{model_name}_{str_now}'
+     folder_name = f'hypertune_{args.model}_{str_now}'
      if args.iid:
-          folder_name = f'hypertune_iid_{model_name}_{str_now}'
+          folder_name = f'hypertune_iid_{args.model}_{str_now}'
      save_folder = os.path.join(parent_log_folder, folder_name)
      if not os.path.exists(save_folder):
           os.makedirs(save_folder)
@@ -49,7 +49,7 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=Tru
                args.__setattr__(k.replace("-", "_"), v)
 
           # Set args model 
-          args.model = model_name
+          # args.model = model_name
 
           # Set args save_folder
           args.save_folder = save_folder
@@ -86,12 +86,5 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=Tru
           f.write(f"Best Test Acc: {best_test_acc}\n")
           f.write(f'\nTr MB size: {args.tr_mb_size}\n')
           f.write(f'MB passes: {args.mb_passes}\n')
-
-
-# Main
-# Parse arguments
-args = read_command_line_args()
-# Search hyperparameters
-search_hyperparams(args)
 
 

@@ -9,6 +9,9 @@ from search_hyperparams import search_hyperparams
 # Read args from command line
 original_args = read_command_line_args()
 
+print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+
+
 # Read config.json
 with open('config.json') as f:
     config = json.load(f)
@@ -24,15 +27,18 @@ with open('config.json') as f:
 
 
     for experiment in config["experiments"]:
+        print(f"Running experiment: {experiment}")
         args = copy.deepcopy(original_args)
 
         # Apply experiment specific params
         for k, v in experiment.items():
-            if k is not "hyperparams_search":
+            if k not in experiment["hyperparams_search"]:
                 args.__setattr__ (k, v)
                 # Add also variant with param name with "-" substituted with "_" and vice versa
                 args.__setattr__(k.replace("_", "-"), v)
                 args.__setattr__(k.replace("-", "_"), v)
+
+        print("experiment.hyperparams:", experiment["hyperparams_search"])
         
         # Run hyperparam search
         search_hyperparams(args, hyperparams_dict=experiment["hyperparams_search"], parent_log_folder=log_dir)
