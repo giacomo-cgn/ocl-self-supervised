@@ -43,15 +43,17 @@ class BYOL(nn.Module):
                                         nn.ReLU(inplace=True), # hidden layer
                                         nn.Linear(dim_pred, dim_proj)) # output layer
         
-
-    def forward(self, x1, x2):
-
         def loss_byol(x, y):
             x = F.normalize(x, dim=-1, p=2)
             y = F.normalize(y, dim=-1, p=2)
             return 2 - 2 * (x * y).sum(dim=-1)
+        self.criterion = loss_byol
+
+    def forward(self, x1, x2):
+
         
-        # Both augmentations are used both in are passed in both momentum and online nets 
+        
+        # Both augmentations are passed in both momentum and online nets 
 
         z1_onl = self.online_projector(self.online_encoder(x1))
         z1_mom = self.momentum_projector(self.momentum_encoder(x1))
@@ -62,9 +64,9 @@ class BYOL(nn.Module):
         p1 = self.predictor(z1_onl)
         p2 = self.predictor(z2_onl)
 
-        loss = loss_byol(p1, z2_mom.detach()) + loss_byol(p2, z1_mom.detach())
+        loss = self.criterion(p1, z2_mom.detach()) + self.criterion(p2, z1_mom.detach())
 
-        return loss.mean()
+        return loss.mean(), z1_onl, z2_onl
     
     @torch.no_grad()
     def update_momentum(self):
@@ -83,3 +85,6 @@ class BYOL(nn.Module):
         
     def get_embedding_dim(self):
         return self.online_projector[0].weight.shape[1]
+    
+    def get_criterion(self):
+        return self.criterion

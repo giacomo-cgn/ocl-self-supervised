@@ -2,16 +2,17 @@ import os
 from tqdm import tqdm
 
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
 
 from avalanche.benchmarks.scenarios import NCExperience
 
-from ..reservoir_buffer import ReservoirBufferUnlabeled
+from ..reservoir_buffer import ReservoirBufferUnlabeledFeatures
 from ..utils import UnsupervisedDataset, find_encoder, init_optim
 from ..ssl_models.byol import BYOL
 from ..transforms import get_transforms_byol, get_common_transforms
 
-class ReplayBYOL():
+class AlignBufferBYOL():
 
     def __init__(self,
                encoder: str = 'resnet18',
@@ -24,6 +25,7 @@ class ReplayBYOL():
                dim_proj: int = 2048,
                dim_pred: int = 512,
                mem_size: int = 2000,
+               omega: float = 0.5,
                replay_mb_size: int = 32,
                train_mb_size: int = 32,
                train_epochs: int = 1,
@@ -34,6 +36,7 @@ class ReplayBYOL():
                save_model: bool = False, 
                common_transforms: bool = True):
 
+        self.momentum = momentum
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
@@ -42,6 +45,7 @@ class ReplayBYOL():
         self.dim_proj = dim_proj
         self.dim_pred = dim_pred
         self.mem_size = mem_size
+        self.omega = omega
         self.replay_mb_size = replay_mb_size
         self.train_mb_size = train_mb_size
         self.train_epochs = train_epochs
@@ -53,7 +57,7 @@ class ReplayBYOL():
         self.common_transforms = common_transforms
 
         # Set up buffer
-        self.buffer = ReservoirBufferUnlabeled(self.mem_size)
+        self.buffer = ReservoirBufferUnlabeledFeatures(self.mem_size)
 
         # Set up transforms
         if self.common_transforms:
@@ -67,11 +71,18 @@ class ReplayBYOL():
         # Set up model
         self.model = BYOL(self.encoder, dim_proj, dim_pred,
                            self.byol_momentum, self.return_momentum_encoder).to(self.device)
-        self.model_name = 'replay_byol'
+        self.model_name = 'align_buffer_byol'
 
         # Set up optimizer
         self.optimizer = init_optim(optim, self.model.parameters(), lr=self.lr,
                                    momentum=self.momentum, weight_decay=self.weight_decay)
+        
+        # Set up alignment projector (use dim_pred as hidden layer dim)
+        self.alignment_projector = nn.Sequential(nn.Linear(self.dim_proj, self.dim_pred, bias=False),
+                                                nn.BatchNorm1d(self.dim_pred),
+                                                nn.ReLU(inplace=True),
+                                                nn.Linear(self.dim_pred, self.dim_proj)).to(self.device)
+        
 
 
         if self.save_pth is not None:
@@ -86,6 +97,7 @@ class ReplayBYOL():
                 f.write(f'return_momentum_encoder: {self.return_momentum_encoder}\n')
                 f.write(f'dim_proj: {self.dim_proj}\n')
                 f.write(f'dim_pred: {self.dim_pred}\n')
+                f.write(f'Omega: {self.omega}\n')
                 f.write(f'mem_size: {self.mem_size}\n')
                 f.write(f'replay_mb_size: {self.replay_mb_size}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
@@ -116,18 +128,35 @@ class ReplayBYOL():
 
                 for k in range(self.mb_passes):
                     if len(self.buffer.buffer) > self.replay_mb_size:
+                        use_replay = True
                         # Sample from buffer and concat
-                        replay_batch = self.buffer.sample(self.replay_mb_size).to(self.device)
+                        replay_batch, replay_z_old = self.buffer.sample(self.replay_mb_size)
+                        replay_batch, replay_z_old = replay_batch.to(self.device), replay_z_old.to(self.device)
                         combined_batch = torch.cat((replay_batch, mbatch), dim=0)
                     else:
                         # Do not sample buffer if not enough elements in it
+                        use_replay = False
                         combined_batch = mbatch
 
                     # Apply transforms
                     x1, x2 = self.transforms(combined_batch)
 
                     # Forward pass
-                    loss, _, _ = self.model(x1, x2)
+                    loss, z1, z2 = self.model(x1, x2)
+
+                    if use_replay:
+                        # Take only embed features from replay batch
+                        replay_z_new_1 = z1[-self.replay_mb_size:]
+                        replay_z_new_2 = z2[-self.replay_mb_size:]
+
+                        aligned_features_1 = self.alignment_projector(replay_z_new_1)
+                        aligned_features_2 = self.alignment_projector(replay_z_new_2)
+
+                        byol_loss = self.model.get_criterion()
+
+                        loss_align = 0.5*byol_loss(aligned_features_1, replay_z_old) + 0.5*byol_loss(aligned_features_2, replay_z_old)
+
+                        loss += self.omega * loss_align.mean()
 
                     # Backward pass
                     self.optimizer.zero_grad()
@@ -138,12 +167,12 @@ class ReplayBYOL():
                     if self.save_pth is not None:
                         with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
                             f.write(f'{loss.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
-                
+
                     # Update target momentum network
                     self.model.update_momentum()
 
                 # Update buffer with new samples
-                self.buffer.add(new_mbatch.detach())
+                self.buffer.add(new_mbatch.detach(), z1[:self.train_mb_size].detach()) # Use only first view features, as augmentations are random
 
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:

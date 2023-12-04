@@ -13,6 +13,8 @@ from src.strategy_wrappers.no_strategy_barlow_twins import NoStrategyBarlowTwins
 from src.strategy_wrappers.no_strategy_byol import NoStrategyBYOL
 from src.strategy_wrappers.replay_byol import ReplayBYOL
 from src.strategy_wrappers.align_buffer_simsiam import AlignBufferSimSiam
+from src.strategy_wrappers.align_buffer_barlow_twins import AlignBufferBarlowTwins
+from src.strategy_wrappers.align_buffer_byol import AlignBufferBYOL
 
 from src.transforms import get_dataset_transforms
 from src.probing import LinearProbing
@@ -151,6 +153,12 @@ def exec_experiment(**kwargs):
                                 mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
                                 mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                 device=device, save_model=False, common_transforms=kwargs["common_transforms"])
+    elif kwargs["model"] == 'align_buffer_barlow_twins':
+        model = AlignBufferBarlowTwins(encoder=kwargs["encoder"], optim=kwargs["optim"], train_epochs=kwargs["epochs"],
+                                lr=kwargs["lr"], lambd=kwargs["lambd"], omega=kwargs["omega"],
+                                mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
+                                mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
+                                device=device, save_model=False, common_transforms=kwargs["common_transforms"])
     
     elif kwargs["model"] == 'no_strategy_byol':
         model =  NoStrategyBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"], train_epochs=kwargs["epochs"],
@@ -158,12 +166,18 @@ def exec_experiment(**kwargs):
                                 encoder=kwargs["encoder"], optim=kwargs["optim"], train_mb_size=kwargs["tr_mb_size"],
                                 mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                 device=device, save_model=False, common_transforms=kwargs["common_transforms"])
-        
     elif kwargs["model"] == 'replay_byol':
         model = ReplayBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"], train_epochs=kwargs["epochs"],
                                 lr=kwargs["lr"], byol_momentum=kwargs["byol_momentum"], replay_mb_size=kwargs["repl_mb_size"],
                                 encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
                                 train_mb_size=kwargs["tr_mb_size"],
+                                mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
+                                device=device, save_model=False, common_transforms=kwargs["common_transforms"])
+    elif kwargs["model"] == 'align_buffer_byol':
+        model = AlignBufferBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"], train_epochs=kwargs["epochs"],
+                                lr=kwargs["lr"], byol_momentum=kwargs["byol_momentum"], replay_mb_size=kwargs["repl_mb_size"],
+                                encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
+                                train_mb_size=kwargs["tr_mb_size"], omega=kwargs["omega"],
                                 mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                 device=device, save_model=False, common_transforms=kwargs["common_transforms"])
         

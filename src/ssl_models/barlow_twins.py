@@ -26,26 +26,33 @@ class BarlowTwins(nn.Module):
         # so the encoder outputs feature maps instead of clf outputs
         self.encoder.fc = nn.Identity()
 
+        def barlow_twins_loss(z1, z2):
+            batch_size = z1.shape[0]
+            # empirical cross-correlation matrix
+            c = z1.T @ z2
+
+            c.div_(batch_size)
+
+            on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
+            off_diag = off_diagonal(c).pow_(2).sum()
+            return on_diag + self.lambd * off_diag
+        self.criterion = barlow_twins_loss
+
     def forward(self, x1, x2):
-        batch_size = x1.shape[0]
         z1 = self.projector(self.encoder(x1))
         z2 = self.projector(self.encoder(x2))
 
-        # empirical cross-correlation matrix
-        c = z1.T @ z2
-
-        c.div_(batch_size)
-
-        on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
-        off_diag = off_diagonal(c).pow_(2).sum()
-        loss = on_diag + self.lambd * off_diag
-        return loss
+        loss = self.criterion(z1, z2)
+        return loss, z1, z2
     
     def get_encoder(self):
         return self.encoder
         
     def get_embedding_dim(self):
         return self.projector[0].weight.shape[1]
+    
+    def get_criterion(self):
+        return self.criterion
     
     
 def off_diagonal(x):

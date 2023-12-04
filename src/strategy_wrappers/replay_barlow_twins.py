@@ -121,7 +121,7 @@ class ReplayBarlowTwins():
                     x1, x2 = self.transforms(combined_batch)
 
                     # Forward pass
-                    loss = self.model(x1, x2)
+                    loss, _, _ = self.model(x1, x2)
 
                     # Backward pass
                     self.optimizer.zero_grad()

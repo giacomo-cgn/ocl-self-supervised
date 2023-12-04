@@ -32,7 +32,6 @@ class ReplaySimSiam():
                save_model: bool = False, 
                common_transforms: bool = True):
 
-        self.momentum = momentum
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
@@ -121,7 +120,7 @@ class ReplaySimSiam():
                     x1, x2 = self.transforms(combined_batch)
 
                     # Forward pass
-                    loss = self.model(x1, x2)
+                    loss, _, _ = self.model(x1, x2)
 
                     # Backward pass
                     self.optimizer.zero_grad()
