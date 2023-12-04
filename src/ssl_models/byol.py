@@ -56,11 +56,11 @@ class BYOL(nn.Module):
         z1_onl = self.online_projector(self.online_encoder(x1))
         z1_mom = self.momentum_projector(self.momentum_encoder(x1))
 
-        z1_onl = self.online_projector(self.online_encoder(x2))
+        z2_onl = self.online_projector(self.online_encoder(x2))
         z2_mom = self.momentum_projector(self.momentum_encoder(x2))
 
         p1 = self.predictor(z1_onl)
-        p2 = self.predictor(z2_mom)
+        p2 = self.predictor(z2_onl)
 
         loss = loss_byol(p1, z2_mom.detach()) + loss_byol(p2, z1_mom.detach())
 
