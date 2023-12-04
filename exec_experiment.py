@@ -12,6 +12,7 @@ from src.strategy_wrappers.no_strategy_simsiam import NoStrategySimSiam
 from src.strategy_wrappers.no_strategy_barlow_twins import NoStrategyBarlowTwins
 from src.strategy_wrappers.no_strategy_byol import NoStrategyBYOL
 from src.strategy_wrappers.replay_byol import ReplayBYOL
+from src.strategy_wrappers.align_buffer_simsiam import AlignBufferSimSiam
 
 from src.transforms import get_dataset_transforms
 from src.probing import LinearProbing
@@ -127,6 +128,13 @@ def exec_experiment(**kwargs):
     elif kwargs["model"] == 'replay_simsiam':
         model = ReplaySimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
                             train_epochs=kwargs["epochs"], lr=kwargs["lr"],
+                            train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
+                            mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
+                            device=device, save_model=False, common_transforms=kwargs["common_transforms"])
+        
+    elif kwargs["model"] == 'align_buffer_simsiam':
+        model = AlignBufferSimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
+                            train_epochs=kwargs["epochs"], lr=kwargs["lr"], omega=kwargs["omega"],
                             train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
                             mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                             device=device, save_model=False, common_transforms=kwargs["common_transforms"])
