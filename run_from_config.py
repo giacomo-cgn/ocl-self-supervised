@@ -27,6 +27,11 @@ with open('config.json') as f:
 
 
     for experiment in config["experiments"]:
+        if "name" in experiment:
+            name = experiment["name"]
+        else:
+            name = ''
+
         print(f"Running experiment: {experiment}")
         args = copy.deepcopy(original_args)
 
@@ -41,4 +46,4 @@ with open('config.json') as f:
         print("experiment.hyperparams:", experiment["hyperparams_search"])
         
         # Run hyperparam search
-        search_hyperparams(args, hyperparams_dict=experiment["hyperparams_search"], parent_log_folder=log_dir)
+        search_hyperparams(args, hyperparams_dict=experiment["hyperparams_search"], parent_log_folder=log_dir, experiment_name=name)
