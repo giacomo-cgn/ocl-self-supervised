@@ -63,6 +63,9 @@ class SimSiam(nn.Module):
     
     def get_encoder(self):
        return self.encoder
+    
+    def get_projector(self):
+        return self.projector
         
     def get_embedding_dim(self):
         return self.projector[0].weight.shape[1]

@@ -107,6 +107,8 @@ def read_command_line_args():
     parser.add_argument('--probing-use-val-stop', type=bool, default=True)
     parser.add_argument('--probing-val-ratio', type=float, default=0.1)
     parser.add_argument('--omega', type=float, default=0.5)
+    parser.add_argument('--momentum-ema', type=float, default=0.999)
+    parser.add_argument('--ema_use_replay', type=bool, default=True)
     parser.add_argument('--mem-size', type=int, default=2000)
     parser.add_argument('--mb-passes', type=int, default=3)
     parser.add_argument('--tr-mb-size', type=int, default=32)

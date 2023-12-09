@@ -51,17 +51,15 @@ class BYOL(nn.Module):
             return 2 - 2 * (x * y).sum(dim=-1)
         self.criterion = loss_byol
 
-    def forward(self, x1, x2):
-
-        
-        
+    def forward(self, x1, x2):        
         # Both augmentations are passed in both momentum and online nets 
 
-        z1_onl = self.online_projector(self.online_encoder(x1))
-        z1_mom = self.momentum_projector(self.momentum_encoder(x1))
+        with torch.no_grad():
+            z1_mom = self.momentum_projector(self.momentum_encoder(x1))
+            z2_mom = self.momentum_projector(self.momentum_encoder(x2))
 
+        z1_onl = self.online_projector(self.online_encoder(x1))
         z2_onl = self.online_projector(self.online_encoder(x2))
-        z2_mom = self.momentum_projector(self.momentum_encoder(x2))
 
         p1 = self.predictor(z1_onl)
         p2 = self.predictor(z2_onl)
@@ -86,6 +84,12 @@ class BYOL(nn.Module):
         else:
             return self.online_encoder
         
+    def get_projector(self):
+        if self.return_momentum_encoder:
+            return self.momentum_projector
+        else:
+            return self.online_projector
+            
     def get_embedding_dim(self):
         return self.online_projector[0].weight.shape[1]
     
