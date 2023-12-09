@@ -43,6 +43,11 @@ def init_optim(optim_name, params, lr, momentum, weight_decay):
         return LARS(params, lr=lr, weight_decay=weight_decay)
     else:
         raise ValueError(f"Invalid optimizer {optim_name}")
+
+@torch.no_grad() 
+def update_ema_params(model_params, ema_model_params, momentum):
+    for po, pm in zip(model_params, ema_model_params):
+            pm.data.mul_(momentum).add_(po.data, alpha=(1. - momentum))
     
 
 

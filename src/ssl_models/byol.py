@@ -3,6 +3,8 @@ from torch import nn
 import torch.nn.functional as F
 import copy
 
+from ..utils import update_ema_params
+
 class BYOL(nn.Module):
 
     def __init__(self, base_encoder, dim_proj=2048, dim_pred=512,
@@ -71,11 +73,12 @@ class BYOL(nn.Module):
     @torch.no_grad()
     def update_momentum(self):
         # Update encoder
-        onl_enc_params = self.online_encoder.parameters()
-        mom_enc_params = self.momentum_encoder.parameters()
-        for po, pm in zip(onl_enc_params, mom_enc_params):
-            pm.data.mul_(self.byol_momentum).add_(po.data, alpha=1. - self.byol_momentum)
-            
+        update_ema_params(
+            self.online_encoder.parameters(), self.momentum_encoder.parameters(), self.byol_momentum) 
+        
+        # Update projector
+        update_ema_params(
+           self.online_projector.parameters(), self.momentum_projector.parameters(), self.byol_momentum)
 
     def get_encoder(self):
         if self.return_momentum_encoder:
