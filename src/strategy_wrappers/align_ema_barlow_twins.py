@@ -10,10 +10,10 @@ from avalanche.benchmarks.scenarios import NCExperience
 
 from ..reservoir_buffer import ReservoirBufferUnlabeled
 from ..utils import UnsupervisedDataset, find_encoder, init_optim, update_ema_params
-from ..ssl_models.simsiam import SimSiam
-from ..transforms import get_transforms_simsiam, get_common_transforms
+from ..ssl_models.barlow_twins import BarlowTwins
+from ..transforms import get_transforms_barlow_twins, get_common_transforms
 
-class AlignEMASimSiam():
+class AlignEMABarlowTwins():
 
     def __init__(self,
                encoder: str = 'resnet18',
@@ -21,6 +21,7 @@ class AlignEMASimSiam():
                lr: float = 5e-4,
                momentum: float = 0.9,
                weight_decay: float = 1e-4,
+               lambd: float = 5e-3,
                dim_proj: int = 2048,
                dim_pred: int = 512,
                mem_size: int = 2000,
@@ -37,7 +38,8 @@ class AlignEMASimSiam():
                save_pth: str  = None,
                save_model: bool = False, 
                common_transforms: bool = True):
-
+        
+        self.lambd = lambd
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
@@ -66,14 +68,14 @@ class AlignEMASimSiam():
         if self.common_transforms:
             self.transforms = get_common_transforms(self.dataset_name)
         else:
-            self.transforms = get_transforms_simsiam(self.dataset_name)
+            self.transforms = get_transforms_barlow_twins(self.dataset_name)
 
         # Set up encoder
         self.encoder = find_encoder(encoder)
 
         # Set up model
-        self.model = SimSiam(self.encoder, dim_proj, dim_pred).to(self.device)
-        self.model_name = 'align_ema_simsiam'
+        self.model = BarlowTwins(self.encoder, dim_proj, self.lambd).to(self.device)
+        self.model_name = 'align_ema_barlow_twins'
 
         # Set up optimizer
         self.optimizer = init_optim(optim, self.model.parameters(), lr=self.lr,
@@ -107,6 +109,7 @@ class AlignEMASimSiam():
                 # Write hyperparameters
                 f.write(f'encoder: {self.encoder}\n')
                 f.write(f'Learning Rate: {self.lr}\n')
+                f.write(f'Lambda Barlow Twins: {self.lambd}\n')
                 f.write(f'momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
                 f.write(f'dim_proj: {self.dim_proj}\n')
@@ -165,18 +168,18 @@ class AlignEMASimSiam():
                         ema_z1 = self.ema_projector(e1)
                         ema_z2 = self.ema_projector(e2)
 
-                    simsiam_loss = self.model.get_criterion()
+                    barlow_twins_loss = self.model.get_criterion()
                     
                     if self.align_after_proj:
                         # Align features
                         aligned_features_1 = self.alignment_projector(z1)
                         aligned_features_2 = self.alignment_projector(z2)
-                        loss_align = 0.5*simsiam_loss(aligned_features_1, ema_z1) + 0.5*simsiam_loss(aligned_features_2, ema_z2)
+                        loss_align = 0.5*barlow_twins_loss(aligned_features_1, ema_z1) + 0.5*barlow_twins_loss(aligned_features_2, ema_z2)
                     else:
                         # Align features
                         aligned_features_1 = self.alignment_projector(e1)
                         aligned_features_2 = self.alignment_projector(e2)
-                        loss_align = 0.5*simsiam_loss(aligned_features_1, ema_e1) + 0.5*simsiam_loss(aligned_features_2, ema_e2)
+                        loss_align = 0.5*barlow_twins_loss(aligned_features_1, ema_e1) + 0.5*barlow_twins_loss(aligned_features_2, ema_e2)
 
                     loss += self.omega * loss_align.mean()
 

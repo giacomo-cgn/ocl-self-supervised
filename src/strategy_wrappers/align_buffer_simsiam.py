@@ -34,7 +34,6 @@ class AlignBufferSimSiam():
                save_model: bool = False, 
                common_transforms: bool = True):
 
-        self.momentum = momentum
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay

@@ -36,7 +36,6 @@ class AlignBufferBarlowTwins():
                common_transforms: bool = True):
 
         self.lambd = lambd
-        self.momentum = momentum
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay

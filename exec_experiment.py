@@ -16,6 +16,8 @@ from src.strategy_wrappers.align_buffer_simsiam import AlignBufferSimSiam
 from src.strategy_wrappers.align_buffer_barlow_twins import AlignBufferBarlowTwins
 from src.strategy_wrappers.align_buffer_byol import AlignBufferBYOL
 from src.strategy_wrappers.align_ema_simsiam import AlignEMASimSiam
+from src.strategy_wrappers.align_ema_barlow_twins import AlignEMABarlowTwins
+
 
 
 from src.transforms import get_dataset_transforms
@@ -168,6 +170,14 @@ def exec_experiment(**kwargs):
                                 mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
                                 mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                                 device=device, save_model=False, common_transforms=kwargs["common_transforms"])
+    elif kwargs["model"] == 'align_ema_barlow_twins':
+        model = AlignEMABarlowTwins(encoder=kwargs["encoder"], optim=kwargs["optim"], train_epochs=kwargs["epochs"],
+                            lr=kwargs["lr"], lambd=kwargs["lambd"],
+                            omega=kwargs["omega"], momentum_ema=kwargs["momentum_ema"],
+                            use_replay=kwargs["ema_use_replay"], align_after_proj=kwargs["ema_align_proj"],
+                            mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
+                            mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
+                            device=device, save_model=False, common_transforms=kwargs["common_transforms"])
     
     elif kwargs["model"] == 'no_strategy_byol':
         model =  NoStrategyBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"], train_epochs=kwargs["epochs"],
