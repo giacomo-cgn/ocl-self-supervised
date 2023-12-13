@@ -51,15 +51,18 @@ class SimSiam(nn.Module):
         """
 
         # Compute features for both views
-        z1 = self.projector(self.encoder(x1)) # NxC
-        z2 = self.projector(self.encoder(x2)) # NxC
+        e1 = self.encoder(x1)
+        e2 = self.encoder(x2)
+
+        z1 = self.projector(e1) # NxC
+        z2 = self.projector(e2) # NxC
 
         p1 = self.predictor(z1) # NxC
         p2 = self.predictor(z2) # NxC
 
         loss = -(self.criterion(p1, z2.detach()).mean() + self.criterion(p2, z1.detach()).mean()) * 0.5
 
-        return loss, z1, z2
+        return loss, z1, z2, e1, e2
     
     def get_encoder(self):
        return self.encoder

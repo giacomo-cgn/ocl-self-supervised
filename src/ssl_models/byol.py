@@ -58,15 +58,17 @@ class BYOL(nn.Module):
             z1_mom = self.momentum_projector(self.momentum_encoder(x1))
             z2_mom = self.momentum_projector(self.momentum_encoder(x2))
 
-        z1_onl = self.online_projector(self.online_encoder(x1))
-        z2_onl = self.online_projector(self.online_encoder(x2))
+        e1_onl = self.online_encoder(x1)
+        e2_onl = self.online_encoder(x2)
+        z1_onl = self.online_projector(e1_onl)
+        z2_onl = self.online_projector(e2_onl)
 
         p1 = self.predictor(z1_onl)
         p2 = self.predictor(z2_onl)
 
         loss = self.criterion(p1, z2_mom.detach()) + self.criterion(p2, z1_mom.detach())
 
-        return loss.mean(), z1_onl, z2_onl
+        return loss.mean(), z1_onl, z2_onl, e1_onl, e2_onl
     
     @torch.no_grad()
     def update_momentum(self):

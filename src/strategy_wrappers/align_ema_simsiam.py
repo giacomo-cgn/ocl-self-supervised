@@ -27,6 +27,7 @@ class AlignEMASimSiam():
                omega: float = 0.5,
                momentum_ema: float = 0.999,
                use_replay: bool = True,
+               align_after_proj: bool = True,
                replay_mb_size: int = 32,
                train_mb_size: int = 32,
                train_epochs: int = 1,
@@ -47,6 +48,7 @@ class AlignEMASimSiam():
         self.omega = omega
         self.momentum_ema = momentum_ema
         self.use_replay = use_replay
+        self.align_after_proj = align_after_proj
         self.replay_mb_size = replay_mb_size
         self.train_mb_size = train_mb_size
         self.train_epochs = train_epochs
@@ -86,12 +88,18 @@ class AlignEMASimSiam():
         self.ema_encoder.requires_grad_(False)
         self.ema_projector.requires_grad_(False)
 
-
         # Set up alignment projector (use dim_pred as hidden layer dim)
-        self.alignment_projector = nn.Sequential(nn.Linear(self.dim_proj, self.dim_pred, bias=False),
+        if self.align_after_proj:
+            self.alignment_projector = nn.Sequential(nn.Linear(self.dim_proj, self.dim_pred, bias=False),
                                                 nn.BatchNorm1d(self.dim_pred),
                                                 nn.ReLU(inplace=True),
                                                 nn.Linear(self.dim_pred, self.dim_proj)).to(self.device)
+        else:
+            dim_encoder_embed = self.model.get_embedding_dim()
+            self.alignment_projector = nn.Sequential(nn.Linear(dim_encoder_embed, self.dim_pred, bias=False),
+                                                nn.BatchNorm1d(self.dim_pred),
+                                                nn.ReLU(inplace=True),
+                                                nn.Linear(self.dim_pred, dim_encoder_embed)).to(self.device)
         
 
         if self.save_pth is not None:
@@ -107,6 +115,7 @@ class AlignEMASimSiam():
                 f.write(f'Omega: {self.omega}\n')
                 f.write(f'momentum_ema: {self.momentum_ema}\n')
                 f.write(f'use_replay in align to ema: {self.use_replay}\n')
+                f.write(f'align after projector: {self.align_after_proj}\n')
                 f.write(f'mem_size: {self.mem_size}\n')
                 f.write(f'replay_mb_size: {self.replay_mb_size}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
@@ -148,20 +157,27 @@ class AlignEMASimSiam():
                     x1, x2 = self.transforms(combined_batch)
 
                     # Forward pass
-                    loss, z1, z2 = self.model(x1, x2)
+                    loss, z1, z2, e1, e2 = self.model(x1, x2)
 
                     # EMA model pass
                     with torch.no_grad():
-                        ema_z1 = self.ema_projector(self.ema_encoder(x1))
-                        ema_z2 = self.ema_projector(self.ema_encoder(x2))
-
-                    # Align features
-                    aligned_features_1 = self.alignment_projector(z1)
-                    aligned_features_2 = self.alignment_projector(z2)
+                        ema_e1 = self.ema_encoder(x1)
+                        ema_e2 = self.ema_encoder(x2)
+                        ema_z1 = self.ema_projector(e1)
+                        ema_z2 = self.ema_projector(e2)
 
                     simsiam_loss = self.model.get_criterion()
-
-                    loss_align = 0.5*simsiam_loss(aligned_features_1, ema_z1) + 0.5*simsiam_loss(aligned_features_2, ema_z2)
+                    
+                    if self.align_after_proj:
+                        # Align features
+                        aligned_features_1 = self.alignment_projector(z1)
+                        aligned_features_2 = self.alignment_projector(z2)
+                        loss_align = 0.5*simsiam_loss(aligned_features_1, ema_z1) + 0.5*simsiam_loss(aligned_features_2, ema_z2)
+                    else:
+                        # Align features
+                        aligned_features_1 = self.alignment_projector(e1)
+                        aligned_features_2 = self.alignment_projector(e2)
+                        loss_align = 0.5*simsiam_loss(aligned_features_1, ema_e1) + 0.5*simsiam_loss(aligned_features_2, ema_e2)
 
                     loss += self.omega * loss_align.mean()
 

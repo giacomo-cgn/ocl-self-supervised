@@ -39,11 +39,14 @@ class BarlowTwins(nn.Module):
         self.criterion = barlow_twins_loss
 
     def forward(self, x1, x2):
-        z1 = self.projector(self.encoder(x1))
-        z2 = self.projector(self.encoder(x2))
+
+        e1 = self.encoder(x1)
+        e2 = self.encoder(x2)
+        z1 = self.projector(e1)
+        z2 = self.projector(e2)
 
         loss = self.criterion(z1, z2)
-        return loss, z1, z2
+        return loss, z1, z2, e1, e2
     
     def get_encoder(self):
         return self.encoder

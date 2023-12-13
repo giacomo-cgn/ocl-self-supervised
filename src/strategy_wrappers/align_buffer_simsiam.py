@@ -135,7 +135,7 @@ class AlignBufferSimSiam():
                     x1, x2 = self.transforms(combined_batch)
 
                     # Forward pass
-                    loss, z1, z2 = self.model(x1, x2)
+                    loss, z1, z2, _, _ = self.model(x1, x2)
 
                     if use_replay:
                         # Take only embed features from replay batch
