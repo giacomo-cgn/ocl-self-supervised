@@ -118,6 +118,7 @@ def read_command_line_args():
     parser.add_argument('--momentum-ema', type=float, default=0.999)
     parser.add_argument('--ema-use-replay', type=str_to_bool, default=True)
     parser.add_argument('--ema-align-proj', type=str_to_bool, default=True)
+    parser.add_argument('--use-mse-align', type=str_to_bool, default=True)
     parser.add_argument('--mem-size', type=int, default=2000)
     parser.add_argument('--mb-passes', type=int, default=3)
     parser.add_argument('--tr-mb-size', type=int, default=32)

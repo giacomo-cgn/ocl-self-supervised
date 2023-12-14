@@ -148,6 +148,7 @@ def exec_experiment(**kwargs):
                             train_epochs=kwargs["epochs"], lr=kwargs["lr"],
                             omega=kwargs["omega"], momentum_ema=kwargs["momentum_ema"],
                             use_replay=kwargs["ema_use_replay"], align_after_proj=kwargs["ema_align_proj"],
+                            use_mse_align=kwargs["use_mse_align"],
                             train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
                             mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                             device=device, save_model=False, common_transforms=kwargs["common_transforms"])
@@ -175,6 +176,7 @@ def exec_experiment(**kwargs):
                             lr=kwargs["lr"], lambd=kwargs["lambd"],
                             omega=kwargs["omega"], momentum_ema=kwargs["momentum_ema"],
                             use_replay=kwargs["ema_use_replay"], align_after_proj=kwargs["ema_align_proj"],
+                            use_mse_align=kwargs["use_mse_align"],
                             mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
                             mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
                             device=device, save_model=False, common_transforms=kwargs["common_transforms"])

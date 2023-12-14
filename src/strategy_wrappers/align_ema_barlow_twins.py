@@ -5,6 +5,7 @@ import copy
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
+from torch.nn.functional import mse_loss
 
 from avalanche.benchmarks.scenarios import NCExperience
 
@@ -29,6 +30,7 @@ class AlignEMABarlowTwins():
                momentum_ema: float = 0.999,
                use_replay: bool = True,
                align_after_proj: bool = True,
+               use_mse_align: bool = True,
                replay_mb_size: int = 32,
                train_mb_size: int = 32,
                train_epochs: int = 1,
@@ -50,6 +52,7 @@ class AlignEMABarlowTwins():
         self.momentum_ema = momentum_ema
         self.use_replay = use_replay
         self.align_after_proj = align_after_proj
+        self.use_mse_align = use_mse_align
         self.replay_mb_size = replay_mb_size
         self.train_mb_size = train_mb_size
         self.train_epochs = train_epochs
@@ -168,18 +171,21 @@ class AlignEMABarlowTwins():
                         ema_z1 = self.ema_projector(e1)
                         ema_z2 = self.ema_projector(e2)
 
-                    barlow_twins_loss = self.model.get_criterion()
+                    if self.use_mse_align:
+                        align_criterion = mse_loss
+                    else:
+                        align_criterion = self.model.get_criterion()
                     
                     if self.align_after_proj:
                         # Align features
                         aligned_features_1 = self.alignment_projector(z1)
                         aligned_features_2 = self.alignment_projector(z2)
-                        loss_align = 0.5*barlow_twins_loss(aligned_features_1, ema_z1) + 0.5*barlow_twins_loss(aligned_features_2, ema_z2)
+                        loss_align = 0.5*align_criterion(aligned_features_1, ema_z1) + 0.5*align_criterion(aligned_features_2, ema_z2)
                     else:
                         # Align features
                         aligned_features_1 = self.alignment_projector(e1)
                         aligned_features_2 = self.alignment_projector(e2)
-                        loss_align = 0.5*barlow_twins_loss(aligned_features_1, ema_e1) + 0.5*barlow_twins_loss(aligned_features_2, ema_e2)
+                        loss_align = 0.5*align_criterion(aligned_features_1, ema_e1) + 0.5*align_criterion(aligned_features_2, ema_e2)
 
                     loss += self.omega * loss_align.mean()
 
