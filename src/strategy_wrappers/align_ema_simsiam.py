@@ -117,6 +117,7 @@ class AlignEMASimSiam():
                 f.write(f'Omega: {self.omega}\n')
                 f.write(f'momentum_ema: {self.momentum_ema}\n')
                 f.write(f'use_replay in align to ema: {self.use_replay}\n')
+                f.write(f'Use MSE loss for alignment: {self.use_mse_align}\n')
                 f.write(f'align after projector: {self.align_after_proj}\n')
                 f.write(f'mem_size: {self.mem_size}\n')
                 f.write(f'replay_mb_size: {self.replay_mb_size}\n')
