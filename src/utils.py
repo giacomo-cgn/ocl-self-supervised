@@ -116,7 +116,6 @@ def read_command_line_args():
     parser.add_argument('--epochs', type=int, default=1)
     parser.add_argument('--probing-separate', type=str_to_bool, default=True)
     parser.add_argument('--probing-upto', type=str_to_bool, default=True)
-    parser.add_argument('--probing-epochs', type=int, default=50)
     parser.add_argument('--probing-val-ratio', type=float, default=0.1)
     parser.add_argument('--omega', type=float, default=0.5)
     parser.add_argument('--momentum-ema', type=float, default=0.999)

@@ -67,7 +67,6 @@ def exec_experiment(**kwargs):
         f.write(f'Number of Experiences: {kwargs["num_exps"]}\n')
         f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')
         f.write(f'Probing on joint exps Up To current: {kwargs["probing_upto"]}\n')
-        f.write(f'Probing Epochs: {kwargs["probing_epochs"]}\n')
         f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
         f.write(f'Memory Size: {kwargs["mem_size"]}\n')
         f.write(f'MB Passes: {kwargs["mb_passes"]}\n')
