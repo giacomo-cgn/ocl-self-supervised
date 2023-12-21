@@ -15,9 +15,9 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=Tru
           # 'byol-momentum': [0.99, 0.999],
           }
      str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
-     folder_name = f'hypertune_{experiment_name}_{args.model}_{str_now}'
+     folder_name = f'hypertune_{experiment_name}_{args.strategy}_{args.model}_{str_now}'
      if args.iid:
-          folder_name = f'hypertune_iid_{experiment_name}_{args.model}_{str_now}'
+          folder_name = f'hypertune_iid_{experiment_name}_{args.strategy}_{args.model}_{str_now}'
      save_folder = os.path.join(parent_log_folder, folder_name)
      if not os.path.exists(save_folder):
           os.makedirs(save_folder)

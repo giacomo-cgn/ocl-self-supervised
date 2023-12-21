@@ -4,12 +4,13 @@ class SimSiam(nn.Module):
     """
     Build a SimSiam model.
     """
-    def __init__(self, base_encoder, dim_proj=2048, dim_pred=512):
-        """
-        dim_proj: feature dimension (default: 2048)
-        dim_pred: hidden dimension of the predictor (default: 512)
-        """
+    def __init__(self, base_encoder, dim_proj=2048, dim_pred=512, save_pth=None):
         super(SimSiam, self).__init__()
+        self.save_pth = save_pth
+        self.model_name = 'simsiam'
+        self.dim_projector = dim_proj
+        self.dim_predictor = dim_pred
+
         # Set up criterion
         self.criterion = nn.CosineSimilarity(dim=1)
 
@@ -39,17 +40,18 @@ class SimSiam(nn.Module):
                                         nn.BatchNorm1d(dim_pred),
                                         nn.ReLU(inplace=True), # hidden layer
                                         nn.Linear(dim_pred, dim_proj)) # output layer
+        
+        if self.save_pth is not None:
+            # Save model configuration
+            with open(self.save_pth + '/config.txt', 'a') as f:
+                # Write strategy hyperparameters
+                f.write('\n')
+                f.write('---- SSL MODEL CONFIG ----\n')
+                f.write(f'MODEL: {self.model_name}\n')
+                f.write(f'dim_projector: {dim_proj}\n')
+                f.write(f'dim_predictor: {dim_pred}\n')
 
     def forward(self, x1, x2):
-        """
-        Input:
-            x1: first views of images
-            x2: second views of images
-        Output:
-            p1, p2, z1, z2: predictors and targets of the network
-            See Sec. 3 of https://arxiv.org/abs/2011.10566 for detailed notations
-        """
-
         # Compute features for both views
         e1 = self.encoder(x1)
         e2 = self.encoder(x2)
@@ -73,5 +75,17 @@ class SimSiam(nn.Module):
     def get_embedding_dim(self):
         return self.projector[0].weight.shape[1]
     
+    def get_projector_dim(self):
+        return self.dim_projector
+    
+    def get_predictor_dim(self):
+        return self.dim_predictor
+    
     def get_criterion(self):
         return self.criterion
+    
+    def get_name(self):
+        return self.model_name
+
+    def after_backward(self):
+        return

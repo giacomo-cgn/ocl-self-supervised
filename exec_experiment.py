@@ -2,26 +2,23 @@ from avalanche.benchmarks.classic import SplitCIFAR100
 
 import torch
 from torch.utils.data import ConcatDataset
+from torchvision import models
+
 import os
 import datetime
 import tqdm as tqdm
 
-from src.strategy_wrappers.replay_simsiam import ReplaySimSiam
-from src.strategy_wrappers.replay_barlow_twins import ReplayBarlowTwins
-from src.strategy_wrappers.no_strategy_simsiam import NoStrategySimSiam
-from src.strategy_wrappers.no_strategy_barlow_twins import NoStrategyBarlowTwins
-from src.strategy_wrappers.no_strategy_byol import NoStrategyBYOL
-from src.strategy_wrappers.replay_byol import ReplayBYOL
-from src.strategy_wrappers.align_buffer_simsiam import AlignBufferSimSiam
-from src.strategy_wrappers.align_buffer_barlow_twins import AlignBufferBarlowTwins
-from src.strategy_wrappers.align_buffer_byol import AlignBufferBYOL
-from src.strategy_wrappers.align_ema_simsiam import AlignEMASimSiam
-from src.strategy_wrappers.align_ema_barlow_twins import AlignEMABarlowTwins
+from src.ssl_models.barlow_twins import BarlowTwins
+from src.ssl_models.simsiam import SimSiam
+from src.ssl_models.byol import BYOL
 
-
+from src.strategy_wrappers.no_strategy import NoStrategy
+from src.strategy_wrappers.replay import Replay
+from src.strategy_wrappers.align_buffer import AlignBuffer
+from src.strategy_wrappers.align_ema import AlignEMA
+from src.strategy_wrappers.align_ema_replay import AlignEMAReplay
 
 from src.transforms import get_dataset_transforms
-from src.probing import LinearProbing
 from src.probing_sklearn import LinearProbingSklearn
 from src.utils import write_final_scores
 
@@ -35,7 +32,7 @@ def exec_experiment(**kwargs):
 
     # Set up save folders
     str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
-    folder_name = f'{kwargs["model"]}_{kwargs["dataset"]}_{str_now}'
+    folder_name = f'{kwargs["strategy"]}_{kwargs["model"]}_{kwargs["dataset"]}_{str_now}'
     if kwargs["iid"]:
         folder_name = 'iid_' + folder_name
     save_pth = os.path.join(kwargs["save_folder"], folder_name)
@@ -61,24 +58,22 @@ def exec_experiment(**kwargs):
 
     # Save general kwargs
     with open(save_pth + '/config.txt', 'a') as f:
+        f.write('\n')
+        f.write(f'---- EXPERIMENT CONFIGS ----\n')
+        f.write(f'Experiment Date: {str_now}\n')
         f.write(f'Model: {kwargs["model"]}\n')
         f.write(f'Encoder: {kwargs["encoder"]}\n')
-        f.write(f'Optimizer: {kwargs["optim"]}\n')
-        f.write(f'Learning Rate: {kwargs["lr"]}\n')
         f.write(f'Dataset: {kwargs["dataset"]}\n')
         f.write(f'Number of Experiences: {kwargs["num_exps"]}\n')
-        f.write(f'Epochs: {kwargs["epochs"]}\n')
         f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')
         f.write(f'Probing on joint exps Up To current: {kwargs["probing_upto"]}\n')
         f.write(f'Probing Epochs: {kwargs["probing_epochs"]}\n')
-        f.write(f'Probing Use Validation Stop: {kwargs["probing_use_val_stop"]}\n')
         f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
         f.write(f'Memory Size: {kwargs["mem_size"]}\n')
         f.write(f'MB Passes: {kwargs["mb_passes"]}\n')
         f.write(f'Train MB Size: {kwargs["tr_mb_size"]}\n')
         f.write(f'Replay MB Size: {kwargs["repl_mb_size"]}\n')
         f.write(f'Evaluation MB Size: {kwargs["eval_mb_size"]}\n')
-        f.write(f'Use Common Transforms: {kwargs["common_transforms"]}\n')
         f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
         f.write(f'IID pretraining: {kwargs["iid"]}\n')
         f.write(f'Save final model: {kwargs["save_model_final"]}\n')
@@ -123,93 +118,78 @@ def exec_experiment(**kwargs):
         print('No GPU available, using the CPU instead.')
         device = torch.device("cpu")
 
-
-    # Model
-    if kwargs["model"] == 'no_strategy_simsiam':
-        model = NoStrategySimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"], train_epochs=kwargs["epochs"],
-                                lr=kwargs["lr"],
-                                train_mb_size=kwargs["tr_mb_size"], mb_passes=kwargs["mb_passes"],
-                                dataset_name=kwargs["dataset"], save_pth=save_pth, device=device,
-                                save_model=False, common_transforms=kwargs["common_transforms"])
-    elif kwargs["model"] == 'replay_simsiam':
-        model = ReplaySimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
-                            train_epochs=kwargs["epochs"], lr=kwargs["lr"],
-                            train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
-                            mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
-                            device=device, save_model=False, common_transforms=kwargs["common_transforms"])
-    elif kwargs["model"] == 'align_buffer_simsiam':
-        model = AlignBufferSimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
-                            train_epochs=kwargs["epochs"], lr=kwargs["lr"], omega=kwargs["omega"],
-                            train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
-                            mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
-                            device=device, save_model=False, common_transforms=kwargs["common_transforms"])
-    elif kwargs["model"] == 'align_ema_simsiam':
-        model = AlignEMASimSiam(encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
-                            train_epochs=kwargs["epochs"], lr=kwargs["lr"],
-                            omega=kwargs["omega"], momentum_ema=kwargs["momentum_ema"],
-                            use_replay=kwargs["ema_use_replay"], align_after_proj=kwargs["ema_align_proj"],
-                            use_mse_align=kwargs["use_mse_align"],
-                            train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
-                            mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
-                            device=device, save_model=False, common_transforms=kwargs["common_transforms"])
-        
-    elif kwargs["model"] == 'no_strategy_barlow_twins':
-        model = NoStrategyBarlowTwins(encoder=kwargs["encoder"], optim=kwargs["optim"], train_epochs=kwargs["epochs"],
-                                    lr=kwargs["lr"], lambd=kwargs["lambd"],  
-                                    train_mb_size=kwargs["tr_mb_size"],
-                                    mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
-                                    device=device, save_model=False, common_transforms=kwargs["common_transforms"])
-    elif kwargs["model"] == 'replay_barlow_twins':
-        model = ReplayBarlowTwins(encoder=kwargs["encoder"], optim=kwargs["optim"], train_epochs=kwargs["epochs"],
-                                lr=kwargs["lr"], lambd=kwargs["lambd"],
-                                mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
-                                mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
-                                device=device, save_model=False, common_transforms=kwargs["common_transforms"])
-    elif kwargs["model"] == 'align_buffer_barlow_twins':
-        model = AlignBufferBarlowTwins(encoder=kwargs["encoder"], optim=kwargs["optim"], train_epochs=kwargs["epochs"],
-                                lr=kwargs["lr"], lambd=kwargs["lambd"], omega=kwargs["omega"],
-                                mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
-                                mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
-                                device=device, save_model=False, common_transforms=kwargs["common_transforms"])
-    elif kwargs["model"] == 'align_ema_barlow_twins':
-        model = AlignEMABarlowTwins(encoder=kwargs["encoder"], optim=kwargs["optim"], train_epochs=kwargs["epochs"],
-                            lr=kwargs["lr"], lambd=kwargs["lambd"],
-                            omega=kwargs["omega"], momentum_ema=kwargs["momentum_ema"],
-                            use_replay=kwargs["ema_use_replay"], align_after_proj=kwargs["ema_align_proj"],
-                            use_mse_align=kwargs["use_mse_align"],
-                            mem_size=kwargs["mem_size"], train_mb_size=kwargs["tr_mb_size"], replay_mb_size=kwargs["repl_mb_size"],
-                            mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
-                            device=device, save_model=False, common_transforms=kwargs["common_transforms"])
+    # Encoder
+    if kwargs["encoder"] == 'resnet18':
+        encoder = models.resnet18
+    elif kwargs["encoder"] == 'resnet34':
+        encoder = models.resnet34
+    elif kwargs["encoder"] == 'resnet50':
+        encoder = models.resnet50
+    else:
+        raise Exception(f'Invalid encoder {kwargs["encoder"]}')
     
-    elif kwargs["model"] == 'no_strategy_byol':
-        model =  NoStrategyBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"], train_epochs=kwargs["epochs"],
-                                lr=kwargs["lr"], byol_momentum=kwargs["byol_momentum"], 
-                                encoder=kwargs["encoder"], optim=kwargs["optim"], train_mb_size=kwargs["tr_mb_size"],
-                                mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
-                                device=device, save_model=False, common_transforms=kwargs["common_transforms"])
-    elif kwargs["model"] == 'replay_byol':
-        model = ReplayBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"], train_epochs=kwargs["epochs"],
-                                lr=kwargs["lr"], byol_momentum=kwargs["byol_momentum"], replay_mb_size=kwargs["repl_mb_size"],
-                                encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
-                                train_mb_size=kwargs["tr_mb_size"],
-                                mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
-                                device=device, save_model=False, common_transforms=kwargs["common_transforms"])
-    elif kwargs["model"] == 'align_buffer_byol':
-        model = AlignBufferBYOL(return_momentum_encoder=kwargs["return_momentum_encoder"], train_epochs=kwargs["epochs"],
-                                lr=kwargs["lr"], byol_momentum=kwargs["byol_momentum"], replay_mb_size=kwargs["repl_mb_size"],
-                                encoder=kwargs["encoder"], optim=kwargs["optim"], mem_size=kwargs["mem_size"],
-                                train_mb_size=kwargs["tr_mb_size"], omega=kwargs["omega"],
-                                mb_passes=kwargs["mb_passes"], dataset_name=kwargs["dataset"], save_pth=save_pth,
-                                device=device, save_model=False, common_transforms=kwargs["common_transforms"])
+    # Model
+    if kwargs["model"] == 'simsiam':
+        model = SimSiam(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
+                        dim_pred=kwargs["dim_pred"], save_pth=save_pth).to(device)
+    elif kwargs["model"] == 'byol':
+        model = BYOL(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
+                     dim_pred=kwargs["dim_pred"], byol_momentum=kwargs["byol_momentum"],
+                     return_momentum_encoder=kwargs["return_momentum_encoder"], save_pth=save_pth).to(device)
+        
+    elif kwargs["model"] == 'barlow_twins':
+        model = BarlowTwins(encoder=encoder, dim_features=kwargs["dim_proj"],
+                            dim_pred=kwargs["dim_pred"], lambd=kwargs["lambd"], save_pth=save_pth).to(device)
         
     else:
-        # Throw exception
-        raise Exception(f'Model {kwargs["model"]} not supported')
+        raise Exception(f'Invalid model {kwargs["model"]}')
+    
+    # Strategy
+    if kwargs["strategy"] == 'no_strategy':
+        strategy = NoStrategy(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                              weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                              mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                              save_model=False, common_transforms=kwargs["common_transforms"])
+    
+    elif kwargs["strategy"] == 'replay':
+        strategy = Replay(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                          weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                          mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                          save_model=False, common_transforms=kwargs["common_transforms"],
+                          mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"])
+        
+    elif kwargs["strategy"] == 'align_buffer':
+        strategy = AlignBuffer(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                               weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                               mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                               save_model=False, common_transforms=kwargs["common_transforms"],
+                               mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"], omega=kwargs["omega"],
+                               align_criterion=kwargs["align_criterion"])
+    
+    elif kwargs["strategy"] == 'align_ema':
+        strategy = AlignEMA(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                            weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                            mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                            save_model=False, common_transforms=kwargs["common_transforms"],
+                            omega=kwargs["omega"], align_criterion=kwargs["align_criterion"], momentum_ema=kwargs["momentum_ema"],
+                            align_after_proj=kwargs["ema_align_proj"])
+    
+    elif kwargs["strategy"] == 'align_ema_replay':
+        strategy = AlignEMAReplay(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                                  weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                                  mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                                  save_model=False, common_transforms=kwargs["common_transforms"],
+                                  mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"], omega=kwargs["omega"],
+                                  align_criterion=kwargs["align_criterion"], momentum_ema=kwargs["momentum_ema"],
+                                  align_after_proj=kwargs["ema_align_proj"])
+
+    else:
+        raise Exception(f'Strategy {kwargs["strategy"]} not supported')
 
     # Self supervised training over the experiences
     for exp_idx, experience in enumerate(pretr_benchmark.train_stream):
         print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
-        network = model.train_experience(experience, exp_idx)
+        network = strategy.train_experience(experience, exp_idx)
 
         # Probing on all experiences up to current
         if kwargs['probing_upto'] and not kwargs['iid']:

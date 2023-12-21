@@ -8,8 +8,13 @@ from ..utils import update_ema_params
 class BYOL(nn.Module):
 
     def __init__(self, base_encoder, dim_proj=2048, dim_pred=512,
-                  byol_momentum=0.9, return_momentum_encoder=True):
+                  byol_momentum=0.9, return_momentum_encoder=True, 
+                  save_pth=None):
         super(BYOL, self).__init__()
+        self.save_pth = save_pth
+        self.model_name = 'byol'
+        self.dim_projector = dim_proj
+        self.dim_predictor = dim_pred
 
         self.byol_momentum = byol_momentum
         self.return_momentum_encoder = return_momentum_encoder
@@ -50,6 +55,17 @@ class BYOL(nn.Module):
             y = F.normalize(y, dim=-1, p=2)
             return 2 - 2 * (x * y).sum(dim=-1)
         self.criterion = loss_byol
+
+        if self.save_pth is not None:
+            # Save model configuration
+            with open(self.save_pth + '/config.txt', 'a') as f:
+                # Write strategy hyperparameters
+                f.write('\n')
+                f.write('---- SSL MODEL CONFIG ----\n')
+                f.write(f'Byol_Momentum: {self.byol_momentum}\n')
+                f.write(f'MODEL: {self.model_name}\n')
+                f.write(f'dim_projector: {dim_proj}\n')
+                f.write(f'dim_predictor: {dim_pred}\n')
 
     def forward(self, x1, x2):        
         # Both augmentations are passed in both momentum and online nets 
@@ -95,5 +111,17 @@ class BYOL(nn.Module):
     def get_embedding_dim(self):
         return self.online_projector[0].weight.shape[1]
     
+    def get_projector_dim(self):
+        return self.dim_projector
+    
+    def get_predictor_dim(self):
+        return self.dim_predictor
+    
     def get_criterion(self):
         return self.criterion
+    
+    def get_name(self):
+        return self.model_name
+
+    def after_backward(self):
+        self.update_momentum()

@@ -145,7 +145,23 @@ def get_common_transforms(dataset: str = 'cifar100'):
     return TwoCropsTransform(transforms.Compose(all_transforms))
     
 
-        
+def get_transforms(dataset: str, model: str):
+    """Returns augmentations for self supervised models"""
+
+    if model == "simsiam":
+        return get_transforms_simsiam(dataset)
+
+    elif model == "barlow_twins":
+        return get_transforms_barlow_twins(dataset)
+
+    elif model == "byol":
+        return get_transforms_byol(dataset)
+
+    elif model == "common":
+        return get_common_transforms(dataset)
+
+    else:
+        raise ValueError(f"Model {model} not supported")
 
         
         

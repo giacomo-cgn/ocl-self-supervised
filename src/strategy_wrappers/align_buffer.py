@@ -8,44 +8,37 @@ from torch.utils.data import DataLoader
 from avalanche.benchmarks.scenarios import NCExperience
 
 from ..reservoir_buffer import ReservoirBufferUnlabeledFeatures
-from ..utils import UnsupervisedDataset, find_encoder, init_optim
-from ..ssl_models.byol import BYOL
-from ..transforms import get_transforms_byol, get_common_transforms
+from ..utils import UnsupervisedDataset, init_optim
+from ..transforms import get_transforms
 
-class AlignBufferBYOL():
+class AlignBuffer():
 
     def __init__(self,
-               encoder: str = 'resnet18',
-               optim: str = 'SGD',
-               lr: float = 5e-4,
-               momentum: float = 0.9,
-               weight_decay: float = 1e-4,
-               byol_momentum: float = 0.9,
-               return_momentum_encoder: bool = True,
-               dim_proj: int = 2048,
-               dim_pred: int = 512,
-               mem_size: int = 2000,
-               omega: float = 0.5,
-               replay_mb_size: int = 32,
-               train_mb_size: int = 32,
-               train_epochs: int = 1,
-               mb_passes: int = 3,
-               device = 'cpu',
-               dataset_name: str = 'cifar100',
-               save_pth: str  = None,
-               save_model: bool = False, 
-               common_transforms: bool = True):
+                 model: torch.nn.Module = None,
+                 optim: str = 'SGD',
+                 lr: float = 5e-4,
+                 momentum: float = 0.9,
+                 weight_decay: float = 1e-4,
+                 train_mb_size: int = 32,
+                 train_epochs: int = 1,
+                 mb_passes: int = 3,
+                 device = 'cpu',
+                 dataset_name: str = 'cifar100',
+                 save_pth: str  = None,
+                 save_model: bool = False,
+                 common_transforms: bool = True,
+                 mem_size: int = 2000,
+                 replay_mb_size: int = 32,
+                 omega: float = 0.1,
+                 align_criterion: str = 'ssl'
+    ):
+        if model is None:
+            raise Exception(f'This strategy requires a SSL model')            
 
+        self.model = model
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
-        self.byol_momentum = byol_momentum
-        self.return_momentum_encoder = return_momentum_encoder
-        self.dim_proj = dim_proj
-        self.dim_pred = dim_pred
-        self.mem_size = mem_size
-        self.omega = omega
-        self.replay_mb_size = replay_mb_size
         self.train_mb_size = train_mb_size
         self.train_epochs = train_epochs
         self.mb_passes = mb_passes
@@ -54,56 +47,61 @@ class AlignBufferBYOL():
         self.save_pth = save_pth
         self.save_model = save_model
         self.common_transforms = common_transforms
+        self.mem_size = mem_size
+        self.replay_mb_size = replay_mb_size
+        self.omega = omega
+        self.align_criterion_name = align_criterion
+
+        self.strategy_name = 'align_buffer'
+        self.model_and_strategy_name = self.strategy_name + '_' + self.model.get_name()
+
+        # Set up feature alignment criterion
+        if self.align_criterion_name == 'ssl':
+            self.align_criterion = self.model.get_criterion()
+        elif self.align_criterion_name == 'mse':
+            self.align_criterion = nn.MSELoss()
 
         # Set up buffer
         self.buffer = ReservoirBufferUnlabeledFeatures(self.mem_size)
 
         # Set up transforms
         if self.common_transforms:
-            self.transforms = get_common_transforms(self.dataset_name)
+            self.transforms = get_transforms(dataset=self.dataset_name, model='common')
         else:
-            self.transforms = get_transforms_byol(self.dataset_name)
+            self.transforms = get_transforms(dataset=self.dataset_name, model=self.model.get_name())
 
-        # Set up encoder
-        self.encoder = find_encoder(encoder)
-
-        # Set up model
-        self.model = BYOL(self.encoder, dim_proj, dim_pred,
-                           self.byol_momentum, self.return_momentum_encoder).to(self.device)
-        self.model_name = 'align_buffer_byol'
+        # Set up alignment projector (use dim_pred as hidden layer dim)
+        dim_proj = self.model.get_projector_dim()
+        dim_align_layer = self.model.get_predictor_dim()
+        self.alignment_projector = nn.Sequential(nn.Linear(dim_proj, dim_align_layer, bias=False),
+                                                nn.BatchNorm1d(dim_align_layer),
+                                                nn.ReLU(inplace=True),
+                                                nn.Linear(dim_align_layer, dim_proj)).to(self.device)
 
         # Set up optimizer
-        self.optimizer = init_optim(optim, self.model.parameters(), lr=self.lr,
+        params_to_optimize = list(self.model.parameters()) + list(self.alignment_projector.parameters())
+        self.optimizer = init_optim(optim, params_to_optimize, lr=self.lr,
                                    momentum=self.momentum, weight_decay=self.weight_decay)
-        
-        # Set up alignment projector (use dim_pred as hidden layer dim)
-        self.alignment_projector = nn.Sequential(nn.Linear(self.dim_proj, self.dim_pred, bias=False),
-                                                nn.BatchNorm1d(self.dim_pred),
-                                                nn.ReLU(inplace=True),
-                                                nn.Linear(self.dim_pred, self.dim_proj)).to(self.device)
-        
-
 
         if self.save_pth is not None:
             # Save model configuration
             with open(self.save_pth + '/config.txt', 'a') as f:
-                # Write hyperparameters
-                f.write(f'encoder: {self.encoder}\n')
+                # Write strategy hyperparameters
+                f.write('\n')
+                f.write('---- STRATEGY CONFIG ----\n')
+                f.write(f'STRATEGY: {self.strategy_name}\n')
+                f.write(f'optim: {optim}\n') 
                 f.write(f'Learning Rate: {self.lr}\n')
-                f.write(f'momentum: {self.momentum}\n')
+                f.write(f'optim-momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
-                f.write(f'byol_momentum: {self.byol_momentum}\n')
-                f.write(f'return_momentum_encoder: {self.return_momentum_encoder}\n')
-                f.write(f'dim_proj: {self.dim_proj}\n')
-                f.write(f'dim_pred: {self.dim_pred}\n')
-                f.write(f'Omega: {self.omega}\n')
-                f.write(f'mem_size: {self.mem_size}\n')
-                f.write(f'replay_mb_size: {self.replay_mb_size}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
-                f.write(f'device: {self.device}\n')
-                f.write(f'dataset_name: {self.dataset_name}\n')
+                f.write(f'mem_size: {self.mem_size}\n')
+                f.write(f'replay_mb_size: {self.replay_mb_size}\n')
+                f.write(f'omega: {self.omega}\n')
+                f.write(f'align_criterion: {self.align_criterion_name}\n')
+
 
                 # Write loss file column names
                 with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
@@ -124,6 +122,7 @@ class AlignBufferBYOL():
             for mb_idx, mbatch in tqdm(enumerate(data_loader)):
                 mbatch = mbatch.to(self.device)
                 new_mbatch = mbatch
+                new_mbatch_size = len(new_mbatch)
 
                 for k in range(self.mb_passes):
                     if len(self.buffer.buffer) > self.replay_mb_size:
@@ -145,15 +144,13 @@ class AlignBufferBYOL():
 
                     if use_replay:
                         # Take only embed features from replay batch
-                        replay_z_new_1 = z1[-self.replay_mb_size:]
-                        replay_z_new_2 = z2[-self.replay_mb_size:]
+                        replay_z_new_1 = z1[:self.replay_mb_size]
+                        replay_z_new_2 = z2[:self.replay_mb_size]
 
                         aligned_features_1 = self.alignment_projector(replay_z_new_1)
                         aligned_features_2 = self.alignment_projector(replay_z_new_2)
 
-                        byol_loss = self.model.get_criterion()
-
-                        loss_align = 0.5*byol_loss(aligned_features_1, replay_z_old) + 0.5*byol_loss(aligned_features_2, replay_z_old)
+                        loss_align = 0.5*self.align_criterion(aligned_features_1, replay_z_old) + 0.5*self.align_criterion(aligned_features_2, replay_z_old)
 
                         loss += self.omega * loss_align.mean()
 
@@ -162,16 +159,15 @@ class AlignBufferBYOL():
                     loss.backward()
                     self.optimizer.step()
 
+                    self.model.after_backward()
+
                     # Save loss, exp_idx, epoch, mb_idx and k in csv
                     if self.save_pth is not None:
                         with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
                             f.write(f'{loss.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
 
-                    # Update target momentum network
-                    self.model.update_momentum()
-
                 # Update buffer with new samples
-                self.buffer.add(new_mbatch.detach(), z1[:self.train_mb_size].detach()) # Use only first view features, as augmentations are random
+                self.buffer.add(new_mbatch.detach(), z1[-new_mbatch_size:].detach()) # Use only first view features, as augmentations are random
 
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:

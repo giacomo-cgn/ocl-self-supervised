@@ -6,38 +6,35 @@ from torch.utils.data import DataLoader
 
 from avalanche.benchmarks.scenarios import NCExperience
 
-from ..utils import UnsupervisedDataset, find_encoder, init_optim
-from ..ssl_models.byol import BYOL
-from ..transforms import get_transforms_byol, get_common_transforms
+from ..utils import UnsupervisedDataset, init_optim
+from ..transforms import get_transforms
 
-class NoStrategyBYOL():
+
+class NoStrategy():
 
     def __init__(self,
-               encoder: str = 'resnet18',
-               optim: str = 'SGD',
-               lr: float = 5e-4,
-               momentum: float = 0.9,
-               weight_decay: float = 1e-4,
-               byol_momentum: float = 0.9,
-               return_momentum_encoder: bool = True,
-               dim_proj: int = 2048,
-               dim_pred: int = 512,
-               train_mb_size: int = 32,
-               train_epochs: int = 1,
-               mb_passes: int = 3,
-               device = 'cpu',
-               dataset_name: str = 'cifar100',
-               save_pth: str  = None,
-               save_model: bool = False,
-               common_transforms: bool = True):
+                 model: torch.nn.Module = None,
+                 optim: str = 'SGD',
+                 lr: float = 5e-4,
+                 momentum: float = 0.9,
+                 weight_decay: float = 1e-4,
+                 train_mb_size: int = 32,
+                 train_epochs: int = 1,
+                 mb_passes: int = 3,
+                 device = 'cpu',
+                 dataset_name: str = 'cifar100',
+                 save_pth: str  = None,
+                 save_model: bool = False,
+                 common_transforms: bool = True,
+               ):
+        
+        if model is None:
+            raise Exception(f'This strategy requires a SSL model')            
 
+        self.model = model
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
-        self.byol_momentum = byol_momentum
-        self.return_momentum_encoder = return_momentum_encoder
-        self.dim_proj = dim_proj
-        self.dim_pred = dim_pred
         self.train_mb_size = train_mb_size
         self.train_epochs = train_epochs
         self.mb_passes = mb_passes
@@ -47,19 +44,14 @@ class NoStrategyBYOL():
         self.save_model = save_model
         self.common_transforms = common_transforms
 
+        self.strategy_name = 'no_strategy'
+        self.model_and_strategy_name = self.strategy_name + '_' + self.model.get_name()
+
         # Set up transforms
         if self.common_transforms:
-            self.transforms = get_common_transforms(self.dataset_name)
+            self.transforms = get_transforms(dataset=self.dataset_name, model='common')
         else:
-            self.transforms = get_transforms_byol(self.dataset_name)
-
-        # Set up encoder
-        self.encoder = find_encoder(encoder)
-
-        # Set up model
-        self.model = BYOL(self.encoder, dim_proj, dim_pred,
-                           self.byol_momentum, self.return_momentum_encoder).to(self.device)
-        self.model_name = 'no_strategy_byol'
+            self.transforms = get_transforms(dataset=self.dataset_name, model=self.model.get_name())
 
         # Set up optimizer
         self.optimizer = init_optim(optim, self.model.parameters(), lr=self.lr,
@@ -69,20 +61,18 @@ class NoStrategyBYOL():
         if self.save_pth is not None:
             # Save model configuration
             with open(self.save_pth + '/config.txt', 'a') as f:
-                # Write hyperparameters
-                f.write(f'encoder: {encoder}\n')
+                # Write strategy hyperparameters
+                f.write('\n')
+                f.write('---- STRATEGY CONFIG ----\n')
+                f.write(f'STRATEGY: {self.strategy_name}\n')
+                f.write(f'optim: {optim}\n') 
                 f.write(f'Learning Rate: {self.lr}\n')
-                f.write(f'momentum: {self.momentum}\n')
+                f.write(f'optim-momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
-                f.write(f'byol_momentum: {self.byol_momentum}\n')
-                f.write(f'return_momentum_encoder: {self.return_momentum_encoder}\n')
-                f.write(f'dim_proj: {self.dim_proj}\n')
-                f.write(f'dim_pred: {self.dim_pred}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
-                f.write(f'device: {self.device}\n')
-                f.write(f'dataset_name: {self.dataset_name}\n')
+
 
                 # Write loss file column names
                 with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
@@ -115,8 +105,7 @@ class NoStrategyBYOL():
                     loss.backward()
                     self.optimizer.step()
 
-                    # Update target momentum network
-                    self.model.update_momentum()
+                    self.model.after_backward()
 
                     # Save loss, exp_idx, epoch, mb_idx and k in csv
                     if self.save_pth is not None:

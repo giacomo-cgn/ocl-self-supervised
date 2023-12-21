@@ -3,8 +3,13 @@ import torch
 
 class BarlowTwins(nn.Module):
 
-    def __init__(self, encoder, dim_features=2048, lambd=5e-3):
+    def __init__(self, encoder, dim_features=2048, dim_pred=512, lambd=5e-3, save_pth=None):
         super(BarlowTwins, self).__init__()
+        self.save_pth = save_pth
+        self.model_name = 'barlow_twins'
+        self.dim_features = dim_features
+        self.dim_predictor = dim_pred # Not needed for Barlow Twins itself, but can be needed for additional layers in some strategies
+
         self.lambd = lambd
 
         # Create encoder
@@ -38,6 +43,17 @@ class BarlowTwins(nn.Module):
             return on_diag + self.lambd * off_diag
         self.criterion = barlow_twins_loss
 
+        if self.save_pth is not None:
+            # Save model configuration
+            with open(self.save_pth + '/config.txt', 'a') as f:
+                # Write strategy hyperparameters
+                f.write('\n')
+                f.write('---- SSL MODEL CONFIG ----\n')
+                f.write(f'MODEL: {self.model_name}\n')
+                f.write(f'Lambda: {self.lambd}\n')
+                f.write(f'dim_features: {dim_features}\n')
+                f.write(f'dim_predictor: {dim_pred}\n')
+
     def forward(self, x1, x2):
 
         e1 = self.encoder(x1)
@@ -57,9 +73,20 @@ class BarlowTwins(nn.Module):
     def get_embedding_dim(self):
         return self.projector[0].weight.shape[1]
     
+    def get_projector_dim(self):
+        return self.dim_features
+    
+    def get_predictor_dim(self):
+        return self.dim_predictor
+    
     def get_criterion(self):
         return self.criterion
     
+    def get_name(self):
+        return self.model_name
+
+    def after_backward(self):
+        return
     
 def off_diagonal(x):
     # return a flattened view of the off-diagonal elements of a square matrix

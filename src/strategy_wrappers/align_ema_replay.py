@@ -10,48 +10,40 @@ from torch.nn.functional import mse_loss
 from avalanche.benchmarks.scenarios import NCExperience
 
 from ..reservoir_buffer import ReservoirBufferUnlabeled
-from ..utils import UnsupervisedDataset, find_encoder, init_optim, update_ema_params
-from ..ssl_models.simsiam import SimSiam
-from ..transforms import get_transforms_simsiam, get_common_transforms
+from ..utils import UnsupervisedDataset, init_optim, update_ema_params
+from ..transforms import get_transforms
 
-class AlignEMASimSiam():
+class AlignEMAReplay():
 
     def __init__(self,
-               encoder: str = 'resnet18',
-               optim: str = 'SGD',
-               lr: float = 5e-4,
-               momentum: float = 0.9,
-               weight_decay: float = 1e-4,
-               dim_proj: int = 2048,
-               dim_pred: int = 512,
-               mem_size: int = 2000,
-               omega: float = 0.5,
-               momentum_ema: float = 0.999,
-               use_replay: bool = True,
-               align_after_proj: bool = True,
-               use_mse_align: bool = True,
-               replay_mb_size: int = 32,
-               train_mb_size: int = 32,
-               train_epochs: int = 1,
-               mb_passes: int = 3,
-               device = 'cpu',
-               dataset_name: str = 'cifar100',
-               save_pth: str  = None,
-               save_model: bool = False, 
-               common_transforms: bool = True):
+                 model: torch.nn.Module = None,
+                 optim: str = 'SGD',
+                 lr: float = 5e-4,
+                 momentum: float = 0.9,
+                 weight_decay: float = 1e-4,
+                 train_mb_size: int = 32,
+                 train_epochs: int = 1,
+                 mb_passes: int = 3,
+                 device = 'cpu',
+                 dataset_name: str = 'cifar100',
+                 save_pth: str  = None,
+                 save_model: bool = False,
+                 common_transforms: bool = True,
+                 mem_size: int = 2000,
+                 replay_mb_size: int = 32,
+                 omega: float = 0.1,
+                 align_criterion: str = 'ssl',
+                 momentum_ema: float = 0.999,
+                 align_after_proj: bool = True,
+               ):
+        
+        if model is None:
+            raise Exception(f'This strategy requires a SSL model')            
 
+        self.model = model
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
-        self.dim_proj = dim_proj
-        self.dim_pred = dim_pred
-        self.mem_size = mem_size
-        self.omega = omega
-        self.momentum_ema = momentum_ema
-        self.use_replay = use_replay
-        self.align_after_proj = align_after_proj
-        self.use_mse_align = use_mse_align
-        self.replay_mb_size = replay_mb_size
         self.train_mb_size = train_mb_size
         self.train_epochs = train_epochs
         self.mb_passes = mb_passes
@@ -60,27 +52,29 @@ class AlignEMASimSiam():
         self.save_pth = save_pth
         self.save_model = save_model
         self.common_transforms = common_transforms
+        self.mem_size = mem_size
+        self.replay_mb_size = replay_mb_size
+        self.omega = omega
+        self.align_criterion_name = align_criterion
+        self.momentum_ema = momentum_ema
+        self.align_after_proj = align_after_proj
 
-        if self.use_replay:
-            # Set up buffer
-            self.buffer = ReservoirBufferUnlabeled(self.mem_size)
+        self.strategy_name = 'align_ema_replay'
+        self.model_and_strategy_name = self.strategy_name + '_' + self.model.get_name()
+
+        # Set up feature alignment criterion
+        if self.align_criterion_name == 'ssl':
+            self.align_criterion = self.model.get_criterion()
+        elif self.align_criterion_name == 'mse':
+            self.align_criterion = nn.MSELoss()
+
+        self.buffer = ReservoirBufferUnlabeled(self.mem_size)
 
         # Set up transforms
         if self.common_transforms:
-            self.transforms = get_common_transforms(self.dataset_name)
+            self.transforms = get_transforms(dataset=self.dataset_name, model='common')
         else:
-            self.transforms = get_transforms_simsiam(self.dataset_name)
-
-        # Set up encoder
-        self.encoder = find_encoder(encoder)
-
-        # Set up model
-        self.model = SimSiam(self.encoder, dim_proj, dim_pred).to(self.device)
-        self.model_name = 'align_ema_simsiam'
-
-        # Set up optimizer
-        self.optimizer = init_optim(optim, self.model.parameters(), lr=self.lr,
-                                   momentum=self.momentum, weight_decay=self.weight_decay)
+            self.transforms = get_transforms(dataset=self.dataset_name, model=self.model.get_name())
         
         # Set up EMA model that is targeted for alignment. It is the EMA of encoder+projector
         self.ema_encoder = copy.deepcopy(self.model.get_encoder())
@@ -91,41 +85,46 @@ class AlignEMASimSiam():
         self.ema_projector.requires_grad_(False)
 
         # Set up alignment projector (use dim_pred as hidden layer dim)
+        dim_align_layer = self.model.get_predictor_dim()
         if self.align_after_proj:
-            self.alignment_projector = nn.Sequential(nn.Linear(self.dim_proj, self.dim_pred, bias=False),
-                                                nn.BatchNorm1d(self.dim_pred),
+            dim_proj = self.model.get_projector_dim()
+            self.alignment_projector = nn.Sequential(nn.Linear(dim_proj, dim_align_layer, bias=False),
+                                                nn.BatchNorm1d(dim_align_layer),
                                                 nn.ReLU(inplace=True),
-                                                nn.Linear(self.dim_pred, self.dim_proj)).to(self.device)
+                                                nn.Linear(dim_align_layer, dim_proj)).to(self.device)
         else:
             dim_encoder_embed = self.model.get_embedding_dim()
-            self.alignment_projector = nn.Sequential(nn.Linear(dim_encoder_embed, self.dim_pred, bias=False),
-                                                nn.BatchNorm1d(self.dim_pred),
+            self.alignment_projector = nn.Sequential(nn.Linear(dim_encoder_embed, dim_align_layer, bias=False),
+                                                nn.BatchNorm1d(dim_align_layer),
                                                 nn.ReLU(inplace=True),
-                                                nn.Linear(self.dim_pred, dim_encoder_embed)).to(self.device)
+                                                nn.Linear(dim_align_layer, dim_encoder_embed)).to(self.device)
+        # Set up optimizer
+        params_to_optimize = list(self.model.parameters()) + list(self.alignment_projector.parameters())
+        self.optimizer = init_optim(optim, params_to_optimize, lr=self.lr,
+                                   momentum=self.momentum, weight_decay=self.weight_decay)
+
         
 
         if self.save_pth is not None:
             # Save model configuration
             with open(self.save_pth + '/config.txt', 'a') as f:
-                # Write hyperparameters
-                f.write(f'encoder: {self.encoder}\n')
+                # Write strategy hyperparameters
+                f.write('\n')
+                f.write('---- STRATEGY CONFIG ----\n')
+                f.write(f'STRATEGY: {self.strategy_name}\n')
+                f.write(f'optim: {optim}\n') 
                 f.write(f'Learning Rate: {self.lr}\n')
-                f.write(f'momentum: {self.momentum}\n')
+                f.write(f'optim-momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
-                f.write(f'dim_proj: {self.dim_proj}\n')
-                f.write(f'dim_pred: {self.dim_pred}\n')
-                f.write(f'Omega: {self.omega}\n')
-                f.write(f'momentum_ema: {self.momentum_ema}\n')
-                f.write(f'use_replay in align to ema: {self.use_replay}\n')
-                f.write(f'Use MSE loss for alignment: {self.use_mse_align}\n')
-                f.write(f'align after projector: {self.align_after_proj}\n')
-                f.write(f'mem_size: {self.mem_size}\n')
-                f.write(f'replay_mb_size: {self.replay_mb_size}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
-                f.write(f'device: {self.device}\n')
-                f.write(f'dataset_name: {self.dataset_name}\n')
+                f.write(f'mem_size: {self.mem_size}\n')
+                f.write(f'replay_mb_size: {self.replay_mb_size}\n')
+                f.write(f'omega: {self.omega}\n')
+                f.write(f'align_criterion: {self.align_criterion_name}\n')
+                f.write(f'momentum_ema: {self.momentum_ema}\n')
+                f.write(f'align_after_proj: {self.align_after_proj}\n')
 
                 # Write loss file column names
                 with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
@@ -148,7 +147,7 @@ class AlignEMASimSiam():
                 new_mbatch = mbatch
 
                 for k in range(self.mb_passes):
-                    if self.use_replay and len(self.buffer.buffer) > self.replay_mb_size:
+                    if len(self.buffer.buffer) > self.replay_mb_size:
                         # Sample from buffer and concat
                         replay_batch = self.buffer.sample(self.replay_mb_size).to(self.device)
                         combined_batch = torch.cat((replay_batch, mbatch), dim=0)
@@ -168,22 +167,17 @@ class AlignEMASimSiam():
                         ema_e2 = self.ema_encoder(x2)
                         ema_z1 = self.ema_projector(e1)
                         ema_z2 = self.ema_projector(e2)
-
-                    if self.use_mse_align:
-                        align_criterion = mse_loss
-                    else:
-                        align_criterion = self.model.get_criterion()
                     
                     if self.align_after_proj:
                         # Align features after projector layer
                         aligned_features_1 = self.alignment_projector(z1)
                         aligned_features_2 = self.alignment_projector(z2)
-                        loss_align = 0.5*align_criterion(aligned_features_1, ema_z1) + 0.5*align_criterion(aligned_features_2, ema_z2)
+                        loss_align = 0.5*self.align_criterion(aligned_features_1, ema_z1) + 0.5*self.align_criterion(aligned_features_2, ema_z2)
                     else:
                         # Align features before projector layer
                         aligned_features_1 = self.alignment_projector(e1)
                         aligned_features_2 = self.alignment_projector(e2)
-                        loss_align = 0.5*align_criterion(aligned_features_1, ema_e1) + 0.5*align_criterion(aligned_features_2, ema_e2)
+                        loss_align = 0.5*self.align_criterion(aligned_features_1, ema_e1) + 0.5*self.align_criterion(aligned_features_2, ema_e2)
 
                     loss += self.omega * loss_align.mean()
 
@@ -203,9 +197,8 @@ class AlignEMASimSiam():
                     update_ema_params(self.model.get_projector().parameters(),
                                       self.ema_projector.parameters(), self.momentum_ema)
                 
-                if self.use_replay:
-                    # Update buffer with new samples
-                    self.buffer.add(new_mbatch.detach()) # Use only first view features, as augmentations are random
+                # Update buffer with new samples
+                self.buffer.add(new_mbatch.detach())
 
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:
