@@ -24,19 +24,31 @@ class BarlowTwins(nn.Module):
                                         nn.BatchNorm1d(prev_dim),
                                         nn.ReLU(inplace=True), # second layer
                                         self.encoder.fc,
-                                        nn.BatchNorm1d(dim_features, affine=False)) # output layer
+                                        #nn.BatchNorm1d(dim_features, affine=False)
+                                        ) # output layer
         self.projector[6].bias.requires_grad = False # hack: not use bias as it is followed by BN
+
+        self.bn_loss = nn.BatchNorm1d(dim_features, affine=False)
 
         # Replace the fc clf layer with nn.Identity()
         # so the encoder outputs feature maps instead of clf outputs
         self.encoder.fc = nn.Identity()
 
         def barlow_twins_loss(z1, z2):
+            z1 = self.bn_loss(z1)
+            z2 = self.bn_loss(z2)
+
             batch_size = z1.shape[0]
+            # print("z1 shape:", z1.shape)
+            # print("z1:", z1)
+            # print("z2 shape:", z2.shape)
+            # print("z2:", z2)
+
             # empirical cross-correlation matrix
             c = z1.T @ z2
-
             c.div_(batch_size)
+            # print("c shape:", c.shape)
+            # print("c:", c)
 
             on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
             off_diag = off_diagonal(c).pow_(2).sum()

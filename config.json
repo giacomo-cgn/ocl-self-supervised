@@ -3,17 +3,19 @@
     {
         "mb-passes": 12,
         "tr-mb-size": 10,
-        "repl-mb-size": 128,
-        "iid": false
+        "repl-mb-size": 0,
+        "iid": false,
+        "omega": 1.0,
+        "momentum-ema": 0.999
     },
     "experiments":
     [
         {
-            "model": "simsiam",
-            "strategy": "align_buffer",
-            "lr": 0.1,
+            "model": "barlow_twins",
+            "strategy": "align_ema",
+            "lambd": 0.005,
             "hyperparams_search": {
-                "omega": [1.0, 0.5, 0.3, 0.1, 0.05]
+                "lr": [0.1, 0.03]
             }
         }
     ]

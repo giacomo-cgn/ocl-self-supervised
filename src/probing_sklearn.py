@@ -109,9 +109,8 @@ class LinearProbingSklearn:
 
         scaler = StandardScaler()
 
-        # Use Logistic Regression to learn weights from activations
+        # Use Ridge Regression Classifier to learn weights from activations
         tr_activations = scaler.fit_transform(tr_activations)
-        #log_reg = LogisticRegression(max_iter=200).fit(tr_activations, tr_labels)
         log_reg = RidgeClassifier().fit(tr_activations, tr_labels)
         
         # Predict validation
