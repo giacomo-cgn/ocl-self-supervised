@@ -9,14 +9,13 @@ import torch.nn as nn
 
 from avalanche.benchmarks.scenarios import NCExperience
 
-from ..reservoir_buffer import ReservoirBufferUnlabeled
+from ..scale_buffer import Memory
 from ..utils import UnsupervisedDataset, init_optim, find_encoder
 from ..transforms import get_transforms
 
 class SCALE():
 
     def __init__(self,
-                 model: torch.nn.Module = None,
                  optim: str = 'SGD',
                  lr: float = 5e-4,
                  momentum: float = 0.9,
@@ -41,12 +40,8 @@ class SCALE():
                  tsne_thresh_ratio: float = 0.1,
                  dim_features: int = 128,
 
-    ):
-            
-        if model is None:
-            raise Exception(f'This strategy requires a SSL model')            
+    ):           
 
-        self.model = model
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
@@ -64,7 +59,7 @@ class SCALE():
         self.strategy_name = 'SCALE'
 
         # Set up buffer
-        self.buffer = ReservoirBufferUnlabeled(self.mem_size)
+        self.buffer = Memory(mem_size=self.mem_size)
 
         # Set up transforms
         if self.common_transforms:
@@ -109,7 +104,7 @@ class SCALE():
         # Set up optimizer
         all_parameters = [{
             'name': 'backbone',
-            'params': [param for name, param in model.named_parameters()],
+            'params': [param for name, param in self.encoder.named_parameters()],
         }, {
             'name': 'heads',
             'params': [param for name, param in self.criterion.named_parameters()],
@@ -152,7 +147,7 @@ class SCALE():
         exp_data = UnsupervisedDataset(experience.dataset)  
         data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True)
 
-        self.model.train()
+        self.encoder.train()
         
         for epoch in range(self.train_epochs):
             for mb_idx, mbatch in tqdm(enumerate(data_loader)):
@@ -165,13 +160,13 @@ class SCALE():
                     self.past_encoder = copy.deepcopy(self.encoder) # CHECKED! ONLY THE ENCODERS ARE COPIED, NOT THE PROJECTION HEADS!
                     self.past_encoder.eval()
 
-                    if len(self.buffer.buffer) > self.replay_mb_size:
-                        # Sample from buffer and concat
-                        replay_batch = self.buffer.sample(self.replay_mb_size).to(self.device)
-                        combined_batch = torch.cat((replay_batch, mbatch), dim=0)
-                    else:
-                        # Do not sample buffer if not enough elements in it
+                    replay_batch = self.buffer.sample(self.replay_mb_size)
+                    if replay_batch is None:
+                        # Not enough elements in buffer
                         combined_batch = mbatch
+                    else:
+                        # Concat buffer with stream samples
+                         combined_batch = torch.cat((replay_batch.to(self.device), mbatch), dim=0)
 
                     # Apply transforms
                     x1, x2 = self.transforms(combined_batch)
@@ -181,7 +176,7 @@ class SCALE():
                     combined_batch_size = combined_batch.shape[0]
                     loss_distill = .0
 
-                    x1_logits, loss_distill = self.criterion_reg(self.model, self.past_encoder, x1)
+                    x1_logits, loss_distill = self.criterion_reg(self.encoder, self.past_encoder, x1)
                     self.losses_distill.update(loss_distill.item(), combined_batch_size)
 
                     features_all = self.encoder(all_x)
@@ -208,13 +203,10 @@ class SCALE():
                             f.write(f'{loss.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
 
 
-
-
-
-                # TODO: SCALE BUFFER
                 # Update buffer with new samples
-                self.buffer.add(new_mbatch.detach())
-
+                all_embeddings, select_indexes = self.buffer.update_wo_labels(new_mbatch.detach(), self.encoder)
+            
+            
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:
             torch.save({
@@ -223,7 +215,7 @@ class SCALE():
                 'optimizer_state_dict': self.optimizer.state_dict()
             }, os.path.join(self.save_pth, f'model_exp{exp_idx}.pth'))
 
-        return self.model
+        return self.encoder
 
 
 

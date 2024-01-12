@@ -3,3 +3,4 @@ from .reservoir_buffer import *
 from .transforms import *
 from .optims import *
 from .strategy_wrappers import *
+from .scale_buffer import *
