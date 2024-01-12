@@ -3,7 +3,7 @@
     {
         "mb-passes": 12,
         "tr-mb-size": 10,
-        "repl-mb-size": 0,
+        "repl-mb-size": 128,
         "iid": false,
         "omega": 1.0,
         "momentum-ema": 0.999
@@ -11,11 +11,9 @@
     "experiments":
     [
         {
-            "model": "barlow_twins",
-            "strategy": "align_ema",
-            "lambd": 0.005,
+            "strategy": "scale",
             "hyperparams_search": {
-                "lr": [0.1, 0.03]
+                "lr": [0.03]
             }
         }
     ]

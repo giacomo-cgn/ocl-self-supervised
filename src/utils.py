@@ -117,24 +117,32 @@ def read_command_line_args():
     parser.add_argument('--probing-separate', type=str_to_bool, default=True)
     parser.add_argument('--probing-upto', type=str_to_bool, default=True)
     parser.add_argument('--probing-val-ratio', type=float, default=0.1)
-    parser.add_argument('--omega', type=float, default=0.5)
-    parser.add_argument('--momentum-ema', type=float, default=0.999)
-    parser.add_argument('--ema-align-proj', type=str_to_bool, default=True)
-    parser.add_argument('--align-criterion', type=str, default='ssl')
-    parser.add_argument('--mem-size', type=int, default=2000)
     parser.add_argument('--mb-passes', type=int, default=3)
     parser.add_argument('--tr-mb-size', type=int, default=32)
-    parser.add_argument('--repl-mb-size', type=int, default=32)
     parser.add_argument('--eval-mb-size', type=int, default=1024)
     parser.add_argument('--common-transforms', type=str_to_bool, default=True)
     parser.add_argument('--use-probing-tr-ratios', type=str_to_bool, default=False)
     parser.add_argument('--iid', type=str_to_bool, default=False)
     parser.add_argument('--save-model-final', type=str_to_bool, default=True)
 
+    # Replay params
+    parser.add_argument('--mem-size', type=int, default=2000)
+    parser.add_argument('--repl-mb-size', type=int, default=32)
+
+    # Align params
+    parser.add_argument('--omega', type=float, default=0.5)
+    parser.add_argument('--momentum-ema', type=float, default=0.999)
+    parser.add_argument('--ema-align-proj', type=str_to_bool, default=True)
+    parser.add_argument('--align-criterion', type=str, default='ssl')
+
     # Models specific params
-    parser.add_argument('--lambd', type=float, default=5e-3)
+    parser.add_argument('--lambd', type=float, default=5e-3) # For Barlow Twins
     parser.add_argument('--byol-momentum', type=float, default=0.9)
     parser.add_argument('--return-momentum-encoder', type=bool, default=True)
+
+    # SCALE params
+    parser.add_argument('--scale-dim-features', type=int, default=128)
+    parser.add_argument('--scale-distill-power', type=float, default=0.15)
 
 
     args = parser.parse_args()

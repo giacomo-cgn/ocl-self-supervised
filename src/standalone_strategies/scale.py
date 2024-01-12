@@ -10,12 +10,13 @@ import torch.nn as nn
 from avalanche.benchmarks.scenarios import NCExperience
 
 from ..scale_buffer import Memory
-from ..utils import UnsupervisedDataset, init_optim, find_encoder
+from ..utils import UnsupervisedDataset, init_optim
 from ..transforms import get_transforms
 
 class SCALE():
 
     def __init__(self,
+                 encoder: nn.Module = None,
                  optim: str = 'SGD',
                  lr: float = 5e-4,
                  momentum: float = 0.9,
@@ -30,7 +31,6 @@ class SCALE():
                  common_transforms: bool = True,
                  mem_size: int = 2000,
                  replay_mb_size: int = 32,
-                 encoder_name: str = 'resnet18',
 
                  temperature_cont: float = 0.1,
                  temperature_past: float = 0.01,
@@ -39,8 +39,12 @@ class SCALE():
                  temp_tsne: float = 0.1,
                  tsne_thresh_ratio: float = 0.1,
                  dim_features: int = 128,
-
     ):           
+        
+        if encoder is None:
+            raise Exception(f'This strategy requires an encoder.')
+        
+        self.encoder = encoder(num_classes=dim_features, zero_init_residual=True).to(device)
 
         self.lr = lr
         self.momentum = momentum
@@ -56,6 +60,14 @@ class SCALE():
         self.mem_size = mem_size
         self.replay_mb_size = replay_mb_size
 
+        self.temperature_cont = temperature_cont
+        self.temperature_past = temperature_past
+        self.temperature_curr = temperature_curr
+        self.distill_power = distill_power
+        self.temp_tsne = temp_tsne
+        self.tsne_thresh_ratio = tsne_thresh_ratio
+        self.features_dim = dim_features
+
         self.strategy_name = 'SCALE'
 
         # Set up buffer
@@ -66,30 +78,19 @@ class SCALE():
             self.transforms = get_transforms(dataset=self.dataset_name, model='common')
         else:
             self.transforms = get_transforms(dataset=self.dataset_name, model=self.strategy_name)
-        
-
-
-        # --------------------- SCALE
-        self.temperature_cont = temperature_cont
-        self.temperature_past = temperature_past
-        self.temperature_curr = temperature_curr
-        self.distill_power = distill_power
-        self.temp_tsne = temp_tsne
-        self.tsne_thresh_ratio = tsne_thresh_ratio
-        self.features_dim = dim_features
 
         self.tr_distill_power = 0.0
 
-
         prev_dim = self.encoder.fc.weight.shape[1]
-
+        print('prev_dim:', prev_dim)
         self.proj_dim = prev_dim
+        self.encoder.fc = nn.Identity() # Remove cls output layer
 
         self.projector = nn.Sequential(
                 nn.Linear(prev_dim, prev_dim),
                 nn.ReLU(inplace=True),
                 nn.Linear(prev_dim, self.features_dim)
-            )
+            ).to(self.device)
         
         self.criterion = SupConLoss(stream_bsz=self.train_mb_size,
                                 projector=self.projector,
@@ -99,8 +100,6 @@ class SCALE():
                             current_temperature=self.temperature_curr,
                             past_temperature=self.temperature_past, device=self.device).to(device)
         
-        self.encoder = find_encoder(encoder_name)
-
         # Set up optimizer
         all_parameters = [{
             'name': 'backbone',
@@ -133,6 +132,14 @@ class SCALE():
                 f.write(f'mem_size: {self.mem_size}\n')
                 f.write(f'replay_mb_size: {self.replay_mb_size}\n')
 
+                f.write(f'temperature_cont: {self.temperature_cont}\n')
+                f.write(f'temperature_past: {self.temperature_past}\n')
+                f.write(f'temperature_curr: {self.temperature_curr}\n')
+                f.write(f'distill_power: {self.distill_power}\n')
+                f.write(f'temp_tsne: {self.temp_tsne}\n')
+                f.write(f'tsne_thresh_ratio: {self.tsne_thresh_ratio}\n')
+                f.write(f'dim_features: {self.features_dim}\n')
+
 
                 # Write loss file column names
                 with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
@@ -158,7 +165,7 @@ class SCALE():
                 for k in range(self.mb_passes):
                     
                     self.past_encoder = copy.deepcopy(self.encoder) # CHECKED! ONLY THE ENCODERS ARE COPIED, NOT THE PROJECTION HEADS!
-                    self.past_encoder.eval()
+                    self.past_encoder.eval().to(self.device)
 
                     replay_batch = self.buffer.sample(self.replay_mb_size)
                     if replay_batch is None:
@@ -190,6 +197,8 @@ class SCALE():
                     if self.tr_distill_power <= 0.0 and loss_distill > 0.0:
                         self.tr_distill_power = self.losses_contrast.avg * self.distill_power / self.losses_distill.avg
 
+                    # print(f'Adjusting distillation power to {self.tr_distill_power}')
+
                     loss = loss_contrast + self.tr_distill_power * loss_distill
 
                     # Backward pass
@@ -204,7 +213,7 @@ class SCALE():
 
 
                 # Update buffer with new samples
-                all_embeddings, select_indexes = self.buffer.update_wo_labels(new_mbatch.detach(), self.encoder)
+                all_embeddings, select_indexes = self.buffer.update_wo_labels(new_mbatch.detach().cpu(), self.encoder)
             
             
         # Save model and optimizer state

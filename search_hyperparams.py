@@ -7,6 +7,8 @@ from exec_experiment import exec_experiment
 
 def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=True, parent_log_folder='./logs', experiment_name=''):
 
+     standalone_strategies = ['scale']
+
      # model_name = 'no_strategy_simsiam' 
      if hyperparams_dict is None:
           # Define current searched hyperparams in lists
@@ -15,7 +17,12 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=Tru
           # 'byol-momentum': [0.99, 0.999],
           }
      str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
-     folder_name = f'hypertune_{experiment_name}_{args.strategy}_{args.model}_{str_now}'
+
+     if args.strategy in standalone_strategies:
+          folder_name = f'hypertune_{experiment_name}_{args.strategy}_{str_now}'
+     else:     
+          folder_name = f'hypertune_{experiment_name}_{args.strategy}_{args.model}_{str_now}'
+     
      if args.iid:
           folder_name = f'hypertune_iid_{experiment_name}_{args.strategy}_{args.model}_{str_now}'
      save_folder = os.path.join(parent_log_folder, folder_name)

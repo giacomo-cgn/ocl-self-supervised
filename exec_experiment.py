@@ -17,12 +17,15 @@ from src.strategy_wrappers.replay import Replay
 from src.strategy_wrappers.align_buffer import AlignBuffer
 from src.strategy_wrappers.align_ema import AlignEMA
 from src.strategy_wrappers.align_ema_replay import AlignEMAReplay
+from src.standalone_strategies.scale import SCALE
 
 from src.transforms import get_dataset_transforms
 from src.probing_sklearn import LinearProbingSklearn
 from src.utils import write_final_scores
 
 def exec_experiment(**kwargs):
+    standalone_strategies = ['scale']
+
     # Ratios of tr set used for training linear probe
     if kwargs["use_probing_tr_ratios"]:
         probing_tr_ratio_arr = [0.05, 0.1, 0.5, 1]
@@ -32,7 +35,10 @@ def exec_experiment(**kwargs):
 
     # Set up save folders
     str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
-    folder_name = f'{kwargs["strategy"]}_{kwargs["model"]}_{kwargs["dataset"]}_{str_now}'
+    if kwargs["strategy"] in standalone_strategies:
+        folder_name = f'{kwargs["strategy"]}_{kwargs["dataset"]}_{str_now}'
+    else:
+        folder_name = f'{kwargs["strategy"]}_{kwargs["model"]}_{kwargs["dataset"]}_{str_now}'
     if kwargs["iid"]:
         folder_name = 'iid_' + folder_name
     save_pth = os.path.join(kwargs["save_folder"], folder_name)
@@ -127,21 +133,26 @@ def exec_experiment(**kwargs):
     else:
         raise Exception(f'Invalid encoder {kwargs["encoder"]}')
     
-    # Model
-    if kwargs["model"] == 'simsiam':
-        model = SimSiam(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
-                        dim_pred=kwargs["dim_pred"], save_pth=save_pth).to(device)
-    elif kwargs["model"] == 'byol':
-        model = BYOL(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
-                     dim_pred=kwargs["dim_pred"], byol_momentum=kwargs["byol_momentum"],
-                     return_momentum_encoder=kwargs["return_momentum_encoder"], save_pth=save_pth).to(device)
+
+    if not kwargs["strategy"] in standalone_strategies:
+        # Model
+        if kwargs["model"] == 'simsiam':
+            model = SimSiam(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
+                            dim_pred=kwargs["dim_pred"], save_pth=save_pth).to(device)
+        elif kwargs["model"] == 'byol':
+            model = BYOL(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
+                        dim_pred=kwargs["dim_pred"], byol_momentum=kwargs["byol_momentum"],
+                        return_momentum_encoder=kwargs["return_momentum_encoder"], save_pth=save_pth).to(device)
+            
+        elif kwargs["model"] == 'barlow_twins':
+            model = BarlowTwins(encoder=encoder, dim_features=kwargs["dim_proj"],
+                                dim_pred=kwargs["dim_pred"], lambd=kwargs["lambd"], save_pth=save_pth).to(device)
+            
+        else:
+            raise Exception(f'Invalid model {kwargs["model"]}')
         
-    elif kwargs["model"] == 'barlow_twins':
-        model = BarlowTwins(encoder=encoder, dim_features=kwargs["dim_proj"],
-                            dim_pred=kwargs["dim_pred"], lambd=kwargs["lambd"], save_pth=save_pth).to(device)
-        
-    else:
-        raise Exception(f'Invalid model {kwargs["model"]}')
+
+
     
     # Strategy
     if kwargs["strategy"] == 'no_strategy':
@@ -181,6 +192,14 @@ def exec_experiment(**kwargs):
                                   mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"], omega=kwargs["omega"],
                                   align_criterion=kwargs["align_criterion"], momentum_ema=kwargs["momentum_ema"],
                                   align_after_proj=kwargs["ema_align_proj"])
+        
+    elif kwargs["strategy"] == 'scale':
+        strategy = SCALE(encoder=encoder, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                          weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                          mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                          save_model=False, common_transforms=kwargs["common_transforms"],
+                          mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"],
+                          dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"])
 
     else:
         raise Exception(f'Strategy {kwargs["strategy"]} not supported')

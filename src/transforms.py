@@ -35,13 +35,13 @@ def get_dataset_crop(dataset: str):
 
     if dataset == 'cifar100':
         # return transforms.RandomCrop(32, padding=4),
-        return transforms.RandomResizedCrop(32, scale=(0.2, 1.))
+        return transforms.RandomResizedCrop(32, scale=(0.2, 1.), antialias=True)
     elif dataset == 'cifar10':
         # return transforms.RandomCrop(32, padding=4)
-        return transforms.RandomResizedCrop(32, scale=(0.2, 1.))
+        return transforms.RandomResizedCrop(32, scale=(0.2, 1.), antialias=True)
     elif dataset == 'tinyimagenet':
         # return transforms.RandomCrop(64, padding=8)
-        return transforms.RandomResizedCrop(32, scale=(0.2, 1.))
+        return transforms.RandomResizedCrop(32, scale=(0.2, 1.), antialias=True)
     else:
         raise ValueError("Dataset not supported. Must be 'cifar100', 'cifar10' or 'tinyimagenet'")
 

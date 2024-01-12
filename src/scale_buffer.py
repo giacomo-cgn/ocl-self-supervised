@@ -175,23 +175,23 @@ class Memory(object):
         self.num_seen_examples += new_images.shape[0]
 
         if len(self.images) > 0:  # Not first-time insertion
-            old_images, old_labels = self.get_mem_samples_w_true_labels()
-            old_images = old_images.detach().numpy()
-            old_labels = old_labels.detach().numpy()
+            old_images = np.concatenate(self.images)
             old_sz = old_images.shape[0]
+            old_images = torch.from_numpy(old_images)
+
             all_images = np.concatenate((old_images, new_images), axis=0)
         else:  # first-time insertion
             old_sz = 0
             all_images = new_images
 
         # Create a binary indicator of whether the image is an old or new sample
-        old_ind = np.zeros(all_images.shape[0], dtype=np.bool)
+        old_ind = np.zeros(all_images.shape[0], dtype=bool)
         old_ind[:old_sz] = 1
 
         # Get latent embeddings
         feed_images = torch.from_numpy(all_images)
         if torch.cuda.is_available():
-            feed_images = feed_images.cuda(non_blocking=True)
+            feed_images = feed_images.cuda(non_blocking=True) # ATTENTION! ADDITIONAL FORWARD PASS FOR ALL MEMORY SAMPLES! IS THIS TRICK ILLEGAL?
         all_embeddings = model(feed_images).detach().cpu().numpy()
         # all_embeddings_mean = np.mean(all_embeddings, axis=0, keepdims=True)
         # all_embeddings = (all_embeddings - all_embeddings_mean) * 1e4
@@ -204,9 +204,9 @@ class Memory(object):
         select_indices = np.arange(all_embeddings.shape[0])
 
         if all_embeddings.shape[0] > self.max_size:  # needs subset selection
-            select_indices = diversipy.subset.psa_select(all_embeddings, self.max_size)
+            selected_embeddings = diversipy.subset.psa_select(all_embeddings, self.max_size) # psa_select() returns already selected embeddings, not indices
+            select_indices = np.where(np.all(all_embeddings[:, None, :] == selected_embeddings[None, :, :], axis=-1).any(axis=1))[0] # convert embeddings to indices
             select_indices.sort()
-            print('select {} from {}'.format(self.max_size, all_embeddings.shape[0]))
 
         self.images = [all_images[select_indices]]
         self.labels_set = [0]
@@ -232,9 +232,6 @@ class Memory(object):
                 labels = np.repeat(lb, self.images[0].shape[0])
             else:  # Subsequent labels to be concatenated
                 images = np.concatenate((images, self.images[ind]), axis=0)
-                labels = np.concatenate((labels,
-                                         np.repeat(lb, self.images[ind].shape[0])),
-                                        axis=0)
 
         if images is None:  # Empty memory
             return None, None
@@ -265,14 +262,16 @@ class Memory(object):
         
     # New wrapper method
     # Returns None when void buffer, otherwise returns samples
-    def sample(self, num_samples):
-        mem_images, mem_labels = self.get_mem_samples()
+    def sample(self, replay_batch_size):
+        mem_len = len(self.images)
 
-        if num_samples > 0 and mem_images is not None:
-            sample_cnt = min(num_samples, mem_images.shape[0])
-            select_ind = np.random.choice(mem_images.shape[0], sample_cnt, replace=False)
+        if mem_len > 0:
 
-            return mem_images[select_ind]
+            mem_images = np.concatenate(self.images, axis=0)
+            sample_cnt = min(mem_len, replay_batch_size)
+            select_ind = np.random.choice(range(mem_len), sample_cnt, replace=False)
+
+            return torch.from_numpy(mem_images[select_ind])
         else:
             return None
         
