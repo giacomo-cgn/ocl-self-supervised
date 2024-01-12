@@ -224,6 +224,9 @@ class SCALE():
                 'optimizer_state_dict': self.optimizer.state_dict()
             }, os.path.join(self.save_pth, f'model_exp{exp_idx}.pth'))
 
+        return self
+    
+    def get_encoder(self):
         return self.encoder
 
 
