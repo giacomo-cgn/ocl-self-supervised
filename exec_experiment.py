@@ -271,11 +271,6 @@ def exec_experiment(**kwargs):
 
                     probe.probe(probe_upto_dataset_tr, probe_upto_dataset_test)
                 
-
-    # Save final pretrained model
-    if kwargs["save_model_final"]:
-        torch.save(network.state_dict(),
-                    os.path.join(save_pth, f'final_model_state.pth'))
         
     # Calculate and save final probing scores
     if kwargs['probing_separate']:
@@ -284,6 +279,15 @@ def exec_experiment(**kwargs):
     if kwargs['probing_upto']:
         write_final_scores(folder_input_path=os.path.join(save_pth, 'probing_upto'),
                            output_file=os.path.join(save_pth, 'final_scores_upto.csv'))
+        
+    # Save final pretrained model
+    if kwargs["save_model_final"]:
+        if kwargs['strategy'] in standalone_strategies:
+            torch.save(network.get_encoder().state_dict(),
+                    os.path.join(save_pth, f'final_model_state.pth'))
+        else:
+            torch.save(network.state_dict(),
+                    os.path.join(save_pth, f'final_model_state.pth'))
 
 
     return save_pth
