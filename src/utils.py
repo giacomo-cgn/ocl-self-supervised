@@ -143,6 +143,7 @@ def read_command_line_args():
     # SCALE params
     parser.add_argument('--scale-dim-features', type=int, default=128)
     parser.add_argument('--scale-distill-power', type=float, default=0.15)
+    parser.add_argument('--use-scale-buffer', type=str_to_bool, default=True)
 
     # LUMP params
     parser.add_argument('--alpha-lump', type=float, default=0.4)

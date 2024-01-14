@@ -200,7 +200,7 @@ def exec_experiment(**kwargs):
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                           save_model=False, common_transforms=kwargs["common_transforms"],
                           mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"],
-                          dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"])
+                          dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"], use_scale_buffer=kwargs["use_scale_buffer"])
         
     elif kwargs["strategy"] == 'lump':
         strategy = LUMP(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],

@@ -10,6 +10,7 @@ import torch.nn as nn
 from avalanche.benchmarks.scenarios import NCExperience
 
 from ..scale_buffer import Memory
+from ..reservoir_buffer import ReservoirBufferUnlabeled
 from ..utils import UnsupervisedDataset, init_optim
 from ..transforms import get_transforms
 
@@ -39,6 +40,7 @@ class SCALE():
                  temp_tsne: float = 0.1,
                  tsne_thresh_ratio: float = 0.1,
                  dim_features: int = 128,
+                 use_scale_buffer: bool = True,
     ):           
         
         if encoder is None:
@@ -67,11 +69,15 @@ class SCALE():
         self.temp_tsne = temp_tsne
         self.tsne_thresh_ratio = tsne_thresh_ratio
         self.features_dim = dim_features
+        self.use_scale_buffer = use_scale_buffer
 
         self.strategy_name = 'SCALE'
 
         # Set up buffer
-        self.buffer = Memory(mem_size=self.mem_size)
+        if self.use_scale_buffer:
+            self.buffer = Memory(mem_size=self.mem_size)
+        else:
+            self.buffer = ReservoirBufferUnlabeled(buffer_size=self.mem_size)
 
         # Set up transforms
         if self.common_transforms:
@@ -139,10 +145,14 @@ class SCALE():
                 f.write(f'temp_tsne: {self.temp_tsne}\n')
                 f.write(f'tsne_thresh_ratio: {self.tsne_thresh_ratio}\n')
                 f.write(f'dim_features: {self.features_dim}\n')
+                f.write(f'use_scale_buffer: {self.use_scale_buffer}\n')
 
 
                 # Write loss file column names
                 with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
+                    f.write('loss,exp_idx,epoch,mb_idx,mb_pass\n')
+
+                with open(os.path.join(self.save_pth, 'tr_distill_power.csv'), 'a') as f:
                     f.write('loss,exp_idx,epoch,mb_idx,mb_pass\n')
 
 
@@ -167,13 +177,24 @@ class SCALE():
                     self.past_encoder = copy.deepcopy(self.encoder) # CHECKED! ONLY THE ENCODERS ARE COPIED, NOT THE PROJECTION HEADS!
                     self.past_encoder.eval().to(self.device)
 
-                    replay_batch = self.buffer.sample(self.replay_mb_size)
-                    if replay_batch is None:
-                        # Not enough elements in buffer
-                        combined_batch = mbatch
+                    if self.use_scale_buffer:
+                        # Try sampling from scale buffer
+                        replay_batch = self.buffer.sample(self.replay_mb_size)
+                        if replay_batch is None:
+                            # Not enough elements in buffer
+                            combined_batch = mbatch
+                        else:
+                            # Concat buffer with stream samples
+                            combined_batch = torch.cat((replay_batch.to(self.device), mbatch), dim=0)
                     else:
-                        # Concat buffer with stream samples
-                         combined_batch = torch.cat((replay_batch.to(self.device), mbatch), dim=0)
+                        # Try sampling from standard reservoir buffer
+                        if len(self.buffer.buffer) > self.replay_mb_size:
+                            # Sample from buffer and concat
+                            replay_batch = self.buffer.sample(self.replay_mb_size).to(self.device)
+                            combined_batch = torch.cat((replay_batch, mbatch), dim=0)
+                        else:
+                            # Do not sample buffer if not enough elements in it
+                            combined_batch = mbatch
 
                     # Apply transforms
                     x1, x2 = self.transforms(combined_batch)
@@ -211,9 +232,16 @@ class SCALE():
                         with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
                             f.write(f'{loss.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
 
+                        # Save distill power
+                        with open(os.path.join(self.save_pth, 'tr_distill_power.csv'), 'a') as f:
+                            f.write(f'{self.tr_distill_power},{exp_idx},{epoch},{mb_idx},{k}\n')
+
 
                 # Update buffer with new samples
-                all_embeddings, select_indexes = self.buffer.update_wo_labels(new_mbatch.detach().cpu(), self.encoder)
+                if self.use_scale_buffer:
+                    all_embeddings, select_indexes = self.buffer.update_wo_labels(new_mbatch.detach().cpu(), self.encoder)
+                else:
+                    self.buffer.add(new_mbatch.detach())
             
             
         # Save model and optimizer state
