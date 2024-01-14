@@ -144,6 +144,9 @@ def read_command_line_args():
     parser.add_argument('--scale-dim-features', type=int, default=128)
     parser.add_argument('--scale-distill-power', type=float, default=0.15)
 
+    # LUMP params
+    parser.add_argument('--alpha-lump', type=float, default=0.4)
+
 
     args = parser.parse_args()
 

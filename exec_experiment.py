@@ -17,6 +17,7 @@ from src.strategy_wrappers.replay import Replay
 from src.strategy_wrappers.align_buffer import AlignBuffer
 from src.strategy_wrappers.align_ema import AlignEMA
 from src.strategy_wrappers.align_ema_replay import AlignEMAReplay
+from src.strategy_wrappers.lump import LUMP
 from src.standalone_strategies.scale import SCALE
 
 from src.transforms import get_dataset_transforms
@@ -200,6 +201,14 @@ def exec_experiment(**kwargs):
                           save_model=False, common_transforms=kwargs["common_transforms"],
                           mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"],
                           dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"])
+        
+    elif kwargs["strategy"] == 'lump':
+        strategy = LUMP(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                          weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                          mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                          save_model=False, common_transforms=kwargs["common_transforms"],
+                          mem_size=kwargs["mem_size"],
+                          alpha_lump=kwargs["alpha_lump"])
 
     else:
         raise Exception(f'Strategy {kwargs["strategy"]} not supported')
