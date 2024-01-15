@@ -148,6 +148,9 @@ def read_command_line_args():
     # LUMP params
     parser.add_argument('--alpha-lump', type=float, default=0.4)
 
+    # MinRed params
+    parser.add_argument('--minred-buffer-ema', type=float, default=0.5)
+
 
     args = parser.parse_args()
 
