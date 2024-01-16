@@ -25,7 +25,13 @@ def reservoir(num_seen_examples: int, buffer_size: int) -> int:
 
 
 class Memory(object):
-    def __init__(self, mem_update_type='mo_rdn', mem_size=2000, mem_max_classes=10, mem_max_new_ratio=0.1):
+    def __init__(self,
+                 mem_update_type='mo_rdn',
+                 mem_size=2000,
+                 mem_max_classes=10,
+                 mem_max_new_ratio=0.1,
+                 device = "cpu"
+                 ):
         """
         Initialize memory.
         
@@ -46,6 +52,8 @@ class Memory(object):
         self.size_per_class = self.max_size // self.max_classes
         self.mem_update_type = mem_update_type
         self.max_new_ratio = mem_max_new_ratio
+        self.device = device
+
         self.images = []  # A list of numpy arrays
         self.labels_set = []  # Pseud labels assisting memory update
         self.true_labels = []  # Same organization as self.images for true labels record
@@ -189,9 +197,8 @@ class Memory(object):
         old_ind[:old_sz] = 1
 
         # Get latent embeddings
-        feed_images = torch.from_numpy(all_images)
-        if torch.cuda.is_available():
-            feed_images = feed_images.cuda(non_blocking=True) # ATTENTION! ADDITIONAL FORWARD PASS FOR ALL MEMORY SAMPLES! IS THIS TRICK ILLEGAL?
+        feed_images = torch.from_numpy(all_images).to(self.device, non_blocking=True)
+        # ATTENTION! ADDITIONAL FORWARD PASS FOR ALL MEMORY SAMPLES! IS THIS TRICK ILLEGAL?
         all_embeddings = model(feed_images).detach().cpu().numpy()
         # all_embeddings_mean = np.mean(all_embeddings, axis=0, keepdims=True)
         # all_embeddings = (all_embeddings - all_embeddings_mean) * 1e4

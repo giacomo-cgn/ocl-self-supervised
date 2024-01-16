@@ -100,11 +100,12 @@ class SCALE():
         
         self.criterion = SupConLoss(stream_bsz=self.train_mb_size,
                                 projector=self.projector,
-                                temperature=self.temperature_cont).to(device)
+                                temperature=self.temperature_cont,
+                                device=self.device).to(self.device)
         
         self.criterion_reg = IRDLoss(projector=self.projector,
                             current_temperature=self.temperature_curr,
-                            past_temperature=self.temperature_past, device=self.device).to(device)
+                            past_temperature=self.temperature_past, device=self.device).to(self.device)
         
         # Set up optimizer
         all_parameters = [{
@@ -266,12 +267,14 @@ class SupConLoss(nn.Module):
                  stream_bsz,
                  projector,
                  temperature=0.07,
-                 base_temperature=0.07):
+                 base_temperature=0.07,
+                 device="cpu"):
         super(SupConLoss, self).__init__()
         self.stream_bsz = stream_bsz
         self.temperature = temperature
         self.base_temperature = base_temperature
         self.projector = projector
+        self.device = device
 
     def forward(self, backbone_stu, backbone_tch, x_stu, x_tch, labels=None, mask=None):
         """Compute loss for model. If both `labels` and `mask` are None,
@@ -290,9 +293,6 @@ class SupConLoss(nn.Module):
         Returns:
             A loss scalar.
         """
-        device = (torch.device('cuda')
-                  if x_stu.is_cuda
-                  else torch.device('cpu'))
 
         z_stu = F.normalize(self.projector(backbone_stu(x_stu)), dim=1)
         z_tch = F.normalize(self.projector(backbone_tch(x_tch)), dim=1)
@@ -304,14 +304,14 @@ class SupConLoss(nn.Module):
         if labels is not None and mask is not None:
             raise ValueError('Cannot define both `labels` and `mask`')
         elif labels is None and mask is None:
-            mask = torch.eye(batch_size, dtype=torch.float32).to(device)
+            mask = torch.eye(batch_size, dtype=torch.float32).to(self.device)
         elif labels is not None:
             labels = labels.contiguous().view(-1, 1)
             if labels.shape[0] != batch_size:
                 raise ValueError('Num of labels does not match num of features')
-            mask = torch.eq(labels, labels.T).float().to(device)
+            mask = torch.eq(labels, labels.T).float().to(self.device)
         else:
-            mask = mask.float().to(device)
+            mask = mask.float().to(self.device)
 
         # compute logits
         anchor_dot_contrast = torch.div(
@@ -327,7 +327,7 @@ class SupConLoss(nn.Module):
         logits_mask = torch.scatter(
             torch.ones_like(mask),
             1,
-            torch.arange(batch_size * 2).view(-1, 1).to(device),
+            torch.arange(batch_size * 2).view(-1, 1).to(self.device),
             0
         )
         mask = mask * logits_mask
@@ -343,7 +343,7 @@ class SupConLoss(nn.Module):
         # loss
         loss = - (self.temperature / self.base_temperature) * mean_log_prob_pos
         loss = loss.view(2, batch_size)
-        stream_mask = torch.zeros_like(loss).float().to(device)
+        stream_mask = torch.zeros_like(loss).float().to(self.device)
         stream_mask[:, :self.stream_bsz] = 1
         loss = (stream_mask * loss).sum() / stream_mask.sum()
         return loss
