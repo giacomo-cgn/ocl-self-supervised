@@ -75,7 +75,7 @@ class SCALE():
 
         # Set up buffer
         if self.use_scale_buffer:
-            self.buffer = Memory(mem_size=self.mem_size)
+            self.buffer = Memory(mem_size=self.mem_size, device=self.device)
         else:
             self.buffer = ReservoirBufferUnlabeled(buffer_size=self.mem_size)
 
