@@ -12,6 +12,7 @@
     [
         {
             "strategy": "scale",
+            "use-scale-buffer": true,
             "hyperparams_search": {
                 "lr": [0.03]
             }

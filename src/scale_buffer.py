@@ -267,14 +267,12 @@ class Memory(object):
         else:
             return torch.from_numpy(images), torch.from_numpy(np.array(labels))
         
-    # New wrapper method
+    # New Sample method
     # Returns None when void buffer, otherwise returns samples
     def sample(self, replay_batch_size):
-        mem_len = len(self.images)
-
-        if mem_len > 0:
-
+        if len(self.images) > 0:
             mem_images = np.concatenate(self.images, axis=0)
+            mem_len = mem_images.shape[0]
             sample_cnt = min(mem_len, replay_batch_size)
             select_ind = np.random.choice(range(mem_len), sample_cnt, replace=False)
 
