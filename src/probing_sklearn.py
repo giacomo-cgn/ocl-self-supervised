@@ -8,13 +8,16 @@ from torch.utils.data import DataLoader, random_split
 from torch.utils.data.dataset import Dataset
 
 from sklearn.linear_model import RidgeClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 
 
-class LinearProbingSklearn:
+class ProbingSklearn:
     def __init__(self,
                  encoder: nn,
+                 probing_type: str = 'ridge_regression',
+                 knn_k: int = 50,
                  device: str = 'cpu',
                  mb_size: int = 1024,
                  save_file: str = None,
@@ -28,6 +31,8 @@ class LinearProbingSklearn:
         Args:
         """
         self.encoder = encoder.to(device)
+        self.probing_type = probing_type
+        self.knn_k = knn_k
         self.device = device
         self.mb_size = mb_size
         self.save_file = save_file
@@ -108,20 +113,25 @@ class LinearProbingSklearn:
         test_labels = torch.cat(test_labels_list, dim=0).cpu().numpy()
 
         scaler = StandardScaler()
+        
+        # Use a simple classifier on activations
+        if self.probing_type == 'ridge_regression':
+            clf = RidgeClassifier()
+        elif self.probing_type == 'knn':
+            clf = KNeighborsClassifier(n_neighbors=self.knn_k)
 
-        # Use Ridge Regression Classifier to learn weights from activations
         tr_activations = scaler.fit_transform(tr_activations)
-        log_reg = RidgeClassifier().fit(tr_activations, tr_labels)
+        clf = clf.fit(tr_activations, tr_labels)
         
         # Predict validation
         val_activations = scaler.transform(val_activations)
-        val_preds = log_reg.predict(val_activations)
+        val_preds = clf.predict(val_activations)
         # Calculate validation accuracy and loss
         val_acc = accuracy_score(val_labels, val_preds)
 
         # Predict test
         test_activations = scaler.transform(test_activations)
-        test_preds = log_reg.predict(test_activations)
+        test_preds = clf.predict(test_activations)
         # Calculate test accuracy
         test_acc = accuracy_score(test_labels, test_preds)
 

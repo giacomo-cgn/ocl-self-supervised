@@ -115,16 +115,22 @@ def read_command_line_args():
     parser.add_argument('--dim-proj', type=int, default=2048)
     parser.add_argument('--dim-pred', type=int, default=512)
     parser.add_argument('--epochs', type=int, default=1)
+    
+    parser.add_argument('--mb-passes', type=int, default=3)
+    parser.add_argument('--tr-mb-size', type=int, default=32)
+    parser.add_argument('--common-transforms', type=str_to_bool, default=True)
+    parser.add_argument('--iid', type=str_to_bool, default=False)
+    parser.add_argument('--save-model-final', type=str_to_bool, default=True)
+
+    # Probing params
+    parser.add_argument('--eval-mb-size', type=int, default=1024)
+    parser.add_argument('--probing-type', type=str, default='ridge_regression')
     parser.add_argument('--probing-separate', type=str_to_bool, default=True)
     parser.add_argument('--probing-upto', type=str_to_bool, default=True)
     parser.add_argument('--probing-val-ratio', type=float, default=0.1)
-    parser.add_argument('--mb-passes', type=int, default=3)
-    parser.add_argument('--tr-mb-size', type=int, default=32)
-    parser.add_argument('--eval-mb-size', type=int, default=1024)
-    parser.add_argument('--common-transforms', type=str_to_bool, default=True)
     parser.add_argument('--use-probing-tr-ratios', type=str_to_bool, default=False)
-    parser.add_argument('--iid', type=str_to_bool, default=False)
-    parser.add_argument('--save-model-final', type=str_to_bool, default=True)
+    parser.add_argument('--knn-k', type=int, default=50)
+
 
     # Replay params
     parser.add_argument('--mem-size', type=int, default=2000)

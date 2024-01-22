@@ -22,7 +22,7 @@ from src.strategy_wrappers.minred import MinRed
 from src.standalone_strategies.scale import SCALE
 
 from src.transforms import get_dataset_transforms
-from src.probing_sklearn import LinearProbingSklearn
+from src.probing_sklearn import ProbingSklearn
 from src.utils import write_final_scores
 
 def exec_experiment(**kwargs):
@@ -86,6 +86,8 @@ def exec_experiment(**kwargs):
         f.write(f'Probing on joint exps Up To current: {kwargs["probing_upto"]}\n')
         f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
         f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
+        if kwargs['probing_type'] == 'knn':
+            f.write(f'KNN k: {kwargs["knn_k"]}\n')
 
     # Dataset
     first_exp_with_half_classes = False
@@ -240,9 +242,10 @@ def exec_experiment(**kwargs):
             for probing_tr_ratio in probing_tr_ratio_arr:
                 probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
 
-                probe = LinearProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
+                probe = ProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
                                             exp_idx=None, tr_samples_ratio=probing_tr_ratio,
-                                            val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"])
+                                            val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"],
+                                            probing_type=kwargs["probing_type"], knn_k=kwargs["knn_k"])
                                             
                 
                 print(f'-- Upto Probing, probe tr ratio: {probing_tr_ratio} --')
@@ -265,9 +268,10 @@ def exec_experiment(**kwargs):
                     #                     device=device, save_file=probe_save_file,
                     #                     exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio, num_epochs=kwargs["probing_epochs"],
                     #                     use_val_stop=kwargs["probing_use_val_stop"], val_ratio=kwargs["probing_val_ratio"])
-                    probe = LinearProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
+                    probe = ProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
                                                 exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio,
-                                                val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"])
+                                                val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"],
+                                                probing_type=kwargs["probing_type"], knn_k=kwargs["knn_k"])
                                                 
                     
                     print(f'-- Separate Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
@@ -284,9 +288,10 @@ def exec_experiment(**kwargs):
                 for probing_tr_ratio in probing_tr_ratio_arr:
                     probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
 
-                    probe = LinearProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
+                    probe = ProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
                                                 exp_idx=None, tr_samples_ratio=probing_tr_ratio,
-                                                val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"])
+                                                val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"],
+                                                probing_type=kwargs["probing_type"], knn_k=kwargs["knn_k"])
                                                 
                     
                     print(f'-- Upto Probing, probe tr ratio: {probing_tr_ratio} --')
