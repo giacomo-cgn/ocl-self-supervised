@@ -79,6 +79,9 @@ class BarlowTwins(nn.Module):
     def get_encoder(self):
         return self.encoder
     
+    def get_encoder_for_eval(self):
+        return self.encoder
+    
     def get_projector(self):
         return self.projector
         

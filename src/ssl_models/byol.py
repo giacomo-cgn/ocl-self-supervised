@@ -96,11 +96,14 @@ class BYOL(nn.Module):
         update_ema_params(
            self.online_projector.parameters(), self.momentum_projector.parameters(), self.byol_momentum)
 
-    def get_encoder(self):
+    def get_encoder_for_eval(self):
         if self.return_momentum_encoder:
             return self.momentum_encoder
         else:
             return self.online_encoder
+    
+    def get_encoder(self):
+        return self.online_encoder
         
     def get_projector(self):
         if self.return_momentum_encoder:

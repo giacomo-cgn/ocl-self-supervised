@@ -15,7 +15,7 @@ class MinRedBuffer:
         self.stored_samples = 0
 
     # Add a batch of samples to the buffer
-    def add(self, batch_x):
+    def add(self, batch_x, batch_z):
         batch_size = batch_x.size(0)
         n_excess = self.stored_samples + batch_size - self.buffer_size
 
@@ -23,9 +23,7 @@ class MinRedBuffer:
         if n_excess > 0:
             # Buffer is full
             for _ in range(n_excess):
-                non_none_indices = [idx for idx, value in enumerate(self.buffer_features) if value is not None]
-
-                stacked_features = torch.stack([self.buffer_features[i] for i in non_none_indices], dim=0)
+                stacked_features = torch.stack(self.buffer_features, dim=0) 
                 # Cosine distance = 1 - cosine similarity
                 tensor_normalized = torch.nn.functional.normalize(stacked_features, p=2, dim=1)
                 d = 1- torch.mm(tensor_normalized, tensor_normalized.t())
@@ -37,10 +35,8 @@ class MinRedBuffer:
                 # Minimum distance in d matrix
                 _, min_indices = torch.min(nearneigh, dim=0)
                 
-                # Get index to remove from non-None list of indices
-                idx_to_remove = non_none_indices[min_indices.item()]
-
-                # Remove sample with smallest distance
+                # Get index of sample to remove
+                idx_to_remove = min_indices.item()
                 self.buffer.pop(idx_to_remove)
                 self.buffer_features.pop(idx_to_remove)
                 self.stored_samples -= 1
@@ -48,7 +44,7 @@ class MinRedBuffer:
         # Add samples to buffer
         samples_to_add = [batch_x[i] for i in range(batch_size)]
         self.buffer.extend(samples_to_add)
-        self.buffer_features.extend([None for i in range(batch_size)])
+        self.buffer_features.extend([batch_z[i] for i in range(batch_size)])
         self.stored_samples += batch_size
 
 

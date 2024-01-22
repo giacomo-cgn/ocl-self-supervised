@@ -73,18 +73,19 @@ def exec_experiment(**kwargs):
         f.write(f'Encoder: {kwargs["encoder"]}\n')
         f.write(f'Dataset: {kwargs["dataset"]}\n')
         f.write(f'Number of Experiences: {kwargs["num_exps"]}\n')
-        f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')
-        f.write(f'Probing on joint exps Up To current: {kwargs["probing_upto"]}\n')
-        f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
         f.write(f'Memory Size: {kwargs["mem_size"]}\n')
         f.write(f'MB Passes: {kwargs["mb_passes"]}\n')
         f.write(f'Train MB Size: {kwargs["tr_mb_size"]}\n')
         f.write(f'Replay MB Size: {kwargs["repl_mb_size"]}\n')
-        f.write(f'Evaluation MB Size: {kwargs["eval_mb_size"]}\n')
-        f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
         f.write(f'IID pretraining: {kwargs["iid"]}\n')
         f.write(f'Save final model: {kwargs["save_model_final"]}\n')
-
+        f.write(f'-- Probing configs --\n')
+        f.write(f'Probing type: {kwargs["probing_type"]}\n')
+        f.write(f'Evaluation MB Size: {kwargs["eval_mb_size"]}\n')
+        f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')
+        f.write(f'Probing on joint exps Up To current: {kwargs["probing_upto"]}\n')
+        f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
+        f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
 
     # Dataset
     first_exp_with_half_classes = False
@@ -239,7 +240,7 @@ def exec_experiment(**kwargs):
             for probing_tr_ratio in probing_tr_ratio_arr:
                 probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
 
-                probe = LinearProbingSklearn(network.get_encoder(), device=device, save_file=probe_save_file,
+                probe = LinearProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
                                             exp_idx=None, tr_samples_ratio=probing_tr_ratio,
                                             val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"])
                                             
@@ -260,11 +261,11 @@ def exec_experiment(**kwargs):
                     probe_save_file = os.path.join(probing_separate_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
 
                     # dim_features = network.get_embedding_dim() 
-                    # probe = LinearProbing(network.get_encoder(), dim_features=dim_features, num_classes=100,
+                    # probe = LinearProbing(network.get_encoder_for_eval(), dim_features=dim_features, num_classes=100,
                     #                     device=device, save_file=probe_save_file,
                     #                     exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio, num_epochs=kwargs["probing_epochs"],
                     #                     use_val_stop=kwargs["probing_use_val_stop"], val_ratio=kwargs["probing_val_ratio"])
-                    probe = LinearProbingSklearn(network.get_encoder(), device=device, save_file=probe_save_file,
+                    probe = LinearProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
                                                 exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio,
                                                 val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"])
                                                 
@@ -283,7 +284,7 @@ def exec_experiment(**kwargs):
                 for probing_tr_ratio in probing_tr_ratio_arr:
                     probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
 
-                    probe = LinearProbingSklearn(network.get_encoder(), device=device, save_file=probe_save_file,
+                    probe = LinearProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
                                                 exp_idx=None, tr_samples_ratio=probing_tr_ratio,
                                                 val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"])
                                                 
@@ -304,7 +305,7 @@ def exec_experiment(**kwargs):
     # Save final pretrained model
     if kwargs["save_model_final"]:
         if kwargs['strategy'] in standalone_strategies:
-            torch.save(network.get_encoder().state_dict(),
+            torch.save(network.get_encoder_for_eval().state_dict(),
                     os.path.join(save_pth, f'final_model_state.pth'))
         else:
             torch.save(network.state_dict(),

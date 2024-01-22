@@ -107,8 +107,13 @@ class MinRed():
         for epoch in range(self.train_epochs):
             for mb_idx, mbatch in tqdm(enumerate(data_loader)):
                 mbatch = mbatch.to(self.device)
-                # Add stream minibatch to buffer
-                self.buffer.add(mbatch.detach())
+                # Forward pass on stream minibatch to get features
+                with torch.no_grad():
+                    e_mbatch = self.model.get_encoder()(mbatch.detach())
+                    z_mbatch = self.model.get_projector()(e_mbatch)
+
+                # Add stream minibatch and features to buffer
+                self.buffer.add(mbatch.detach(), z_mbatch.detach())
 
                 for k in range(self.mb_passes):
                     if len(self.buffer.buffer) > 0:
