@@ -19,6 +19,7 @@ from src.strategy_wrappers.align_ema import AlignEMA
 from src.strategy_wrappers.align_ema_replay import AlignEMAReplay
 from src.strategy_wrappers.lump import LUMP
 from src.strategy_wrappers.minred import MinRed
+from src.strategy_wrappers.cassle import CaSSLe
 from src.standalone_strategies.scale import SCALE
 
 from src.transforms import get_dataset_transforms
@@ -224,6 +225,14 @@ def exec_experiment(**kwargs):
                           save_model=False, common_transforms=kwargs["common_transforms"],
                           mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"],
                           minred_buffer_ema=kwargs["minred_buffer_ema"])
+        
+    elif kwargs["strategy"] == 'cassle':
+        strategy = CaSSLe(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                            weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                            mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                            save_model=False, common_transforms=kwargs["common_transforms"],
+                            omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
+                            align_after_proj=kwargs["ema_align_proj"])
 
     else:
         raise Exception(f'Strategy {kwargs["strategy"]} not supported')
