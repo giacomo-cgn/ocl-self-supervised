@@ -183,7 +183,7 @@ def exec_experiment(**kwargs):
                                mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                                save_model=False, common_transforms=kwargs["common_transforms"],
                                mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"], omega=kwargs["omega"],
-                               align_criterion=kwargs["align_criterion"])
+                               align_criterion=kwargs["align_criterion"], use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"])
     
     elif kwargs["strategy"] == 'align_ema':
         strategy = AlignEMA(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
@@ -191,7 +191,7 @@ def exec_experiment(**kwargs):
                             mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                             save_model=False, common_transforms=kwargs["common_transforms"],
                             omega=kwargs["omega"], align_criterion=kwargs["align_criterion"], momentum_ema=kwargs["momentum_ema"],
-                            align_after_proj=kwargs["ema_align_proj"])
+                            use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"])
     
     elif kwargs["strategy"] == 'align_ema_replay':
         strategy = AlignEMAReplay(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
@@ -200,7 +200,7 @@ def exec_experiment(**kwargs):
                                   save_model=False, common_transforms=kwargs["common_transforms"],
                                   mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"], omega=kwargs["omega"],
                                   align_criterion=kwargs["align_criterion"], momentum_ema=kwargs["momentum_ema"],
-                                  align_after_proj=kwargs["ema_align_proj"])
+                                  use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"])
         
     elif kwargs["strategy"] == 'scale':
         strategy = SCALE(encoder=encoder, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
@@ -232,7 +232,7 @@ def exec_experiment(**kwargs):
                             mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                             save_model=False, common_transforms=kwargs["common_transforms"],
                             omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
-                            align_after_proj=kwargs["ema_align_proj"])
+                            align_after_proj=kwargs["align_after_proj"])
 
     else:
         raise Exception(f'Strategy {kwargs["strategy"]} not supported')

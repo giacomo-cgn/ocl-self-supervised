@@ -30,6 +30,7 @@ class AlignEMA():
                  omega: float = 0.1,
                  align_criterion: str = 'ssl',
                  momentum_ema: float = 0.999,
+                 use_aligner: bool = True,
                  align_after_proj: bool = True,
                 ):
 
@@ -51,6 +52,7 @@ class AlignEMA():
         self.omega = omega
         self.align_criterion_name = align_criterion
         self.momentum_ema = momentum_ema
+        self.use_aligner = use_aligner
         self.align_after_proj = align_after_proj
 
         self.strategy_name = 'align_ema'
@@ -113,6 +115,7 @@ class AlignEMA():
                 f.write(f'omega: {self.omega}\n')
                 f.write(f'align_criterion: {self.align_criterion_name}\n')
                 f.write(f'momentum_ema: {self.momentum_ema}\n')
+                f.write(f'use_aligner: {self.use_aligner}\n')
                 f.write(f'align_after_proj: {self.align_after_proj}\n')
 
 
@@ -139,7 +142,7 @@ class AlignEMA():
                     # Apply transforms
                     x1, x2 = self.transforms(mbatch)
 
-                    # Forward pass
+                    # Forward pass (z is after projector, e before projector))
                     loss, z1, z2, e1, e2 = self.model(x1, x2)
 
                     # EMA model pass
@@ -148,18 +151,24 @@ class AlignEMA():
                         ema_e2 = self.ema_encoder(x2)
                         ema_z1 = self.ema_projector(e1)
                         ema_z2 = self.ema_projector(e2)
-                    
-                    if self.align_after_proj:
-                        # Align features after projector layer
+
+                    if not self.align_after_proj:
+                        # Use encoder features instead projector features
+                        # For both EMA and online model
+                        ema_z1, ema_z2 = ema_e1, ema_e2
+                        z1, z2 = e1, e2
+
+                    if self.use_aligner:
+                        # Align features after aligner
                         aligned_features_1 = self.alignment_projector(z1)
                         aligned_features_2 = self.alignment_projector(z2)
-                        loss_align = 0.5*self.align_criterion(aligned_features_1, ema_z1) + 0.5*self.align_criterion(aligned_features_2, ema_z2)
                     else:
-                        # Align features before projector layer
-                        aligned_features_1 = self.alignment_projector(e1)
-                        aligned_features_2 = self.alignment_projector(e2)
-                        loss_align = 0.5*self.align_criterion(aligned_features_1, ema_e1) + 0.5*self.align_criterion(aligned_features_2, ema_e2)
+                        # Do not use aligner
+                        aligned_features_1 = z1
+                        aligned_features_2 = z2
 
+                    loss_align = 0.5*self.align_criterion(aligned_features_1, ema_z1) + 0.5*self.align_criterion(aligned_features_2, ema_z2)
+                    
                     loss += self.omega * loss_align.mean()
 
                     # Backward pass

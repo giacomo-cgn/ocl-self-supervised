@@ -5,16 +5,41 @@
         "tr-mb-size": 10,
         "repl-mb-size": 128,
         "iid": false,
-        "omega": 1.0,
+        "omega": 0.1,
         "momentum-ema": 0.999
     },
     "experiments":
     [
         {
-            "strategy": "scale",
-            "use-scale-buffer": true,
+            "strategy": "align_ema_replay",
+            "model" : "simsiam",
             "hyperparams_search": {
-                "lr": [0.03]
+                "lr": [0.1, 0.03]
+            }
+        },
+        {
+            "strategy": "align_ema_replay",
+            "model" : "barlow_twins",
+            "hyperparams_search": {
+                "lr": [0.1, 0.03]
+            }
+        },
+        {
+            "strategy": "align_ema_replay",
+            "model" : "byol",
+            "name": "mom",
+            "return-momentum-encoder": true,
+            "hyperparams_search": {
+                "lr": [0.1, 0.03]
+            }
+        },
+        {
+            "strategy": "align_ema_replay",
+            "model" : "byol",
+            "name": "onl",
+            "return-momentum-encoder": false,
+            "hyperparams_search": {
+                "lr": [0.1, 0.03]
             }
         }
     ]

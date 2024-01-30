@@ -139,12 +139,13 @@ def read_command_line_args():
     # Align params
     parser.add_argument('--omega', type=float, default=0.1) # Used for CaSSLe distillation strength too! CaSSLe default is 1.0
     parser.add_argument('--momentum-ema', type=float, default=0.999)
-    parser.add_argument('--ema-align-proj', type=str_to_bool, default=True)
     parser.add_argument('--align-criterion', type=str, default='ssl')
+    parser.add_argument('--use-aligner', type=str_to_bool, default=True)
+    parser.add_argument('--align-after-proj', type=str_to_bool, default=True)
 
-    # Models specific params
+    # SSL models specific params
     parser.add_argument('--lambd', type=float, default=5e-3) # For Barlow Twins
-    parser.add_argument('--byol-momentum', type=float, default=0.9)
+    parser.add_argument('--byol-momentum', type=float, default=0.99)
     parser.add_argument('--return-momentum-encoder', type=bool, default=True)
 
     # SCALE params

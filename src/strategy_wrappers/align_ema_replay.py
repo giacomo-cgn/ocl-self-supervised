@@ -34,6 +34,7 @@ class AlignEMAReplay():
                  omega: float = 0.1,
                  align_criterion: str = 'ssl',
                  momentum_ema: float = 0.999,
+                 use_aligner: bool = True,
                  align_after_proj: bool = True,
                ):
         
@@ -57,6 +58,7 @@ class AlignEMAReplay():
         self.omega = omega
         self.align_criterion_name = align_criterion
         self.momentum_ema = momentum_ema
+        self.use_aligner = use_aligner
         self.align_after_proj = align_after_proj
 
         self.strategy_name = 'align_ema_replay'
@@ -124,6 +126,7 @@ class AlignEMAReplay():
                 f.write(f'omega: {self.omega}\n')
                 f.write(f'align_criterion: {self.align_criterion_name}\n')
                 f.write(f'momentum_ema: {self.momentum_ema}\n')
+                f.write(f'use_aligner: {self.use_aligner}\n')
                 f.write(f'align_after_proj: {self.align_after_proj}\n')
 
                 # Write loss file column names
@@ -148,10 +151,12 @@ class AlignEMAReplay():
 
                 for k in range(self.mb_passes):
                     if len(self.buffer.buffer) > self.replay_mb_size:
+                        use_replay = True
                         # Sample from buffer and concat
                         replay_batch = self.buffer.sample(self.replay_mb_size).to(self.device)
                         combined_batch = torch.cat((replay_batch, mbatch), dim=0)
                     else:
+                        use_replay = False
                         # Do not sample buffer if not enough elements in it
                         combined_batch = mbatch
 
@@ -161,25 +166,41 @@ class AlignEMAReplay():
                     # Forward pass
                     loss, z1, z2, e1, e2 = self.model(x1, x2)
 
-                    # EMA model pass
-                    with torch.no_grad():
-                        ema_e1 = self.ema_encoder(x1)
-                        ema_e2 = self.ema_encoder(x2)
-                        ema_z1 = self.ema_projector(e1)
-                        ema_z2 = self.ema_projector(e2)
-                    
-                    if self.align_after_proj:
-                        # Align features after projector layer
-                        aligned_features_1 = self.alignment_projector(z1)
-                        aligned_features_2 = self.alignment_projector(z2)
-                        loss_align = 0.5*self.align_criterion(aligned_features_1, ema_z1) + 0.5*self.align_criterion(aligned_features_2, ema_z2)
-                    else:
-                        # Align features before projector layer
-                        aligned_features_1 = self.alignment_projector(e1)
-                        aligned_features_2 = self.alignment_projector(e2)
-                        loss_align = 0.5*self.align_criterion(aligned_features_1, ema_e1) + 0.5*self.align_criterion(aligned_features_2, ema_e2)
+                    if not self.align_after_proj:
+                        # Use encoder features instead projector features
+                        z1 = e1
+                        z2 = e2
 
-                    loss += self.omega * loss_align.mean()
+                    if use_replay:
+                        # Take only embed features from replay batch
+                        replay_z_new_1 = z1[:self.replay_mb_size]
+                        replay_z_new_2 = z2[:self.replay_mb_size]
+
+                        # EMA model pass only on replay samples
+                        with torch.no_grad():
+                            ema_e1 = self.ema_encoder(x1[:self.replay_mb_size])
+                            ema_e2 = self.ema_encoder(x2[:self.replay_mb_size])
+                            if self.align_after_proj:
+                                ema_z1 = self.ema_projector(e1)
+                                ema_z2 = self.ema_projector(e2)
+                            else:
+                                # Directly use encoder features as alignment targets
+                                ema_z1 = ema_e1
+                                ema_z2 = ema_e2
+
+                        if self.use_aligner:
+                            # Align features after aligner
+                            aligned_features_1 = self.alignment_projector(replay_z_new_1)
+                            aligned_features_2 = self.alignment_projector(replay_z_new_2)
+                        else:
+                            # Do not use aligner
+                            aligned_features_1 = replay_z_new_1
+                            aligned_features_2 = replay_z_new_2
+
+
+                        loss_align = 0.5*self.align_criterion(aligned_features_1, ema_z1) + 0.5*self.align_criterion(aligned_features_2, ema_z2)
+
+                        loss += self.omega * loss_align.mean()
 
                     # Backward pass
                     self.optimizer.zero_grad()

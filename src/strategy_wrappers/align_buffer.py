@@ -30,7 +30,9 @@ class AlignBuffer():
                  mem_size: int = 2000,
                  replay_mb_size: int = 32,
                  omega: float = 0.1,
-                 align_criterion: str = 'ssl'
+                 align_criterion: str = 'ssl',
+                 use_aligner: bool = True,
+                 align_after_proj: bool = True
     ):
         if model is None:
             raise Exception(f'This strategy requires a SSL model')            
@@ -51,6 +53,8 @@ class AlignBuffer():
         self.replay_mb_size = replay_mb_size
         self.omega = omega
         self.align_criterion_name = align_criterion
+        self.use_aligner = use_aligner
+        self.align_after_proj = align_after_proj
 
         self.strategy_name = 'align_buffer'
         self.model_and_strategy_name = self.strategy_name + '_' + self.model.get_name()
@@ -71,12 +75,20 @@ class AlignBuffer():
             self.transforms = get_transforms(dataset=self.dataset_name, model=self.model.get_name())
 
         # Set up alignment projector (use dim_pred as hidden layer dim)
-        dim_proj = self.model.get_projector_dim()
         dim_align_layer = self.model.get_predictor_dim()
-        self.alignment_projector = nn.Sequential(nn.Linear(dim_proj, dim_align_layer, bias=False),
+        if self.align_after_proj:
+            dim_proj = self.model.get_projector_dim()
+            self.alignment_projector = nn.Sequential(nn.Linear(dim_proj, dim_align_layer, bias=False),
                                                 nn.BatchNorm1d(dim_align_layer),
                                                 nn.ReLU(inplace=True),
                                                 nn.Linear(dim_align_layer, dim_proj)).to(self.device)
+        else:
+            dim_encoder_embed = self.model.get_embedding_dim()
+            self.alignment_projector = nn.Sequential(nn.Linear(dim_encoder_embed, dim_align_layer, bias=False),
+                                                nn.BatchNorm1d(dim_align_layer),
+                                                nn.ReLU(inplace=True),
+                                                nn.Linear(dim_align_layer, dim_encoder_embed)).to(self.device)
+        
 
         # Set up optimizer
         params_to_optimize = list(self.model.parameters()) + list(self.alignment_projector.parameters())
@@ -101,6 +113,8 @@ class AlignBuffer():
                 f.write(f'replay_mb_size: {self.replay_mb_size}\n')
                 f.write(f'omega: {self.omega}\n')
                 f.write(f'align_criterion: {self.align_criterion_name}\n')
+                f.write(f'use_aligner: {self.use_aligner}\n')
+                f.write(f'align_after_proj: {self.align_after_proj}\n')
 
 
                 # Write loss file column names
@@ -139,16 +153,27 @@ class AlignBuffer():
                     # Apply transforms
                     x1, x2 = self.transforms(combined_batch)
 
-                    # Forward pass
-                    loss, z1, z2, _, _ = self.model(x1, x2)
+                    # Forward pass (z is after projector, e before projector)
+                    loss, z1, z2, e1, e2 = self.model(x1, x2)
+
+                    if not self.align_after_proj:
+                        # Use encoder features instead projector features
+                        z1 = e1
+                        z2 = e2
 
                     if use_replay:
                         # Take only embed features from replay batch
                         replay_z_new_1 = z1[:self.replay_mb_size]
                         replay_z_new_2 = z2[:self.replay_mb_size]
 
-                        aligned_features_1 = self.alignment_projector(replay_z_new_1)
-                        aligned_features_2 = self.alignment_projector(replay_z_new_2)
+                        if self.use_aligner:
+                            # Align features after aligner
+                            aligned_features_1 = self.alignment_projector(replay_z_new_1)
+                            aligned_features_2 = self.alignment_projector(replay_z_new_2)
+                        else:
+                            # Do not use aligner
+                            aligned_features_1 = replay_z_new_1
+                            aligned_features_2 = replay_z_new_2
 
                         loss_align = 0.5*self.align_criterion(aligned_features_1, replay_z_old) + 0.5*self.align_criterion(aligned_features_2, replay_z_old)
 
