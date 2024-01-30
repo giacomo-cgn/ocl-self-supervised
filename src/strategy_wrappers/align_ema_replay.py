@@ -181,8 +181,8 @@ class AlignEMAReplay():
                             ema_e1 = self.ema_encoder(x1[:self.replay_mb_size])
                             ema_e2 = self.ema_encoder(x2[:self.replay_mb_size])
                             if self.align_after_proj:
-                                ema_z1 = self.ema_projector(e1)
-                                ema_z2 = self.ema_projector(e2)
+                                ema_z1 = self.ema_projector(ema_e1)
+                                ema_z2 = self.ema_projector(ema_e2)
                             else:
                                 # Directly use encoder features as alignment targets
                                 ema_z1 = ema_e1
