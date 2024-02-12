@@ -76,6 +76,7 @@ def exec_experiment(**kwargs):
         f.write(f'Number of Experiences: {kwargs["num_exps"]}\n')
         f.write(f'Memory Size: {kwargs["mem_size"]}\n')
         f.write(f'MB Passes: {kwargs["mb_passes"]}\n')
+        f.write(f'Num Epochs: {kwargs["epochs"]}\n')
         f.write(f'Train MB Size: {kwargs["tr_mb_size"]}\n')
         f.write(f'Replay MB Size: {kwargs["repl_mb_size"]}\n')
         f.write(f'IID pretraining: {kwargs["iid"]}\n')
