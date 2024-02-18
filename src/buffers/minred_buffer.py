@@ -8,16 +8,17 @@ class MinRedBuffer:
     MinRed buffer class for batches of samples without labels.
     """
     def __init__(self, buffer_size, alpha_ema=0.5):
-        self.buffer_size = buffer_size
+        self.buffer_size = buffer_size # Maximum size of the buffer
         self.alpha_ema = alpha_ema
         self.buffer = [] # Buffer for input samples only (e.g. images)
         self.buffer_features = [] # Buffer for corresponding sample features
-        self.stored_samples = 0
 
     # Add a batch of samples to the buffer
-    def add(self, batch_x, batch_z):
+    def add(self, batch_x, batch_features):
+        assert batch_x.size(0) == batch_features.size(0)
+
         batch_size = batch_x.size(0)
-        n_excess = self.stored_samples + batch_size - self.buffer_size
+        n_excess = len(self.buffer) + batch_size - self.buffer_size
 
         # Remove n_excess samples
         if n_excess > 0:
@@ -39,28 +40,28 @@ class MinRedBuffer:
                 idx_to_remove = min_indices.item()
                 self.buffer.pop(idx_to_remove)
                 self.buffer_features.pop(idx_to_remove)
-                self.stored_samples -= 1
 
         # Add samples to buffer
         samples_to_add = [batch_x[i] for i in range(batch_size)]
         self.buffer.extend(samples_to_add)
-        self.buffer_features.extend([batch_z[i] for i in range(batch_size)])
-        self.stored_samples += batch_size
+        self.buffer_features.extend([batch_features[i] for i in range(batch_size)])
 
 
     # Sample batch_size samples from the buffer, 
     # returns samples and indices of extracted samples (for feature update)
     def sample(self, batch_size):
-        assert batch_size <= self.stored_samples
+        assert batch_size <= len(self.buffer)
 
         # Sample batch_size indices
         indices = random.sample(range(len(self.buffer)), batch_size)
         samples = [self.buffer[i] for i in indices]
+        features = [self.buffer_features[i] for i in indices]
 
         # Reconstruct batch from samples
         batch_x = torch.stack([sample for sample in samples])
+        batch_features = torch.stack([feature for feature in features])
 
-        return batch_x, indices
+        return batch_x, batch_features, indices
     
     # Update features of buffer samples at given indices
     def update_features(self, batch_features, indices):

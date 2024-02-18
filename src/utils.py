@@ -133,6 +133,7 @@ def read_command_line_args():
 
 
     # Replay params
+    parser.add_argument('--buffer-type', type=str, default='default')
     parser.add_argument('--mem-size', type=int, default=2000)
     parser.add_argument('--repl-mb-size', type=int, default=32)
 
@@ -156,8 +157,8 @@ def read_command_line_args():
     # LUMP params
     parser.add_argument('--alpha-lump', type=float, default=0.4)
 
-    # MinRed params
-    parser.add_argument('--minred-buffer-ema', type=float, default=0.5)
+    # Buffer Features update with EMA param (originally alpha from minred)
+    parser.add_argument('--features-buffer-ema', type=float, default=0.5)
 
 
     args = parser.parse_args()

@@ -6,7 +6,6 @@ from torch.utils.data import DataLoader
 
 from avalanche.benchmarks.scenarios import NCExperience
 
-from ..minred_buffer import MinRedBuffer
 from ..utils import UnsupervisedDataset, init_optim
 from ..transforms import get_transforms
 
@@ -14,6 +13,7 @@ class MinRed():
 
     def __init__(self,
                  model: torch.nn.Module = None,
+                 buffer = None,
                  optim: str = 'SGD',
                  lr: float = 5e-4,
                  momentum: float = 0.9,
@@ -26,15 +26,16 @@ class MinRed():
                  save_pth: str  = None,
                  save_model: bool = False,
                  common_transforms: bool = True,
-                 mem_size: int = 2000,
                  replay_mb_size: int = 32,
-                 minred_buffer_ema: float = 0.5
     ):
             
         if model is None:
-            raise Exception(f'This strategy requires a SSL model')            
+            raise Exception(f'This strategy requires a SSL model')
+        if buffer is None:
+            raise Exception(f'This strategy requires a buffer')            
 
         self.model = model
+        self.buffer = buffer
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
@@ -46,15 +47,10 @@ class MinRed():
         self.save_pth = save_pth
         self.save_model = save_model
         self.common_transforms = common_transforms
-        self.mem_size = mem_size
         self.replay_mb_size = replay_mb_size
-        self.minred_buffer_ema = minred_buffer_ema
 
         self.strategy_name = 'minred'
         self.model_and_strategy_name = self.strategy_name + '_' + self.model.get_name()
-
-        # Set up buffer
-        self.buffer = MinRedBuffer(self.mem_size, alpha_ema=self.minred_buffer_ema)
 
         # Set up transforms
         if self.common_transforms:
@@ -81,10 +77,7 @@ class MinRed():
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
-                f.write(f'mem_size: {self.mem_size}\n')
                 f.write(f'replay_mb_size: {self.replay_mb_size}\n')
-                f.write(f'minred_buffer_ema: {self.minred_buffer_ema}\n')
-
 
                 # Write loss file column names
                 with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
@@ -119,7 +112,7 @@ class MinRed():
                     if len(self.buffer.buffer) > 0:
                         # Sample from buffer (indices needed for buffer features update)
                         replay_batch_size = min(self.replay_mb_size, len(self.buffer.buffer))
-                        replay_batch, replay_indices = self.buffer.sample(replay_batch_size)
+                        replay_batch, _, replay_indices = self.buffer.sample(replay_batch_size)
                         replay_batch = replay_batch.to(self.device)
 
                         # Apply transforms

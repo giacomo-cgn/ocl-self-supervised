@@ -22,12 +22,15 @@ from src.strategy_wrappers.minred import MinRed
 from src.strategy_wrappers.cassle import CaSSLe
 from src.standalone_strategies.scale import SCALE
 
+from src.buffers import get_buffer
+
 from src.transforms import get_dataset_transforms
 from src.probing_sklearn import ProbingSklearn
 from src.utils import write_final_scores
 
 def exec_experiment(**kwargs):
     standalone_strategies = ['scale']
+    buffer_free_strategies = ['no_strategy', 'align_ema']
 
     # Ratios of tr set used for training linear probe
     if kwargs["use_probing_tr_ratios"]:
@@ -162,6 +165,32 @@ def exec_experiment(**kwargs):
             raise Exception(f'Invalid model {kwargs["model"]}')
         
 
+    # Buffer
+    if not kwargs["strategy"] in buffer_free_strategies:
+        if kwargs["buffer_type"] == "default":
+            # Set default buffer for each strategy
+            if kwargs["strategy"] in ['replay', 'align_ema_replay', 'align_buffer', 'lump']:
+                kwargs["buffer_type"] = "reservoir"
+            elif kwargs["strategy"] == "minred":
+                kwargs["buffer_type"] = "minred"
+            elif kwargs["strategy"] == "scale":
+                kwargs["buffer_type"] = "scale"
+            
+        elif kwargs["buffer_type"] == "scale" and not kwargs["strategy"] == "scale":
+            raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'scale'")
+        
+        buffer = get_buffer(buffer_type=kwargs["buffer_type"], mem_size=kwargs["mem_size"],
+                            alpha_ema=kwargs["features_buffer_ema"], device=device)
+
+        # Save buffer configs
+        with open(save_pth + '/config.txt', 'a') as f:
+            f.write('\n')
+            f.write(f'---- BUFFER CONFIGS ----\n')
+            f.write(f'Buffer Type: {kwargs["buffer_type"]}\n')
+            f.write(f'Buffer Size: {kwargs["mem_size"]}\n')
+            if kwargs["buffer_type"] == "minred" or kwargs["buffer_type"] == "reservoir":
+                f.write(f'Features update EMA param (MinRed): {kwargs["features_buffer_ema"]}\n')
+
 
     
     # Strategy
@@ -176,14 +205,14 @@ def exec_experiment(**kwargs):
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                           save_model=False, common_transforms=kwargs["common_transforms"],
-                          mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"])
+                          buffer=buffer, replay_mb_size=kwargs["repl_mb_size"])
         
     elif kwargs["strategy"] == 'align_buffer':
         strategy = AlignBuffer(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
                                weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                                mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                                save_model=False, common_transforms=kwargs["common_transforms"],
-                               mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"], omega=kwargs["omega"],
+                               buffer=buffer, replay_mb_size=kwargs["repl_mb_size"], omega=kwargs["omega"],
                                align_criterion=kwargs["align_criterion"], use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"])
     
     elif kwargs["strategy"] == 'align_ema':
@@ -199,7 +228,7 @@ def exec_experiment(**kwargs):
                                   weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                                   mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                                   save_model=False, common_transforms=kwargs["common_transforms"],
-                                  mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"], omega=kwargs["omega"],
+                                 buffer=buffer, replay_mb_size=kwargs["repl_mb_size"], omega=kwargs["omega"],
                                   align_criterion=kwargs["align_criterion"], momentum_ema=kwargs["momentum_ema"],
                                   use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"])
         
@@ -208,15 +237,15 @@ def exec_experiment(**kwargs):
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                           save_model=False, common_transforms=kwargs["common_transforms"],
-                          mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"],
-                          dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"], use_scale_buffer=kwargs["use_scale_buffer"])
+                          buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                          dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"], buffer_type=kwargs["buffer_type"])
         
     elif kwargs["strategy"] == 'lump':
         strategy = LUMP(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                           save_model=False, common_transforms=kwargs["common_transforms"],
-                          mem_size=kwargs["mem_size"],
+                          buffer=buffer,
                           alpha_lump=kwargs["alpha_lump"])
         
     elif kwargs["strategy"] == 'minred':
@@ -224,8 +253,7 @@ def exec_experiment(**kwargs):
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                           save_model=False, common_transforms=kwargs["common_transforms"],
-                          mem_size=kwargs["mem_size"], replay_mb_size=kwargs["repl_mb_size"],
-                          minred_buffer_ema=kwargs["minred_buffer_ema"])
+                          buffer=buffer, replay_mb_size=kwargs["repl_mb_size"])
         
     elif kwargs["strategy"] == 'cassle':
         strategy = CaSSLe(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],

@@ -9,8 +9,6 @@ import torch.nn as nn
 
 from avalanche.benchmarks.scenarios import NCExperience
 
-from ..scale_buffer import Memory
-from ..reservoir_buffer import ReservoirBufferUnlabeled
 from ..utils import UnsupervisedDataset, init_optim
 from ..transforms import get_transforms
 
@@ -18,6 +16,8 @@ class SCALE():
 
     def __init__(self,
                  encoder: nn.Module = None,
+                 buffer = None,
+                 buffer_type: str = 'scale',
                  optim: str = 'SGD',
                  lr: float = 5e-4,
                  momentum: float = 0.9,
@@ -40,15 +40,17 @@ class SCALE():
                  temp_tsne: float = 0.1,
                  tsne_thresh_ratio: float = 0.1,
                  dim_features: int = 128,
-                 use_scale_buffer: bool = True,
     ):           
         
         if encoder is None:
             raise Exception(f'This strategy requires an encoder.')
+        if buffer is None:
+            raise Exception(f'This strategy requires a buffer')
         
         self.encoder = encoder(num_classes=dim_features, zero_init_residual=True).to(device)
 
         self.lr = lr
+        self.buffer = buffer
         self.momentum = momentum
         self.weight_decay = weight_decay
         self.train_mb_size = train_mb_size
@@ -69,15 +71,13 @@ class SCALE():
         self.temp_tsne = temp_tsne
         self.tsne_thresh_ratio = tsne_thresh_ratio
         self.features_dim = dim_features
-        self.use_scale_buffer = use_scale_buffer
+
+        if buffer_type == 'scale':
+            self.use_scale_buffer = True
+        else:
+            self.use_scale_buffer = False
 
         self.strategy_name = 'SCALE'
-
-        # Set up buffer
-        if self.use_scale_buffer:
-            self.buffer = Memory(mem_size=self.mem_size, device=self.device)
-        else:
-            self.buffer = ReservoirBufferUnlabeled(buffer_size=self.mem_size)
 
         # Set up transforms
         if self.common_transforms:
@@ -136,7 +136,6 @@ class SCALE():
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
-                f.write(f'mem_size: {self.mem_size}\n')
                 f.write(f'replay_mb_size: {self.replay_mb_size}\n')
 
                 f.write(f'temperature_cont: {self.temperature_cont}\n')
@@ -188,12 +187,15 @@ class SCALE():
                             # Concat buffer with stream samples
                             combined_batch = torch.cat((replay_batch.to(self.device), mbatch), dim=0)
                     else:
-                        # Try sampling from standard reservoir buffer
+                        # Try sampling from default buffer
                         if len(self.buffer.buffer) > self.replay_mb_size:
+                            use_replay = True
                             # Sample from buffer and concat
-                            replay_batch = self.buffer.sample(self.replay_mb_size).to(self.device)
+                            replay_batch, _, replay_indices = self.buffer.sample(self.replay_mb_size)
+                            replay_batch = replay_batch.to(self.device)
                             combined_batch = torch.cat((replay_batch, mbatch), dim=0)
                         else:
+                            use_replay = False
                             # Do not sample buffer if not enough elements in it
                             combined_batch = mbatch
 
@@ -219,9 +221,15 @@ class SCALE():
                     if self.tr_distill_power <= 0.0 and loss_distill > 0.0:
                         self.tr_distill_power = self.losses_contrast.avg * self.distill_power / self.losses_distill.avg
 
-                    # print(f'Adjusting distillation power to {self.tr_distill_power}')
-
                     loss = loss_contrast + self.tr_distill_power * loss_distill
+
+                    if not self.use_scale_buffer and use_replay:
+                        replay_z_new_1 = features_all[:replay_batch.shape[0]]
+                        replay_z_new_2 = features_all[combined_batch_size:combined_batch_size+replay_batch.shape[0]]
+
+                        # Update replayed samples with avg of last extracted features
+                        self.buffer.update_features(((replay_z_new_1+replay_z_new_2)/2).detach(), replay_indices)
+
 
                     # Backward pass
                     self.optimizer.zero_grad()
@@ -242,7 +250,12 @@ class SCALE():
                 if self.use_scale_buffer:
                     all_embeddings, select_indexes = self.buffer.update_wo_labels(new_mbatch.detach().cpu(), self.encoder)
                 else:
-                    self.buffer.add(new_mbatch.detach())
+                    if use_replay:
+                        start_idx = replay_batch.shape[0]
+                    else:
+                        start_idx = 0
+                    self.buffer.add(new_mbatch.detach(), features_all[start_idx:combined_batch_size].detach())
+
             
             
         # Save model and optimizer state

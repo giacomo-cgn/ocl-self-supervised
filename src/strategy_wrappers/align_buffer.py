@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 
 from avalanche.benchmarks.scenarios import NCExperience
 
-from ..reservoir_buffer import ReservoirBufferUnlabeledFeatures
 from ..utils import UnsupervisedDataset, init_optim
 from ..transforms import get_transforms
 
@@ -15,6 +14,7 @@ class AlignBuffer():
 
     def __init__(self,
                  model: torch.nn.Module = None,
+                 buffer = None,
                  optim: str = 'SGD',
                  lr: float = 5e-4,
                  momentum: float = 0.9,
@@ -27,7 +27,6 @@ class AlignBuffer():
                  save_pth: str  = None,
                  save_model: bool = False,
                  common_transforms: bool = True,
-                 mem_size: int = 2000,
                  replay_mb_size: int = 32,
                  omega: float = 0.1,
                  align_criterion: str = 'ssl',
@@ -35,9 +34,12 @@ class AlignBuffer():
                  align_after_proj: bool = True
     ):
         if model is None:
-            raise Exception(f'This strategy requires a SSL model')            
+            raise Exception(f'This strategy requires a SSL model')
+        if buffer is None:
+            raise Exception(f'This strategy requires a buffer')
 
         self.model = model
+        self.buffer = buffer
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
@@ -49,7 +51,6 @@ class AlignBuffer():
         self.save_pth = save_pth
         self.save_model = save_model
         self.common_transforms = common_transforms
-        self.mem_size = mem_size
         self.replay_mb_size = replay_mb_size
         self.omega = omega
         self.align_criterion_name = align_criterion
@@ -64,9 +65,6 @@ class AlignBuffer():
             self.align_criterion = self.model.get_criterion()
         elif self.align_criterion_name == 'mse':
             self.align_criterion = nn.MSELoss()
-
-        # Set up buffer
-        self.buffer = ReservoirBufferUnlabeledFeatures(self.mem_size)
 
         # Set up transforms
         if self.common_transforms:
@@ -109,7 +107,6 @@ class AlignBuffer():
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
-                f.write(f'mem_size: {self.mem_size}\n')
                 f.write(f'replay_mb_size: {self.replay_mb_size}\n')
                 f.write(f'omega: {self.omega}\n')
                 f.write(f'align_criterion: {self.align_criterion_name}\n')
@@ -142,7 +139,7 @@ class AlignBuffer():
                     if len(self.buffer.buffer) > self.replay_mb_size:
                         use_replay = True
                         # Sample from buffer and concat
-                        replay_batch, replay_z_old = self.buffer.sample(self.replay_mb_size)
+                        replay_batch, replay_z_old, replay_indices = self.buffer.sample(self.replay_mb_size)
                         replay_batch, replay_z_old = replay_batch.to(self.device), replay_z_old.to(self.device)
                         combined_batch = torch.cat((replay_batch, mbatch), dim=0)
                     else:
@@ -178,6 +175,9 @@ class AlignBuffer():
                         loss_align = 0.5*self.align_criterion(aligned_features_1, replay_z_old) + 0.5*self.align_criterion(aligned_features_2, replay_z_old)
 
                         loss += self.omega * loss_align.mean()
+
+                        # Update replayed samples with avg of last extracted features
+                        self.buffer.update_features(((replay_z_new_1+replay_z_new_2)/2).detach(), replay_indices)
 
                     # Backward pass
                     self.optimizer.zero_grad()

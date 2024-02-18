@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 
 from avalanche.benchmarks.scenarios import NCExperience
 
-from ..reservoir_buffer import ReservoirBufferUnlabeled
 from ..utils import UnsupervisedDataset, init_optim
 from ..transforms import get_transforms
 
@@ -15,6 +14,7 @@ class LUMP():
 
     def __init__(self,
                  model: torch.nn.Module = None,
+                 buffer = None,
                  optim: str = 'SGD',
                  lr: float = 5e-4,
                  momentum: float = 0.9,
@@ -27,14 +27,16 @@ class LUMP():
                  save_pth: str  = None,
                  save_model: bool = False,
                  common_transforms: bool = True,
-                 mem_size: int = 2000,
                  alpha_lump: float = 0.4,
     ):
             
         if model is None:
-            raise Exception(f'This strategy requires a SSL model')            
+            raise Exception(f'This strategy requires a SSL model')
+        if buffer is None:
+            raise Exception(f'This strategy requires a buffer')          
 
         self.model = model
+        self.buffer = buffer
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
@@ -46,14 +48,10 @@ class LUMP():
         self.save_pth = save_pth
         self.save_model = save_model
         self.common_transforms = common_transforms
-        self.mem_size = mem_size
         self.alpha_lump = alpha_lump
 
         self.strategy_name = 'lump'
         self.model_and_strategy_name = self.strategy_name + '_' + self.model.get_name()
-
-        # Set up buffer
-        self.buffer = ReservoirBufferUnlabeled(self.mem_size)
 
         # Set up transforms
         if self.common_transforms:
@@ -80,7 +78,6 @@ class LUMP():
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
-                f.write(f'mem_size: {self.mem_size}\n')
                 f.write(f'alpha_lump: {self.alpha_lump}\n')
 
 
@@ -113,7 +110,8 @@ class LUMP():
 
                     if len(self.buffer.buffer) > curr_mbatch_size:
                         # Apply mixup
-                        replay_batch = self.buffer.sample(curr_mbatch_size).to(self.device) # Sample same number of current mb size
+                        replay_batch, _, _ = self.buffer.sample(curr_mbatch_size) # Sample same number of current mb size
+                        replay_batch = replay_batch.to(self.device)
                         # Augment replay minibatch
                         x1_replay, x2_replay = self.transforms(replay_batch)
 
@@ -125,7 +123,7 @@ class LUMP():
                         mixed_x2 = x2
 
                     # Forward pass
-                    loss, _, _, _, _ = self.model(mixed_x1, mixed_x2)
+                    loss, z1, z2, _, _ = self.model(mixed_x1, mixed_x2)
 
                     # Backward pass
                     self.optimizer.zero_grad()
@@ -140,7 +138,7 @@ class LUMP():
                     self.model.after_backward()
 
                 # Update buffer with new samples
-                self.buffer.add(new_mbatch.detach())
+                self.buffer.add(new_mbatch.detach(), z1.detach())
 
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:
