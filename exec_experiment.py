@@ -30,7 +30,7 @@ from src.utils import write_final_scores
 
 def exec_experiment(**kwargs):
     standalone_strategies = ['scale']
-    buffer_free_strategies = ['no_strategy', 'align_ema']
+    buffer_free_strategies = ['no_strategy', 'align_ema', 'cassle']
 
     # Ratios of tr set used for training linear probe
     if kwargs["use_probing_tr_ratios"]:
@@ -188,7 +188,7 @@ def exec_experiment(**kwargs):
             f.write(f'---- BUFFER CONFIGS ----\n')
             f.write(f'Buffer Type: {kwargs["buffer_type"]}\n')
             f.write(f'Buffer Size: {kwargs["mem_size"]}\n')
-            if kwargs["buffer_type"] == "minred" or kwargs["buffer_type"] == "reservoir":
+            if kwargs["buffer_type"] in ["minred", "reservoir", "fifo"]:
                 f.write(f'Features update EMA param (MinRed): {kwargs["features_buffer_ema"]}\n')
 
 
