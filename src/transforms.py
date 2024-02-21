@@ -29,6 +29,7 @@ def get_dataset_transforms(dataset: str):
     elif dataset in ['imagenet100', 'imagenet']:
         return transforms.Compose([
             transforms.ToTensor(),
+            transforms.Resize((3, 224, 224)),
             transforms.Normalize(
             (0.485, 0.456, 0.406), (0.228, 0.224, 0.225)
     )])
@@ -47,7 +48,7 @@ def get_dataset_crop(dataset: str):
         return transforms.RandomResizedCrop(32, scale=(0.2, 1.))
     elif dataset in ['imagenet100', 'imagenet']:
         # return transforms.RandomCrop(64, padding=8)
-        return transforms.RandomResizedCrop(32, scale=(0.2, 1.))
+        return transforms.RandomResizedCrop(224, scale=(0.2, 1.))
     else:
         raise ValueError("Dataset not supported.")
 
@@ -168,7 +169,3 @@ def get_transforms(dataset: str, model: str):
 
     else:
         raise ValueError(f"Model {model} not supported")
-
-        
-        
-
