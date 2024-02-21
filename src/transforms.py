@@ -29,7 +29,7 @@ def get_dataset_transforms(dataset: str):
     elif dataset in ['imagenet100', 'imagenet']:
         return transforms.Compose([
             transforms.ToTensor(),
-            transforms.Resize((3, 224, 224)),
+            transforms.Resize(224),
             transforms.Normalize(
             (0.485, 0.456, 0.406), (0.228, 0.224, 0.225)
     )])
