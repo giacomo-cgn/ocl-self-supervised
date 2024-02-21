@@ -4,7 +4,6 @@ import random
 
 def get_dataset(dataset_name, dataset_root, num_exps=20):
 
-    first_exp_with_half_classes = False
     return_task_id = False
     shuffle = True
 
@@ -12,7 +11,6 @@ def get_dataset(dataset_name, dataset_root, num_exps=20):
         benchmark = SplitCIFAR100(
                 n_experiences=num_exps,
                 seed=42, # Fixed seed for reproducibility
-                first_exp_with_half_classes=first_exp_with_half_classes,
                 return_task_id=return_task_id,
                 shuffle=shuffle,
                 train_transform=get_dataset_transforms(dataset_name),
@@ -23,7 +21,6 @@ def get_dataset(dataset_name, dataset_root, num_exps=20):
         benchmark = SplitCIFAR10(
                 n_experiences=num_exps,
                 seed=42, # Fixed seed for reproducibility
-                first_exp_with_half_classes=first_exp_with_half_classes,
                 return_task_id=return_task_id,
                 shuffle=shuffle,
                 train_transform=get_dataset_transforms(dataset_name),
@@ -35,7 +32,6 @@ def get_dataset(dataset_name, dataset_root, num_exps=20):
                 dataset_root=dataset_root,
                 n_experiences=num_exps,
                 seed=42, # Fixed seed for reproducibility
-                first_exp_with_half_classes=first_exp_with_half_classes,
                 return_task_id=return_task_id,
                 shuffle=shuffle,
                 train_transform=get_dataset_transforms(dataset_name),
@@ -50,7 +46,6 @@ def get_dataset(dataset_name, dataset_root, num_exps=20):
             dataset_root=dataset_root,
             n_experiences=num_exps,
             fixed_class_order = classes,
-            first_exp_with_half_classes=first_exp_with_half_classes,
             return_task_id=return_task_id,
             shuffle=shuffle,
             train_transform=get_dataset_transforms(dataset_name),

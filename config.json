@@ -1,47 +1,23 @@
 {
     "common_params":
     {
+        "gpu-idx": 3,
         "dataset": "imagenet100",
         "dataset-root": "/data/cossu/imagenet/imagenet",
-        "mb-passes": 12,
+        "mb-passes": 18,
         "tr-mb-size": 10,
         "repl-mb-size": 128,
         "iid": false,
-        "omega": 0.1,
+        "omega": 0.05,
         "momentum-ema": 0.999
     },
     "experiments":
     [
         {
-            "strategy": "align_ema_replay",
+            "strategy": "align_buffer",
             "model" : "simsiam",
             "hyperparams_search": {
-                "lr": [0.1, 0.03]
-            }
-        },
-        {
-            "strategy": "align_ema_replay",
-            "model" : "barlow_twins",
-            "hyperparams_search": {
-                "lr": [0.1, 0.03]
-            }
-        },
-        {
-            "strategy": "align_ema_replay",
-            "model" : "byol",
-            "name": "mom",
-            "return-momentum-encoder": true,
-            "hyperparams_search": {
-                "lr": [0.1, 0.03]
-            }
-        },
-        {
-            "strategy": "align_ema_replay",
-            "model" : "byol",
-            "name": "onl",
-            "return-momentum-encoder": false,
-            "hyperparams_search": {
-                "lr": [0.1, 0.03]
+                "lr": [0.1, 0.03, 0.01]
             }
         }
     ]
