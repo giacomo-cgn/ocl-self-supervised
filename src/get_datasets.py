@@ -1,5 +1,5 @@
 from avalanche.benchmarks.classic import SplitCIFAR100, SplitCIFAR10, SplitImageNet
-from transforms import get_dataset_transforms
+from .transforms import get_dataset_transforms
 import random
 
 def get_dataset(dataset_name, dataset_root, num_exps=20):
