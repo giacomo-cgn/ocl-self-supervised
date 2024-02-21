@@ -26,7 +26,7 @@ def get_dataset_transforms(dataset: str):
             transforms.Normalize(
             (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
     )])
-    elif dataset == 'imagenet100' or dataset == 'imagenet':
+    elif dataset in ['imagenet100', 'imagenet']:
         return transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(
@@ -45,11 +45,11 @@ def get_dataset_crop(dataset: str):
     elif dataset == 'cifar10':
         # return transforms.RandomCrop(32, padding=4)
         return transforms.RandomResizedCrop(32, scale=(0.2, 1.))
-    elif dataset == 'tinyimagenet':
+    elif dataset in ['imagenet100', 'imagenet']:
         # return transforms.RandomCrop(64, padding=8)
         return transforms.RandomResizedCrop(32, scale=(0.2, 1.))
     else:
-        raise ValueError("Dataset not supported. Must be 'cifar100', 'cifar10' or 'tinyimagenet'")
+        raise ValueError("Dataset not supported.")
 
 
 class TwoCropsTransform:
