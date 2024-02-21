@@ -110,6 +110,7 @@ def read_command_line_args():
     parser.add_argument('--optim-momentum', type=float, default=0.9)
     parser.add_argument('--weight-decay', type=float, default=1e-4)
     parser.add_argument('--dataset', type=str, default='cifar100')
+    parser.add_argument('--dataset-root', type=str, default='./data')
     parser.add_argument('--num-exps', type=int, default=20)
     parser.add_argument('--save-folder', type=str, default='./logs')
     parser.add_argument('--dim-proj', type=int, default=2048)

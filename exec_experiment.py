@@ -1,4 +1,4 @@
-from avalanche.benchmarks.classic import SplitCIFAR100
+from src.get_datasets import get_dataset
 
 import torch
 from torch.utils.data import ConcatDataset
@@ -24,7 +24,6 @@ from src.standalone_strategies.scale import SCALE
 
 from src.buffers import get_buffer
 
-from src.transforms import get_dataset_transforms
 from src.probing_sklearn import ProbingSklearn
 from src.utils import write_final_scores
 
@@ -95,29 +94,19 @@ def exec_experiment(**kwargs):
             f.write(f'KNN k: {kwargs["knn_k"]}\n')
 
     # Dataset
-    first_exp_with_half_classes = False
-    return_task_id = False
-    shuffle = True
-    probe_benchmark = SplitCIFAR100(
-                kwargs["num_exps"],
-                seed=42, # Fixed seed for reproducibility
-                first_exp_with_half_classes=first_exp_with_half_classes,
-                return_task_id=return_task_id,
-                shuffle=shuffle,
-                train_transform=get_dataset_transforms(kwargs["dataset"]),
-                eval_transform=get_dataset_transforms(kwargs["dataset"]),
-            )
+    probe_benchmark = get_dataset(
+        dataset_name=kwargs["dataset"],
+        dataset_root=kwargs["dataset_root"],
+        num_exps=kwargs["num_exps"],
+    ) 
+    
     if kwargs["iid"]:
         # If pretraining iid, create benchmark with only 1 experience
-        pretr_benchmark  = SplitCIFAR100(
-                1,
-                seed=42, # Fixed seed for reproducibility
-                first_exp_with_half_classes=first_exp_with_half_classes,
-                return_task_id=return_task_id,
-                shuffle=shuffle,
-                train_transform=get_dataset_transforms(kwargs["dataset"]),
-                eval_transform=get_dataset_transforms(kwargs["dataset"]),
-        )
+        pretr_benchmark  = probe_benchmark = get_dataset(
+        dataset_name=kwargs["dataset"],
+        dataset_root=kwargs["dataset_root"],
+        num_exps=1,
+    ) 
     else:
         # Use same benchmark for pretraining and probing
         pretr_benchmark = probe_benchmark
