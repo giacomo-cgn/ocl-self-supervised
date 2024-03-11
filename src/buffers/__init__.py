@@ -8,11 +8,11 @@ def get_buffer(buffer_type: str,
                alpha_ema: int = 0.5,
                device: str = 'cpu'):
     if buffer_type == 'reservoir':
-        return ReservoirBuffer(mem_size, alpha_ema)
+        return ReservoirBuffer(mem_size, alpha_ema, device=device)
     elif buffer_type == 'fifo':
         return FIFOBuffer(mem_size, alpha_ema)
     elif buffer_type == 'minred':
-        return MinRedBuffer(mem_size, alpha_ema)
+        return MinRedBuffer(mem_size, alpha_ema, device=device)
     elif buffer_type == 'scale':
         return Memory(mem_size=mem_size, device=device)
     else:

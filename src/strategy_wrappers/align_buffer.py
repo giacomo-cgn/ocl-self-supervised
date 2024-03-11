@@ -117,6 +117,12 @@ class AlignBuffer():
                 # Write loss file column names
                 with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
                     f.write('loss,exp_idx,epoch,mb_idx,mb_pass\n')
+                
+                # Write memory columns
+                with open(os.path.join(self.save_pth, 'gpu_memory.csv'), 'a') as f:
+                    f.write('cuda.memory_allocated,cuda.memory_reserved,cuda.max_memory_reserved,exp_idx,epoch,mb_idx,mb_pass\n')
+
+
 
 
     def train_experience(self, 
@@ -190,6 +196,9 @@ class AlignBuffer():
                     if self.save_pth is not None:
                         with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
                             f.write(f'{loss.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
+                        with open(os.path.join(self.save_pth, 'gpu_memory.csv'), 'a') as f:
+                            f.write(f'{torch.cuda.memory_allocated(self.device)/1024/1024/1024}GB,{torch.cuda.memory_reserved(self.device)/1024/1024/1024}GB,{torch.cuda.max_memory_reserved(self.device)/1024/1024/1024}GB,{exp_idx},{epoch},{mb_idx},{k}\n')
+
 
                 # Update buffer with new samples
                 self.buffer.add(new_mbatch.detach(), z1[-new_mbatch_size:].detach()) # Use only first view features, as augmentations are random

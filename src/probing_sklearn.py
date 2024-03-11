@@ -19,7 +19,7 @@ class ProbingSklearn:
                  probing_type: str = 'ridge_regression',
                  knn_k: int = 50,
                  device: str = 'cpu',
-                 mb_size: int = 512,
+                 mb_size: int = 1024,
                  save_file: str = None,
                  exp_idx: int = None,
                  tr_samples_ratio: float = 1.0,
@@ -82,17 +82,11 @@ class ProbingSklearn:
         # Get encoder activations for tr dataloader
         tr_activations_list = []
         tr_labels_list = []
-        index_i=0
         for inputs, labels, _ in train_loader:
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             activations = self.encoder(inputs)
             tr_activations_list.append(activations.detach().cpu())
             tr_labels_list.append(labels.detach().cpu())
-            print("iteration:", index_i)
-            print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
-            print("torch.cuda.memory_reserved: %fGB"%(torch.cuda.memory_reserved(0)/1024/1024/1024))
-            print("torch.cuda.max_memory_reserved: %fGB"%(torch.cuda.max_memory_reserved(0)/1024/1024/1024))
-            index_i += 1
         tr_activations = torch.cat(tr_activations_list, dim=0).numpy()
         tr_labels = torch.cat(tr_labels_list, dim=0).numpy()
 

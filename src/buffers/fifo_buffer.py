@@ -50,7 +50,7 @@ class FIFOBuffer:
             if self.buffer_features[idx] is not None:
                 # There are already features stored for that sample
                 # EMA update of features
-                self.buffer_features[idx] = self.alpha_ema * self.buffer_features[idx][1] + (1 - self.alpha_ema) * batch_features[i]
+                self.buffer_features[idx] = self.alpha_ema * self.buffer_features[idx] + (1 - self.alpha_ema) * batch_features[i]
             else:
                 # No features stored yet, store newly passed features
                 self.buffer_features[idx] = batch_features[i]

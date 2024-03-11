@@ -1,10 +1,10 @@
 {
     "common_params":
     {
-        "gpu-idx": 0,
+        "gpu-idx": 2,
         "dataset": "imagenet100",
         "dataset-root": "/data/cossu/imagenet/imagenet",
-        "mb-passes": 18,
+        "mb-passes": 1,
         "tr-mb-size": 10,
         "repl-mb-size": 128,
         "iid": false,
@@ -17,7 +17,7 @@
             "strategy": "align_buffer",
             "model" : "simsiam",
             "hyperparams_search": {
-                "lr": [0.1, 0.03, 0.01]
+                "lr": [0.001]
             }
         }
     ]
