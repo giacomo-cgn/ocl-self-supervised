@@ -19,7 +19,7 @@ class ProbingSklearn:
                  probing_type: str = 'ridge_regression',
                  knn_k: int = 50,
                  device: str = 'cpu',
-                 mb_size: int = 1024,
+                 mb_size: int = 512,
                  save_file: str = None,
                  exp_idx: int = None,
                  tr_samples_ratio: float = 1.0,
