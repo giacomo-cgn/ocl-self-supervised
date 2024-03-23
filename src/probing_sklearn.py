@@ -58,7 +58,7 @@ class ProbingSklearn:
               tr_dataset: Dataset,
               test_dataset: Dataset,
               ):
-
+        
         # Prepare dataloaders
 
         # Split train into train and validation
@@ -76,41 +76,43 @@ class ProbingSklearn:
         val_loader = DataLoader(dataset=val_dataset, batch_size=self.mb_size, shuffle=False)
         test_loader = DataLoader(dataset=test_dataset, batch_size=self.mb_size, shuffle=False)
 
-        # Put encoder in eval mode, as even with no gradient it could interfere with batchnorm
-        self.encoder.eval()
+        with torch.no_grad():
 
-        # Get encoder activations for tr dataloader
-        tr_activations_list = []
-        tr_labels_list = []
-        for inputs, labels, _ in train_loader:
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
-            activations = self.encoder(inputs)
-            tr_activations_list.append(activations.detach().cpu())
-            tr_labels_list.append(labels.detach().cpu())
-        tr_activations = torch.cat(tr_activations_list, dim=0).numpy()
-        tr_labels = torch.cat(tr_labels_list, dim=0).numpy()
+            # Put encoder in eval mode, as even with no gradient it could interfere with batchnorm
+            self.encoder.eval()
 
-        # Get encoder activations for val dataloader
-        val_activations_list = []
-        val_labels_list = []
-        for inputs, labels, _ in val_loader:
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
-            activations = self.encoder(inputs)
-            val_activations_list.append(activations.detach().cpu())
-            val_labels_list.append(labels.detach().cpu())
-        val_activations = torch.cat(val_activations_list, dim=0).numpy()
-        val_labels = torch.cat(val_labels_list, dim=0).numpy()
+            # Get encoder activations for tr dataloader
+            tr_activations_list = []
+            tr_labels_list = []
+            for inputs, labels, _ in train_loader:
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                activations = self.encoder(inputs)
+                tr_activations_list.append(activations.detach().cpu())
+                tr_labels_list.append(labels.detach().cpu())
+            tr_activations = torch.cat(tr_activations_list, dim=0).numpy()
+            tr_labels = torch.cat(tr_labels_list, dim=0).numpy()
 
-        # Get encoder activations for test dataloader
-        test_activations_list = []
-        test_labels_list = []
-        for inputs, labels, _ in test_loader:
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
-            activations = self.encoder(inputs)
-            test_activations_list.append(activations.detach().cpu())
-            test_labels_list.append(labels.detach().cpu())
-        test_activations = torch.cat(test_activations_list, dim=0).numpy()
-        test_labels = torch.cat(test_labels_list, dim=0).numpy()
+            # Get encoder activations for val dataloader
+            val_activations_list = []
+            val_labels_list = []
+            for inputs, labels, _ in val_loader:
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                activations = self.encoder(inputs)
+                val_activations_list.append(activations.detach().cpu())
+                val_labels_list.append(labels.detach().cpu())
+            val_activations = torch.cat(val_activations_list, dim=0).numpy()
+            val_labels = torch.cat(val_labels_list, dim=0).numpy()
+
+            # Get encoder activations for test dataloader
+            test_activations_list = []
+            test_labels_list = []
+            for inputs, labels, _ in test_loader:
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                activations = self.encoder(inputs)
+                test_activations_list.append(activations.detach().cpu())
+                test_labels_list.append(labels.detach().cpu())
+            test_activations = torch.cat(test_activations_list, dim=0).numpy()
+            test_labels = torch.cat(test_labels_list, dim=0).numpy()
 
         scaler = StandardScaler()
         

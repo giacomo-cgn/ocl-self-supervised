@@ -18,6 +18,14 @@ class SimSiam(nn.Module):
         # num_classes is the output fc dimension, zero-initialize last BNs
         self.encoder = base_encoder(num_classes=dim_proj, zero_init_residual=True)
 
+        # def replace_bn_with_identity(module):
+        #     for name, child in module.named_children():
+        #         if isinstance(child, nn.BatchNorm2d):
+        #             setattr(module, name, nn.Identity())
+        #         else:
+        #             replace_bn_with_identity(child)
+        # replace_bn_with_identity(self.encoder)
+
         # Build a 3-layer projector
         prev_dim = self.encoder.fc.weight.shape[1]
 

@@ -1,5 +1,6 @@
 import os
 from tqdm import tqdm
+import copy
 
 import torch
 from torch import nn
@@ -138,7 +139,7 @@ class AlignBuffer():
         for epoch in range(self.train_epochs):
             for mb_idx, mbatch in tqdm(enumerate(data_loader)):
                 mbatch = mbatch.to(self.device)
-                new_mbatch = mbatch
+                new_mbatch = copy.deepcopy(mbatch)
                 new_mbatch_size = len(new_mbatch)
 
                 for k in range(self.mb_passes):
