@@ -4,8 +4,7 @@ import random
 from torch.utils.data import ConcatDataset
 
 from avalanche.benchmarks.classic import SplitCIFAR100, SplitCIFAR10, SplitImageNet
-from avalanche.benchmarks.generators import benchmark_with_validation_stream, class_balanced_split_strategy
-
+from avalanche_compat import class_balanced_split_strategy, benchmark_with_validation_stream
 
 def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.1):
 
@@ -82,4 +81,4 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
 def get_iid_dataset(benchmark):
      iid_dataset_tr = ConcatDataset([tr_experience.dataset for tr_experience in benchmark.train_stream])
      return iid_dataset_tr
-        
+ 
