@@ -28,7 +28,6 @@ from src.standalone_strategies.scale import SCALE
 
 from src.buffers import get_buffer
 
-from src.probing_sklearn import ProbingSklearn
 from src.utils import write_final_scores
 
 def exec_experiment(**kwargs):
@@ -266,9 +265,9 @@ def exec_experiment(**kwargs):
                      probing_separate_pth_dict)
     else:
         # Self supervised training over the experiences
-        for exp_idx, experience in enumerate(benchmark.train_stream):
+        for exp_idx, exp_dataset in enumerate(benchmark.train_stream):
             print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
-            network = strategy.train_experience(experience.dataset, exp_idx)
+            network = strategy.train_experience(exp_dataset, exp_idx)
 
             exec_probing(kwargs, benchmark, network, exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
                     probing_separate_pth_dict)

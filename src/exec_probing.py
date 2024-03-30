@@ -10,10 +10,10 @@ def exec_probing(kwargs, probing_benchmark, network, pretr_exp_idx, probing_tr_r
 # Probing on all experiences up to current
     if kwargs['probing_upto'] and not kwargs['iid']:
         # Generate upto current exp probing datasets
-        probe_upto_dataset_tr = ConcatDataset([probing_benchmark.train_stream[i].dataset for i in range(pretr_exp_idx+1)])
-        probe_upto_dataset_test = ConcatDataset([probing_benchmark.test_stream[i].dataset for i in range(pretr_exp_idx+1)])
+        probe_upto_dataset_tr = ConcatDataset([probing_benchmark.train_stream[i] for i in range(pretr_exp_idx+1)])
+        probe_upto_dataset_test = ConcatDataset([probing_benchmark.test_stream[i] for i in range(pretr_exp_idx+1)])
         if kwargs['probing_val_ratio'] > 0:
-            probe_upto_dataset_val = ConcatDataset([probing_benchmark.valid_stream[i].dataset for i in range(pretr_exp_idx+1)])
+            probe_upto_dataset_val = ConcatDataset([probing_benchmark.valid_stream[i] for i in range(pretr_exp_idx+1)])
 
         for probing_tr_ratio in probing_tr_ratio_arr:
             probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{pretr_exp_idx}.csv')
@@ -34,10 +34,10 @@ def exec_probing(kwargs, probing_benchmark, network, pretr_exp_idx, probing_tr_r
 
     # Probing on separate experiences
     if kwargs['probing_separate']:
-        for probe_exp_idx, probe_tr_experience in enumerate(probing_benchmark.train_stream):
-            probe_test_experience = probing_benchmark.test_stream[probe_exp_idx]
+        for probe_exp_idx, probe_tr_exp_dataset in enumerate(probing_benchmark.train_stream):
+            probe_test_exp_dataset = probing_benchmark.test_stream[probe_exp_idx]
             if kwargs['probing_val_ratio'] > 0:
-                probe_val_experience = probing_benchmark.valid_stream[probe_exp_idx]
+                probe_val_exp_dataset = probing_benchmark.valid_stream[probe_exp_idx]
 
             # Sample only a portion of the tr samples for probing
             for probing_tr_ratio in probing_tr_ratio_arr:
@@ -52,18 +52,18 @@ def exec_probing(kwargs, probing_benchmark, network, pretr_exp_idx, probing_tr_r
                 
                 print(f'-- Separate Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
                 if kwargs['probing_val_ratio'] > 0:
-                    probe.probe(probe_tr_experience.dataset, probe_test_experience.dataset, probe_val_experience.dataset)
+                    probe.probe(probe_tr_exp_dataset, probe_test_exp_dataset, probe_val_exp_dataset)
                 else:
-                    probe.probe(probe_tr_experience.dataset, probe_test_experience.dataset)
+                    probe.probe(probe_tr_exp_dataset, probe_test_exp_dataset)
 
     # If iid training, probe upto each experience
     if kwargs['probing_upto'] and kwargs['iid']:
         for exp_idx, _ in enumerate(probing_benchmark.train_stream):
             # Generate upto current exp probing datasets
-            probe_upto_dataset_tr = ConcatDataset([probing_benchmark.train_stream[i].dataset for i in range(exp_idx+1)])
-            probe_upto_dataset_test = ConcatDataset([probing_benchmark.test_stream[i].dataset for i in range(exp_idx+1)])
+            probe_upto_dataset_tr = ConcatDataset([probing_benchmark.train_stream[i] for i in range(exp_idx+1)])
+            probe_upto_dataset_test = ConcatDataset([probing_benchmark.test_stream[i] for i in range(exp_idx+1)])
             if kwargs['probing_val_ratio'] > 0:
-                probe_upto_dataset_val = ConcatDataset([probing_benchmark.valid_stream[i].dataset for i in range(exp_idx+1)])
+                probe_upto_dataset_val = ConcatDataset([probing_benchmark.valid_stream[i] for i in range(exp_idx+1)])
 
             for probing_tr_ratio in probing_tr_ratio_arr:
                 probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
