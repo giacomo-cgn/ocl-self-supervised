@@ -1,8 +1,13 @@
-from avalanche.benchmarks.classic import SplitCIFAR100, SplitCIFAR10, SplitImageNet
 from .transforms import get_dataset_transforms
 import random
 
-def get_dataset(dataset_name, dataset_root, num_exps=20):
+from torch.utils.data import ConcatDataset
+
+from avalanche.benchmarks.classic import SplitCIFAR100, SplitCIFAR10, SplitImageNet
+from avalanche.benchmarks.generators import benchmark_with_validation_stream, class_balanced_split_strategy
+
+
+def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.1):
 
     return_task_id = False
     shuffle = True
@@ -10,7 +15,7 @@ def get_dataset(dataset_name, dataset_root, num_exps=20):
     if dataset_name == 'cifar100':
         benchmark = SplitCIFAR100(
                 n_experiences=num_exps,
-                seed=42, # Fixed seed for reproducibility
+                seed=seed, # Fixed seed for reproducibility
                 return_task_id=return_task_id,
                 shuffle=shuffle,
                 train_transform=get_dataset_transforms(dataset_name),
@@ -20,7 +25,7 @@ def get_dataset(dataset_name, dataset_root, num_exps=20):
     elif dataset_name == 'cifar10':
         benchmark = SplitCIFAR10(
                 n_experiences=num_exps,
-                seed=42, # Fixed seed for reproducibility
+                seed=seed, # Fixed seed for reproducibility
                 return_task_id=return_task_id,
                 shuffle=shuffle,
                 train_transform=get_dataset_transforms(dataset_name),
@@ -31,7 +36,7 @@ def get_dataset(dataset_name, dataset_root, num_exps=20):
         benchmark = SplitImageNet(
                 dataset_root=dataset_root,
                 n_experiences=num_exps,
-                seed=42, # Fixed seed for reproducibility
+                seed=seed, # Fixed seed for reproducibility
                 return_task_id=return_task_id,
                 shuffle=shuffle,
                 train_transform=get_dataset_transforms(dataset_name),
@@ -40,7 +45,7 @@ def get_dataset(dataset_name, dataset_root, num_exps=20):
         
     elif dataset_name == 'imagenet100':
         # Select 100 random classes from Imagenet
-        random.seed(42) # Seed for getting always same classes
+        random.seed(seed) # Seed for getting always same classes
         classes = random.sample(range(0, 1000), 100)
         benchmark = SplitImageNet(
             dataset_root=dataset_root,
@@ -66,5 +71,15 @@ def get_dataset(dataset_name, dataset_root, num_exps=20):
                     benchmark.classes_order_original_ids.index(class_id)
                 )
 
+
+    # Extract validation set too if needed
+    if val_ratio > 0:
+        class_balanced_split = lambda exp: class_balanced_split_strategy(val_ratio, exp)
+        benchmark = benchmark_with_validation_stream(benchmark, custom_split_strategy=class_balanced_split, shuffle=True)
+
     return benchmark
+
+def get_iid_dataset(benchmark):
+     iid_dataset_tr = ConcatDataset([tr_experience.dataset for tr_experience in benchmark.train_stream])
+     return iid_dataset_tr
         

@@ -102,6 +102,7 @@ def read_command_line_args():
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu-idx', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--strategy', type=str, default='no_strategy')
     parser.add_argument('--model', type=str, default='simsiam')
     parser.add_argument('--encoder', type=str, default='resnet18')

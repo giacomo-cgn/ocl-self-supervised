@@ -1,4 +1,3 @@
-from src.get_datasets import get_dataset
 
 import torch
 from torch.utils.data import ConcatDataset
@@ -7,6 +6,11 @@ from torchvision import models
 import os
 import datetime
 import tqdm as tqdm
+import numpy as np
+
+from src.get_datasets import get_benchmark, get_iid_dataset
+from src.exec_probing import exec_probing
+
 
 from src.ssl_models.barlow_twins import BarlowTwins
 from src.ssl_models.simsiam import SimSiam
@@ -71,6 +75,7 @@ def exec_experiment(**kwargs):
     with open(save_pth + '/config.txt', 'a') as f:
         f.write('\n')
         f.write(f'---- EXPERIMENT CONFIGS ----\n')
+        f.write(f'Seed: {kwargs["seed"]}\n')
         f.write(f'Experiment Date: {str_now}\n')
         f.write(f'Model: {kwargs["model"]}\n')
         f.write(f'Encoder: {kwargs["encoder"]}\n')
@@ -93,24 +98,20 @@ def exec_experiment(**kwargs):
         if kwargs['probing_type'] == 'knn':
             f.write(f'KNN k: {kwargs["knn_k"]}\n')
 
+    # Set seed
+    torch.manual_seed(kwargs["seed"])
+    np.random.default_rng(kwargs["seed"])
+
     # Dataset
-    probe_benchmark = get_dataset(
+    benchmark = get_benchmark(
         dataset_name=kwargs["dataset"],
         dataset_root=kwargs["dataset_root"],
         num_exps=kwargs["num_exps"],
-    ) 
-    
+        seed=kwargs["seed"],
+        val_ratio=kwargs["probing_val_ratio"],
+    )
     if kwargs["iid"]:
-        # If pretraining iid, create benchmark with only 1 experience
-        pretr_benchmark  = probe_benchmark = get_dataset(
-        dataset_name=kwargs["dataset"],
-        dataset_root=kwargs["dataset_root"],
-        num_exps=1,
-    ) 
-    else:
-        # Use same benchmark for pretraining and probing
-        pretr_benchmark = probe_benchmark
-            
+        iid_tr_dataset = get_iid_dataset(benchmark)   
 
     # Device
     if torch.cuda.is_available():       
@@ -255,75 +256,22 @@ def exec_experiment(**kwargs):
     else:
         raise Exception(f'Strategy {kwargs["strategy"]} not supported')
 
-    # Self supervised training over the experiences
-    for exp_idx, experience in enumerate(pretr_benchmark.train_stream):
-        print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
-        network = strategy.train_experience(experience, exp_idx)
 
-        # Probing on all experiences up to current
-        if kwargs['probing_upto'] and not kwargs['iid']:
-            # Generate upto current exp probing datasets
-            probe_upto_dataset_tr = ConcatDataset([probe_benchmark.train_stream[i].dataset for i in range(exp_idx+1)])
-            probe_upto_dataset_test = ConcatDataset([probe_benchmark.test_stream[i].dataset for i in range(exp_idx+1)])
+    if kwargs["iid"]:
+        # IID training over the entire dataset
+        print(f'==== Beginning self supervised training on iid dataset ====')
+        network = strategy.train_experience(iid_tr_dataset, exp_idx=0)
 
-            for probing_tr_ratio in probing_tr_ratio_arr:
-                probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
+        exec_probing(kwargs, benchmark, network, 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
+                     probing_separate_pth_dict)
+    else:
+        # Self supervised training over the experiences
+        for exp_idx, experience in enumerate(benchmark.train_stream):
+            print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
+            network = strategy.train_experience(experience.dataset, exp_idx)
 
-                probe = ProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
-                                            exp_idx=None, tr_samples_ratio=probing_tr_ratio,
-                                            val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"],
-                                            probing_type=kwargs["probing_type"], knn_k=kwargs["knn_k"])
-                                            
-                
-                print(f'-- Upto Probing, probe tr ratio: {probing_tr_ratio} --')
-
-                probe.probe(probe_upto_dataset_tr, probe_upto_dataset_test)
-
-
-        # Probing on separate experiences
-        if kwargs['probing_separate']:
-            for probe_exp_idx, probe_tr_experience in enumerate(probe_benchmark.train_stream):
-                probe_test_experience = probe_benchmark.test_stream[probe_exp_idx]
-
-                # Sample only a portion of the tr samples for probing
-                for probing_tr_ratio in probing_tr_ratio_arr:
-
-                    probe_save_file = os.path.join(probing_separate_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
-
-                    # dim_features = network.get_embedding_dim() 
-                    # probe = LinearProbing(network.get_encoder_for_eval(), dim_features=dim_features, num_classes=100,
-                    #                     device=device, save_file=probe_save_file,
-                    #                     exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio, num_epochs=kwargs["probing_epochs"],
-                    #                     use_val_stop=kwargs["probing_use_val_stop"], val_ratio=kwargs["probing_val_ratio"])
-                    probe = ProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
-                                                exp_idx=probe_exp_idx, tr_samples_ratio=probing_tr_ratio,
-                                                val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"],
-                                                probing_type=kwargs["probing_type"], knn_k=kwargs["knn_k"])
-                                                
-                    
-                    print(f'-- Separate Probing on experience: {probe_exp_idx}, probe tr ratio: {probing_tr_ratio} --')
-
-                    probe.probe(probe_tr_experience.dataset, probe_test_experience.dataset)
-    
-        # If iid training, probe upto each experience
-        if kwargs['probing_upto'] and kwargs['iid']:
-            for exp_idx, _ in enumerate(probe_benchmark.train_stream):
-                # Generate upto current exp probing datasets
-                probe_upto_dataset_tr = ConcatDataset([probe_benchmark.train_stream[i].dataset for i in range(exp_idx+1)])
-                probe_upto_dataset_test = ConcatDataset([probe_benchmark.test_stream[i].dataset for i in range(exp_idx+1)])
-
-                for probing_tr_ratio in probing_tr_ratio_arr:
-                    probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
-
-                    probe = ProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
-                                                exp_idx=None, tr_samples_ratio=probing_tr_ratio,
-                                                val_ratio=kwargs["probing_val_ratio"], mb_size=kwargs["eval_mb_size"],
-                                                probing_type=kwargs["probing_type"], knn_k=kwargs["knn_k"])
-                                                
-                    
-                    print(f'-- Upto Probing, probe tr ratio: {probing_tr_ratio} --')
-
-                    probe.probe(probe_upto_dataset_tr, probe_upto_dataset_test)
+            exec_probing(kwargs, benchmark, network, exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
+                    probing_separate_pth_dict)
                 
         
     # Calculate and save final probing scores

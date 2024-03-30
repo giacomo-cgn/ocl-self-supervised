@@ -4,8 +4,6 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 
-from avalanche.benchmarks.scenarios import NCExperience
-
 from ..utils import UnsupervisedDataset, init_optim
 from ..transforms import get_transforms
 
@@ -80,11 +78,11 @@ class NoStrategy():
 
 
     def train_experience(self, 
-                         experience: NCExperience,
+                         dataset,
                          exp_idx: int
                          ):
         # Prepare data
-        exp_data = UnsupervisedDataset(experience.dataset)  
+        exp_data = UnsupervisedDataset(dataset)  
         data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True)
 
         self.model.train()

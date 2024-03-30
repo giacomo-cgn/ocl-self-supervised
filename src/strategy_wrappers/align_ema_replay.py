@@ -7,8 +7,6 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torch.nn.functional import mse_loss
 
-from avalanche.benchmarks.scenarios import NCExperience
-
 from ..utils import UnsupervisedDataset, init_optim, update_ema_params
 from ..transforms import get_transforms
 
@@ -134,11 +132,11 @@ class AlignEMAReplay():
 
 
     def train_experience(self, 
-                         experience: NCExperience,
+                         dataset,
                          exp_idx: int
                          ):
         # Prepare data
-        exp_data = UnsupervisedDataset(experience.dataset)  
+        exp_data = UnsupervisedDataset(dataset)  
         data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True)
 
         self.model.train()
