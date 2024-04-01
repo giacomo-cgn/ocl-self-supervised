@@ -2,7 +2,7 @@ from .transforms import get_dataset_transforms
 import random
 
 import torch
-from torch.utils.data import ConcatDataset
+from torch.utils.data import ConcatDataset, Subset
 
 from avalanche.benchmarks.classic import SplitCIFAR100, SplitCIFAR10, SplitImageNet
 from .benchmark import Benchmark
@@ -105,17 +105,6 @@ def class_balanced_split(validation_size, experience):
     (train and validation) of size `validation_size` using a class-balanced
     split. Sample of each class are chosen randomly.
 
-    You can use this split strategy to split a benchmark with::
-
-        validation_size = 0.2
-        foo = lambda exp: class_balanced_split_strategy(validation_size, exp)
-        bm = benchmark_with_validation_stream(bm, custom_split_strategy=foo)
-
-    :param validation_size: The percentage of samples to allocate to the
-        validation experience as a float between 0 and 1.
-    :param experience: The experience to split.
-    :return: A tuple containing 2 elements: the new training and validation
-        datasets.
     """
     if not 0.0 <= validation_size <= 1.0:
         raise ValueError("validation_size must be a float in [0, 1].")
@@ -138,8 +127,13 @@ def class_balanced_split(validation_size, experience):
         valid_exp_indices.extend(c_indices[:valid_n_instances])
         train_exp_indices.extend(c_indices[valid_n_instances:])
 
-    result_train_dataset = exp_dataset.subset(train_exp_indices)
-    result_valid_dataset = exp_dataset.subset(valid_exp_indices)
-    return result_train_dataset, result_valid_dataset
+    if isinstance(exp_dataset, torch.utils.data.Dataset):
+        # Use Subset for older versions of Avalanche where AvalancheDataset is a subclass of torch Dataset
+        result_train_dataset = Subset(exp_dataset, train_exp_indices)
+        result_valid_dataset = Subset(exp_dataset, valid_exp_indices)
+    else:
+        # Use .subset for newer versions of Avalanche where AvalancheDataset is not a subclass of torch Dataset
+        result_train_dataset = exp_dataset.subset(train_exp_indices)
+        result_valid_dataset = exp_dataset.subset(valid_exp_indices)
 
- 
+    return result_train_dataset, result_valid_dataset
