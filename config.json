@@ -2,7 +2,7 @@
     "common_params":
     {
         "gpu-idx": 3,
-        "dataset": "imagenet100",
+        "dataset": "cifar100",
         "dataset-root": "/data/cossu/imagenet/imagenet",
         "mb-passes": 1,
         "tr-mb-size": 10,
@@ -15,7 +15,7 @@
     "experiments":
     [
         {
-            "strategy": "replay",
+            "strategy": "emp",
             "model" : "simsiam",
             "hyperparams_search": {
                 "lr": [0.001]

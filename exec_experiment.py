@@ -25,14 +25,15 @@ from src.strategy_wrappers.lump import LUMP
 from src.strategy_wrappers.minred import MinRed
 from src.strategy_wrappers.cassle import CaSSLe
 from src.standalone_strategies.scale import SCALE
+from src.standalone_strategies.emp import EMP
 
 from src.buffers import get_buffer
 
 from src.utils import write_final_scores
 
 def exec_experiment(**kwargs):
-    standalone_strategies = ['scale']
-    buffer_free_strategies = ['no_strategy', 'align_ema', 'cassle']
+    standalone_strategies = ['scale', 'emp']
+    buffer_free_strategies = ['no_strategy', 'align_ema', 'cassle', 'emp']
 
     # Ratios of tr set used for training linear probe
     if kwargs["use_probing_tr_ratios"]:
@@ -251,6 +252,14 @@ def exec_experiment(**kwargs):
                             save_model=False, common_transforms=kwargs["common_transforms"],
                             omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
                             align_after_proj=kwargs["align_after_proj"])
+        
+    elif kwargs["strategy"] == 'emp':
+        strategy = EMP(encoder=encoder, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                          weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                          mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                          save_model=False, common_transforms=kwargs["common_transforms"],
+                          n_patches=20, dim_proj=kwargs["dim_proj"]
+                    )
 
     else:
         raise Exception(f'Strategy {kwargs["strategy"]} not supported')
@@ -269,7 +278,7 @@ def exec_experiment(**kwargs):
             print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
             network = strategy.train_experience(exp_dataset, exp_idx)
 
-            exec_probing(kwargs, benchmark, network, exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
+            exec_probing(kwargs, benchmark, network.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
                     probing_separate_pth_dict)
                 
         

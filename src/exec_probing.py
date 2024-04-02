@@ -6,7 +6,7 @@ from torch.utils.data import ConcatDataset
 from .probing_sklearn import ProbingSklearn
 
 
-def exec_probing(kwargs, probing_benchmark, network, pretr_exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict, probing_separate_pth_dict):
+def exec_probing(kwargs, probing_benchmark, encoder, pretr_exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict, probing_separate_pth_dict):
 # Probing on all experiences up to current
     if kwargs['probing_upto'] and not kwargs['iid']:
         # Generate upto current exp probing datasets
@@ -18,7 +18,7 @@ def exec_probing(kwargs, probing_benchmark, network, pretr_exp_idx, probing_tr_r
         for probing_tr_ratio in probing_tr_ratio_arr:
             probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{pretr_exp_idx}.csv')
 
-            probe = ProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
+            probe = ProbingSklearn(encoder, device=device, save_file=probe_save_file,
                                    exp_idx=None, tr_samples_ratio=probing_tr_ratio,
                                    mb_size=kwargs["eval_mb_size"], seed=kwargs["seed"],
                                    probing_type=kwargs["probing_type"], knn_k=kwargs["knn_k"])
@@ -44,7 +44,7 @@ def exec_probing(kwargs, probing_benchmark, network, pretr_exp_idx, probing_tr_r
 
                 probe_save_file = os.path.join(probing_separate_pth_dict[probing_tr_ratio], f'probe_exp_{pretr_exp_idx}.csv')
 
-                probe = ProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
+                probe = ProbingSklearn(encoder, device=device, save_file=probe_save_file,
                                     exp_idx=None, tr_samples_ratio=probing_tr_ratio,
                                     mb_size=kwargs["eval_mb_size"], seed=kwargs["seed"],
                                     probing_type=kwargs["probing_type"], knn_k=kwargs["knn_k"])
@@ -68,7 +68,7 @@ def exec_probing(kwargs, probing_benchmark, network, pretr_exp_idx, probing_tr_r
             for probing_tr_ratio in probing_tr_ratio_arr:
                 probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{exp_idx}.csv')
 
-                probe = ProbingSklearn(network.get_encoder_for_eval(), device=device, save_file=probe_save_file,
+                probe = ProbingSklearn(encoder, device=device, save_file=probe_save_file,
                                    exp_idx=None, tr_samples_ratio=probing_tr_ratio,
                                    mb_size=kwargs["eval_mb_size"], seed=kwargs["seed"],
                                    probing_type=kwargs["probing_type"], knn_k=kwargs["knn_k"])
