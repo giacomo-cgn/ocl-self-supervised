@@ -54,16 +54,16 @@ def get_dataset_crop(dataset: str):
 
 
 class TwoCropsTransform:
-    """Take two random crops of one image as the query and key."""
+    """Take two random crops of each image."""
 
     def __init__(self, base_transform):
         self.base_transform = base_transform
 
     def __call__(self, x):
-        q = self.base_transform(x)
-        k = self.base_transform(x)
-        return q, k
-    
+        crops1 = transforms.Lambda(lambda x: torch.stack([self.base_transform(x_) for x_ in x]))(x)
+        crops2 = transforms.Lambda(lambda x: torch.stack([self.base_transform(x_) for x_ in x]))(x)
+        return crops1, crops2
+ 
 class MultipleCropsTransform:
     """Take N random crops of one image."""
     def __init__(self, base_transform, n_crops=20):
@@ -115,9 +115,8 @@ def get_transforms_simsiam(dataset: str = 'cifar100'):
         transforms.RandomHorizontalFlip()
     ]
     
-    all_transforms.append(get_dataset_crop(dataset))
+    return all_transforms
 
-    return TwoCropsTransform(transforms.Compose(all_transforms))
 
 def get_transforms_barlow_twins(dataset: str = 'cifar100'):
     """Returns Barlow Twins augmentations with dataset specific crop."""
