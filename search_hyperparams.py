@@ -9,6 +9,11 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=Tru
 
      standalone_strategies = ['scale']
 
+     if args.probing_val_ratio == 0.0:
+          print('WARNING! - probing_val_ratio is 0, cannot execute hyperparams search. Exiting this experiment...')
+          return
+          
+
      # model_name = 'no_strategy_simsiam' 
      if hyperparams_dict is None:
           # Define current searched hyperparams in lists
@@ -16,6 +21,9 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=Tru
           'lr': [0.1, 0.01, 0.001, 0.0001],
           # 'byol-momentum': [0.99, 0.999],
           }
+          print('WARNING! - Hyperparams of the experiments not found, using default values:')
+          print(hyperparams_dict)
+     
      str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
 
      if args.strategy in standalone_strategies:
