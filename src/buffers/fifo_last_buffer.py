@@ -2,10 +2,11 @@ import random
 import torch
 
 
-class FIFOBuffer:
+class FIFOLastBuffer:
     """
     Custom FIFO buffer class for batches of samples without labels, but with encoder features.
-    FIFO means that oldest samples are replaced with new ones on each add call, sampling remains random.
+    FIFO updating of the buffer (oldest samples are replaced with new ones on each add call.
+    Sample returns only the LAST inserted samples.
     """
     def __init__(self, buffer_size, alpha_ema=1.0):
         self.buffer_size = buffer_size # Maximum size of the buffer
@@ -27,13 +28,13 @@ class FIFOBuffer:
             self.buffer = self.buffer[-self.buffer_size:]
             self.buffer_features = self.buffer_features[-self.buffer_size:]
 
-    # Sample batch_size samples from the buffer, 
+    # Sample the last batch_size samples from the buffer, 
     # returns samples and indices of extracted samples (for feature update)
     def sample(self, batch_size):
         assert batch_size <= len(self.buffer)
 
-        # Sample batch_size indices
-        indices = random.sample(range(len(self.buffer)), batch_size)
+        # Sample the most recent samples
+        indices = list(range(len(self.buffer)-batch_size, len(self.buffer)))
         samples = [self.buffer[i] for i in indices]
         features = [self.buffer_features[i] for i in indices]
 

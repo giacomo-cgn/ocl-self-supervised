@@ -2,6 +2,7 @@ from .reservoir_buffer import ReservoirBuffer
 from .scale_buffer import Memory
 from .minred_buffer import MinRedBuffer
 from .fifo_buffer import FIFOBuffer
+from .fifo_last_buffer import FIFOLastBuffer
 
 def get_buffer(buffer_type: str,
                mem_size: int = 2000,
@@ -11,6 +12,8 @@ def get_buffer(buffer_type: str,
         return ReservoirBuffer(mem_size, alpha_ema, device=device)
     elif buffer_type == 'fifo':
         return FIFOBuffer(mem_size, alpha_ema)
+    elif buffer_type == 'fifo_last':
+        return FIFOLastBuffer(mem_size, alpha_ema)
     elif buffer_type == 'minred':
         return MinRedBuffer(mem_size, alpha_ema, device=device)
     elif buffer_type == 'scale':
