@@ -27,7 +27,7 @@ with open('config.json') as f:
     log_dir = os.path.join(os.path.join('logs', f'{original_args.dataset}'),
                             f'mbtr{original_args.tr_mb_size}_mbrep{original_args.repl_mb_size}_k{original_args.mb_passes}')
 
-    if config["experiment"] is not None:
+    if config["experiments"] is not None:
         # Execute hyperparameters search
         for experiment in config["experiments"]:
             if "name" in experiment:
