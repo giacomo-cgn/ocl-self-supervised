@@ -88,15 +88,21 @@ class Solarization(object):
             return ImageOps.solarize(img)
         else:
             return img
+        
+def clamp_transform(image):
+    # Clamping operation here
+    return torch.clamp(image, min=0, max=1)
 
 def get_transforms_simsiam(dataset: str = 'cifar100'):
     """Returns SimSiam augmentations with dataset specific crop."""
 
     all_transforms = [
         get_dataset_crop(dataset),
-        transforms.RandomApply([
-            transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
-        ], p=0.8),
+        transforms.RandomApply(
+            [transforms.Lambda(clamp_transform),
+                transforms.ColorJitter(brightness=0.4, contrast=0.4,
+                                        saturation=0.4, hue=0.1)]
+                                        , p=0.8),
         transforms.RandomGrayscale(p=0.2),
         # transforms.RandomApply([transforms.GaussianBlur([.1, 2.])], p=0.5),
         transforms.RandomHorizontalFlip()
@@ -111,7 +117,8 @@ def get_transforms_barlow_twins(dataset: str = 'cifar100'):
             get_dataset_crop(dataset),
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomApply(
-                [transforms.ColorJitter(brightness=0.4, contrast=0.4,
+                [transforms.Lambda(clamp_transform),
+                transforms.ColorJitter(brightness=0.4, contrast=0.4,
                                         saturation=0.2, hue=0.1)],
                 p=0.8
             ),
@@ -128,7 +135,8 @@ def get_transforms_byol(dataset: str = 'cifar100'):
             get_dataset_crop(dataset),
             transforms.RandomHorizontalFlip(),
             transforms.RandomApply(
-                [transforms.ColorJitter(brightness=0.4, contrast=0.4,
+                [transforms.Lambda(clamp_transform),
+                transforms.ColorJitter(brightness=0.4, contrast=0.4,
                                         saturation=0.2, hue=0.1),
                                         ],
                 p=0.8
@@ -145,7 +153,8 @@ def get_common_transforms(dataset: str = 'cifar100'):
             get_dataset_crop(dataset),
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomApply(
-                [transforms.ColorJitter(brightness=0.4, contrast=0.4,
+                [transforms.Lambda(clamp_transform),
+                transforms.ColorJitter(brightness=0.4, contrast=0.4,
                                         saturation=0.2, hue=0.1)],
                 p=0.8
             ),
