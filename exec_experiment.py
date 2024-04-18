@@ -15,25 +15,27 @@ from src.exec_probing import exec_probing
 from src.ssl_models.barlow_twins import BarlowTwins
 from src.ssl_models.simsiam import SimSiam
 from src.ssl_models.byol import BYOL
+from src.ssl_models.emp import EMP
 
-from src.strategy_wrappers.no_strategy import NoStrategy
-from src.strategy_wrappers.replay import Replay
-from src.strategy_wrappers.align_buffer import AlignBuffer
-from src.strategy_wrappers.align_ema import AlignEMA
-from src.strategy_wrappers.align_ema_replay import AlignEMAReplay
-from src.strategy_wrappers.lump import LUMP
-from src.strategy_wrappers.minred import MinRed
-from src.strategy_wrappers.cassle import CaSSLe
+from src.strategies.no_strategy import NoStrategy
+from src.strategies.replay import Replay
+from src.strategies.arp import ARP
+from src.strategies.aep import AEP
+from src.strategies.apre import APRE
+from src.strategies.lump import LUMP
+from src.strategies.minred import MinRed
+from src.strategies.cassle import CaSSLe
 from src.standalone_strategies.scale import SCALE
-from src.standalone_strategies.emp import EMP
+
+from src.trainer import Trainer
 
 from src.buffers import get_buffer
 
 from src.utils import write_final_scores
 
 def exec_experiment(**kwargs):
-    standalone_strategies = ['scale', 'emp']
-    buffer_free_strategies = ['no_strategy', 'align_ema', 'cassle', 'emp']
+    standalone_strategies = ['scale']
+    buffer_free_strategies = ['no_strategy', 'aep', 'cassle']
 
     # Ratios of tr set used for training linear probe
     if kwargs["use_probing_tr_ratios"]:
@@ -138,18 +140,27 @@ def exec_experiment(**kwargs):
     
 
     if not kwargs["strategy"] in standalone_strategies:
-        # Model
+        # SSL model
         if kwargs["model"] == 'simsiam':
-            model = SimSiam(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
+            ssl_model = SimSiam(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
                             dim_pred=kwargs["dim_pred"], save_pth=save_pth).to(device)
+            num_views = 2
         elif kwargs["model"] == 'byol':
-            model = BYOL(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
+            ssl_model = BYOL(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
                         dim_pred=kwargs["dim_pred"], byol_momentum=kwargs["byol_momentum"],
                         return_momentum_encoder=kwargs["return_momentum_encoder"], save_pth=save_pth).to(device)
+            num_views = 2
             
         elif kwargs["model"] == 'barlow_twins':
-            model = BarlowTwins(encoder=encoder, dim_features=kwargs["dim_proj"],
-                                dim_pred=kwargs["dim_pred"], lambd=kwargs["lambd"], save_pth=save_pth).to(device)
+            ssl_model = BarlowTwins(encoder=encoder, dim_features=kwargs["dim_proj"],
+                                lambd=kwargs["lambd"], save_pth=save_pth).to(device)
+            num_views = 2
+
+        elif kwargs["model"] == 'emp':
+            ssl_model = EMP(base_encoder=encoder, dim_proj=kwargs["dim_proj"], n_patches=kwargs["num_views"],
+                            emp_tcr_param=kwargs["emp_tcr_param"], emp_tcr_eps=kwargs["emp_tcr_eps"], 
+                            emp_patch_sim=kwargs["emp_patch_sim"], save_pth=save_pth).to(device)
+            num_views = kwargs["num_views"]
             
         else:
             raise Exception(f'Invalid model {kwargs["model"]}')
@@ -159,7 +170,7 @@ def exec_experiment(**kwargs):
     if not kwargs["strategy"] in buffer_free_strategies:
         if kwargs["buffer_type"] == "default":
             # Set default buffer for each strategy
-            if kwargs["strategy"] in ['replay', 'align_ema_replay', 'align_buffer', 'lump']:
+            if kwargs["strategy"] in ['replay', 'apre', 'arp', 'lump']:
                 kwargs["buffer_type"] = "reservoir"
             elif kwargs["strategy"] == "minred":
                 kwargs["buffer_type"] = "minred"
@@ -182,103 +193,98 @@ def exec_experiment(**kwargs):
                 f.write(f'Features update EMA param (MinRed): {kwargs["features_buffer_ema"]}\n')
 
 
-    
-    # Strategy
-    if kwargs["strategy"] == 'no_strategy':
-        strategy = NoStrategy(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                              weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                              mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                              save_model=False, common_transforms=kwargs["common_transforms"])
-    
-    elif kwargs["strategy"] == 'replay':
-        strategy = Replay(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                          weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                          mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                          save_model=False, common_transforms=kwargs["common_transforms"],
-                          buffer=buffer, replay_mb_size=kwargs["repl_mb_size"])
-        
-    elif kwargs["strategy"] == 'align_buffer':
-        strategy = AlignBuffer(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                               weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                               mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                               save_model=False, common_transforms=kwargs["common_transforms"],
-                               buffer=buffer, replay_mb_size=kwargs["repl_mb_size"], omega=kwargs["omega"],
-                               align_criterion=kwargs["align_criterion"], use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"])
-    
-    elif kwargs["strategy"] == 'align_ema':
-        strategy = AlignEMA(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                            weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                            mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                            save_model=False, common_transforms=kwargs["common_transforms"],
-                            omega=kwargs["omega"], align_criterion=kwargs["align_criterion"], momentum_ema=kwargs["momentum_ema"],
-                            use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"])
-    
-    elif kwargs["strategy"] == 'align_ema_replay':
-        strategy = AlignEMAReplay(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                                  weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                                  mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                                  save_model=False, common_transforms=kwargs["common_transforms"],
-                                 buffer=buffer, replay_mb_size=kwargs["repl_mb_size"], omega=kwargs["omega"],
-                                  align_criterion=kwargs["align_criterion"], momentum_ema=kwargs["momentum_ema"],
-                                  use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"])
-        
-    elif kwargs["strategy"] == 'scale':
-        strategy = SCALE(encoder=encoder, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                          weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                          mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                          save_model=False, common_transforms=kwargs["common_transforms"],
-                          buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
-                          dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"], buffer_type=kwargs["buffer_type"])
-        
-    elif kwargs["strategy"] == 'lump':
-        strategy = LUMP(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                          weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                          mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                          save_model=False, common_transforms=kwargs["common_transforms"],
-                          buffer=buffer,
-                          alpha_lump=kwargs["alpha_lump"])
-        
-    elif kwargs["strategy"] == 'minred':
-        strategy = MinRed(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                          weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                          mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                          save_model=False, common_transforms=kwargs["common_transforms"],
-                          buffer=buffer, replay_mb_size=kwargs["repl_mb_size"])
-        
-    elif kwargs["strategy"] == 'cassle':
-        strategy = CaSSLe(model=model, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                            weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                            mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                            save_model=False, common_transforms=kwargs["common_transforms"],
-                            omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
-                            align_after_proj=kwargs["align_after_proj"])
-        
-    elif kwargs["strategy"] == 'emp':
-        strategy = EMP(encoder=encoder, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                          weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                          mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                          save_model=False, common_transforms=kwargs["common_transforms"],
-                          n_patches=20, dim_proj=kwargs["dim_proj"]
-                    )
-
+    if kwargs["aligner_dim"] <= 0:
+        aligner_dim = kwargs["dim_pred"]
     else:
-        raise Exception(f'Strategy {kwargs["strategy"]} not supported')
+        aligner_dim = kwargs["aligner_dim"]
+    
+
+    if not kwargs["strategy"] in standalone_strategies:
+        # Strategy
+        if kwargs["strategy"] == 'no_strategy':
+            strategy = NoStrategy(ssl_model=ssl_model, device=device, save_pth=save_pth)
+
+        elif kwargs["strategy"] == 'replay':
+            strategy = Replay(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"])
+            
+        elif kwargs["strategy"] == 'arp':
+            strategy = ARP(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                        buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                        omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
+                        use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
+                        aligner_dim=aligner_dim)
+        
+        elif kwargs["strategy"] == 'aep':
+            strategy = AEP(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                        omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
+                        use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
+                        aligner_dim=aligner_dim, momentum_ema=kwargs["momentum_ema"])
+        
+        elif kwargs["strategy"] == 'apre':
+            strategy = APRE(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                            omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
+                            use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
+                            aligner_dim=aligner_dim, momentum_ema=kwargs["momentum_ema"])
+            
+        elif kwargs["strategy"] == 'scale':
+            strategy = SCALE(encoder=encoder, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                            weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                            mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                            save_model=False, common_transforms=kwargs["common_transforms"],
+                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                            dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"], buffer_type=kwargs["buffer_type"])
+            
+        elif kwargs["strategy"] == 'lump':
+            strategy = LUMP(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                            buffer=buffer,
+                            alpha_lump=kwargs["alpha_lump"])
+            
+        elif kwargs["strategy"] == 'minred':
+            strategy = MinRed(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"])
+        
+        elif kwargs["strategy"] == 'cassle':
+            strategy = CaSSLe(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                            omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
+                            use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
+                            aligner_dim=aligner_dim)
+
+        else:
+            raise Exception(f'Strategy {kwargs["strategy"]} not supported')
+
+        # Set up the trainer wrapper
+        trainer = Trainer(ssl_model=ssl_model, strategy=strategy, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                        weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                        mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                        save_model=False, common_transforms=kwargs["common_transforms"], num_views=num_views)
+        
+    else:
+        # Is a standalone strategy (already includes trainer and ssl model inside the strategy itself)
+        trainer = SCALE(encoder=encoder, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
+                            weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                            mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                            save_model=False, common_transforms=kwargs["common_transforms"],
+                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                            dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"], buffer_type=kwargs["buffer_type"])
+            
 
 
     if kwargs["iid"]:
         # IID training over the entire dataset
         print(f'==== Beginning self supervised training on iid dataset ====')
-        network = strategy.train_experience(iid_tr_dataset, exp_idx=0)
+        trained_ssl_model = trainer.train_experience(iid_tr_dataset, exp_idx=0)
 
-        exec_probing(kwargs, benchmark, network, 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
+        exec_probing(kwargs, benchmark, trained_ssl_model, 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
                      probing_separate_pth_dict)
     else:
         # Self supervised training over the experiences
         for exp_idx, exp_dataset in enumerate(benchmark.train_stream):
             print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
-            network = strategy.train_experience(exp_dataset, exp_idx)
+            trained_ssl_model = trainer.train_experience(exp_dataset, exp_idx)
 
-            exec_probing(kwargs, benchmark, network.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
+            exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
                     probing_separate_pth_dict)
                 
         
@@ -293,10 +299,10 @@ def exec_experiment(**kwargs):
     # Save final pretrained model
     if kwargs["save_model_final"]:
         if kwargs['strategy'] in standalone_strategies:
-            torch.save(network.get_encoder_for_eval().state_dict(),
+            torch.save(trained_ssl_model.get_encoder_for_eval().state_dict(),
                     os.path.join(save_pth, f'final_model_state.pth'))
         else:
-            torch.save(network.state_dict(),
+            torch.save(trained_ssl_model.state_dict(),
                     os.path.join(save_pth, f'final_model_state.pth'))
 
 

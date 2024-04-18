@@ -3,9 +3,10 @@ from torch import nn
 import torch.nn.functional as F
 import copy
 
+from .abstract_ssl_model import AbstractSSLModel
 from ..utils import update_ema_params
 
-class BYOL(nn.Module):
+class BYOL(nn.Module, AbstractSSLModel):
 
     def __init__(self, base_encoder, dim_proj=2048, dim_pred=512,
                   byol_momentum=0.9, return_momentum_encoder=True, 
@@ -67,9 +68,12 @@ class BYOL(nn.Module):
                 f.write(f'dim_projector: {dim_proj}\n')
                 f.write(f'dim_predictor: {dim_pred}\n')
 
-    def forward(self, x1, x2):        
-        # Both augmentations are passed in both momentum and online nets 
+    def forward(self, x_views_list):
 
+        x1 = x_views_list[0]
+        x2 = x_views_list[1]
+
+        # Both augmentations are passed in both momentum and online nets 
         with torch.no_grad():
             z1_mom = self.momentum_projector(self.momentum_encoder(x1))
             z2_mom = self.momentum_projector(self.momentum_encoder(x2))
@@ -84,7 +88,7 @@ class BYOL(nn.Module):
 
         loss = self.criterion(p1, z2_mom.detach()) + self.criterion(p2, z1_mom.detach())
 
-        return loss.mean(), z1_onl, z2_onl, e1_onl, e2_onl
+        return loss.mean(), [z1_onl, z2_onl], [e1_onl, e2_onl]
     
     @torch.no_grad()
     def update_momentum(self):
@@ -106,10 +110,7 @@ class BYOL(nn.Module):
         return self.online_encoder
         
     def get_projector(self):
-        if self.return_momentum_encoder:
-            return self.momentum_projector
-        else:
-            return self.online_projector
+        return self.online_projector
             
     def get_embedding_dim(self):
         return self.online_projector[0].weight.shape[1]
@@ -121,10 +122,13 @@ class BYOL(nn.Module):
         return self.dim_predictor
     
     def get_criterion(self):
-        return self.criterion
+        return self.criterion, True
     
     def get_name(self):
         return self.model_name
 
     def after_backward(self):
         self.update_momentum()
+
+    def get_params(self):
+        return list(self.get_encoder().parameters()) + list(self.get_projector().parameters()) + list(self.predictor.parameters())

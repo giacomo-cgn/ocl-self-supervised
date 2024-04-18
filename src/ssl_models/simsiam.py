@@ -1,6 +1,7 @@
 from torch import nn
+from .abstract_ssl_model import AbstractSSLModel
 
-class SimSiam(nn.Module):
+class SimSiam(nn.Module, AbstractSSLModel):
     """
     Build a SimSiam model.
     """
@@ -17,14 +18,6 @@ class SimSiam(nn.Module):
         # Create the encoder
         # num_classes is the output fc dimension, zero-initialize last BNs
         self.encoder = base_encoder(num_classes=dim_proj, zero_init_residual=True)
-
-        # def replace_bn_with_identity(module):
-        #     for name, child in module.named_children():
-        #         if isinstance(child, nn.BatchNorm2d):
-        #             setattr(module, name, nn.Identity())
-        #         else:
-        #             replace_bn_with_identity(child)
-        # replace_bn_with_identity(self.encoder)
 
         # Build a 3-layer projector
         prev_dim = self.encoder.fc.weight.shape[1]
@@ -59,7 +52,11 @@ class SimSiam(nn.Module):
                 f.write(f'dim_projector: {dim_proj}\n')
                 f.write(f'dim_predictor: {dim_pred}\n')
 
-    def forward(self, x1, x2):
+    def forward(self, x_views_list):
+
+        x1 = x_views_list[0]
+        x2 = x_views_list[1]
+
         # Compute features for both views
         e1 = self.encoder(x1)
         e2 = self.encoder(x2)
@@ -72,7 +69,7 @@ class SimSiam(nn.Module):
 
         loss = -(self.criterion(p1, z2.detach()).mean() + self.criterion(p2, z1.detach()).mean()) * 0.5
 
-        return loss, z1, z2, e1, e2
+        return loss, [z1, z2], [e1, e2]
     
     def get_encoder(self):
        return self.encoder
@@ -93,10 +90,10 @@ class SimSiam(nn.Module):
         return self.dim_predictor
     
     def get_criterion(self):
-        return self.criterion
+        return self.criterion, True
     
     def get_name(self):
         return self.model_name
-
-    def after_backward(self):
-        return
+    
+    def get_params(self):
+        return list(self.parameters())

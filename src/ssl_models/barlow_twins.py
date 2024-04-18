@@ -1,14 +1,15 @@
 from torch import nn
 import torch
 
-class BarlowTwins(nn.Module):
+from .abstract_ssl_model import AbstractSSLModel
 
-    def __init__(self, encoder, dim_features=2048, dim_pred=512, lambd=5e-3, save_pth=None):
+class BarlowTwins(nn.Module, AbstractSSLModel):
+
+    def __init__(self, encoder, dim_features=2048, lambd=5e-3, save_pth=None):
         super(BarlowTwins, self).__init__()
         self.save_pth = save_pth
         self.model_name = 'barlow_twins'
         self.dim_features = dim_features
-        self.dim_predictor = dim_pred # Not needed for Barlow Twins itself, but can be needed for additional layers in some strategies
 
         self.lambd = lambd
 
@@ -64,9 +65,11 @@ class BarlowTwins(nn.Module):
                 f.write(f'MODEL: {self.model_name}\n')
                 f.write(f'Lambda: {self.lambd}\n')
                 f.write(f'dim_features: {dim_features}\n')
-                f.write(f'dim_predictor: {dim_pred}\n')
 
-    def forward(self, x1, x2):
+    def forward(self, x_views_list):
+
+        x1 = x_views_list[0]
+        x2 = x_views_list[1]
 
         e1 = self.encoder(x1)
         e2 = self.encoder(x2)
@@ -74,7 +77,7 @@ class BarlowTwins(nn.Module):
         z2 = self.projector(e2)
 
         loss = self.criterion(z1, z2)
-        return loss, z1, z2, e1, e2
+        return loss, [z1, z2], [e1, e2]
     
     def get_encoder(self):
         return self.encoder
@@ -92,16 +95,19 @@ class BarlowTwins(nn.Module):
         return self.dim_features
     
     def get_predictor_dim(self):
-        return self.dim_predictor
+        return None
     
     def get_criterion(self):
-        return self.criterion
+        return self.criterion, True
     
     def get_name(self):
         return self.model_name
 
     def after_backward(self):
         return
+    
+    def get_params(self):
+        return list(self.parameters())
     
 def off_diagonal(x):
     # return a flattened view of the off-diagonal elements of a square matrix

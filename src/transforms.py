@@ -52,34 +52,21 @@ def get_dataset_crop(dataset: str):
     else:
         raise ValueError("Dataset not supported.")
 
-
-class TwoCropsTransform:
-    """Take two random crops of each image."""
-
-    def __init__(self, base_transform):
-        self.base_transform = base_transform
-
-    def __call__(self, x):
-        crops1 = transforms.Lambda(lambda x: torch.stack([self.base_transform(x_) for x_ in x]))(x)
-        crops2 = transforms.Lambda(lambda x: torch.stack([self.base_transform(x_) for x_ in x]))(x)
-        return crops1, crops2
  
 class MultipleCropsTransform:
-    """Take N random crops of one image."""
+    """Take N random augmented views of one image."""
     def __init__(self, base_transform, n_crops=20):
         self.base_transform = base_transform
         self.n_crops = n_crops
 
     def __call__(self, x):
-        crops = []
-        for sample in x:
-            for _ in range(self.n_crops):
-                crops.append(self.base_transform(sample))
+        stacked_views = [] # List of tensors, each contains one view for all samples in x
+        for _ in range(self.n_crops):
+            view_list = [self.base_transform(sample) for sample in x]
+            stacked_views.append(torch.stack(view_list, dim=0))
+            
+        return stacked_views
         
-        # Concat all crops in a single torch vector and return
-        return torch.stack(crops, dim=0)
-        
-
 
 class GaussianBlur(object):
     """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
@@ -142,7 +129,8 @@ def get_transforms_byol(dataset: str = 'cifar100'):
             transforms.RandomHorizontalFlip(),
             transforms.RandomApply(
                 [transforms.ColorJitter(brightness=0.4, contrast=0.4,
-                                        saturation=0.2, hue=0.1)],
+                                        saturation=0.2, hue=0.1),
+                                        ],
                 p=0.8
             ),
             transforms.RandomGrayscale(p=0.2),
@@ -185,7 +173,4 @@ def get_transforms(dataset: str, model: str, n_crops: int = 2):
     else:
         raise ValueError(f"Model {model} not supported")
 
-    if n_crops > 2:
-        return MultipleCropsTransform(transforms.Compose(all_transforms), n_crops)
-    else:
-        return TwoCropsTransform(transforms.Compose(all_transforms))
+    return MultipleCropsTransform(transforms.Compose(all_transforms), n_crops)
