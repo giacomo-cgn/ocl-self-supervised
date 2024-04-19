@@ -26,9 +26,6 @@ class AbstractSSLModel():
     def get_projector_dim(self):
         pass
     
-    def get_predictor_dim(self):
-        pass
-    
     def get_criterion(self) -> Tuple[object, bool]:
         """Return the model's loss criterion and if it is a binary loss (e.g. MSE or cosine similarity)"""
         pass

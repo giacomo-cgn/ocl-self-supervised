@@ -111,9 +111,6 @@ class EMP(nn.Module, AbstractSSLModel):
     def get_projector_dim(self):
         return self.dim_projector
     
-    def get_predictor_dim(self):
-        return None
-    
     def get_criterion(self):
         return self.emp_loss, False
     

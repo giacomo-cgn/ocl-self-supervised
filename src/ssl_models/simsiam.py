@@ -86,9 +86,6 @@ class SimSiam(nn.Module, AbstractSSLModel):
     def get_projector_dim(self):
         return self.dim_projector
     
-    def get_predictor_dim(self):
-        return self.dim_predictor
-    
     def get_criterion(self):
         return self.criterion, True
     

@@ -94,9 +94,6 @@ class BarlowTwins(nn.Module, AbstractSSLModel):
     def get_projector_dim(self):
         return self.dim_features
     
-    def get_predictor_dim(self):
-        return None
-    
     def get_criterion(self):
         return self.criterion, True
     
