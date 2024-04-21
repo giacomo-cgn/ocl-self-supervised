@@ -20,6 +20,7 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
                 train_transform=get_dataset_transforms(dataset_name),
                 eval_transform=get_dataset_transforms(dataset_name),
             )
+        image_size = 32
         
     elif dataset_name == 'cifar10':
         benchmark = SplitCIFAR10(
@@ -30,6 +31,7 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
                 train_transform=get_dataset_transforms(dataset_name),
                 eval_transform=get_dataset_transforms(dataset_name),
             )
+        image_size = 32
         
     elif dataset_name == 'imagenet':
         benchmark = SplitImageNet(
@@ -41,6 +43,7 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
                 train_transform=get_dataset_transforms(dataset_name),
                 eval_transform=get_dataset_transforms(dataset_name),
             )
+        image_size = 224
         
     elif dataset_name == 'imagenet100':
         # Select 100 random classes from Imagenet
@@ -56,6 +59,7 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
             eval_transform=get_dataset_transforms(dataset_name),
             # class_ids_from_zero_from_first_exp=True ## not allowed for Avalanche < 0.4.0
         )
+        image_size = 224
 
         # Same code as in Avalanche 0.4.0 for enabling "class_ids_from_zero_from_first_exp=True"
         n_original_classes = max(benchmark.classes_order_original_ids) + 1
@@ -91,7 +95,7 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
     else:
         benchmark = Benchmark(train_stream=tr_stream, test_stream=test_stream)
 
-    return benchmark
+    return benchmark, image_size
 
 def get_iid_dataset(benchmark: Benchmark):
      iid_dataset_tr = ConcatDataset([tr_exp_dataset for tr_exp_dataset in benchmark.train_stream])

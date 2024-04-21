@@ -1,7 +1,5 @@
 
 import torch
-from torch.utils.data import ConcatDataset
-from torchvision import models
 
 import os
 import datetime
@@ -10,12 +8,13 @@ import numpy as np
 
 from src.get_datasets import get_benchmark, get_iid_dataset
 from src.exec_probing import exec_probing
-
+from src.get_encoder import get_encoder
 
 from src.ssl_models.barlow_twins import BarlowTwins
 from src.ssl_models.simsiam import SimSiam
 from src.ssl_models.byol import BYOL
 from src.ssl_models.emp import EMP
+from src.ssl_models.mae import MAE
 
 from src.strategies.no_strategy import NoStrategy
 from src.strategies.replay import Replay
@@ -25,6 +24,7 @@ from src.strategies.apre import APRE
 from src.strategies.lump import LUMP
 from src.strategies.minred import MinRed
 from src.strategies.cassle import CaSSLe
+
 from src.standalone_strategies.scale import SCALE
 
 from src.trainer import Trainer
@@ -105,7 +105,7 @@ def exec_experiment(**kwargs):
     np.random.default_rng(kwargs["seed"])
 
     # Dataset
-    benchmark = get_benchmark(
+    benchmark, image_size = get_benchmark(
         dataset_name=kwargs["dataset"],
         dataset_root=kwargs["dataset_root"],
         num_exps=kwargs["num_exps"],
@@ -113,7 +113,8 @@ def exec_experiment(**kwargs):
         val_ratio=kwargs["probing_val_ratio"],
     )
     if kwargs["iid"]:
-        iid_tr_dataset = get_iid_dataset(benchmark)   
+        iid_tr_dataset = get_iid_dataset(benchmark)
+
 
     # Device
     if torch.cuda.is_available():       
@@ -129,18 +130,11 @@ def exec_experiment(**kwargs):
         device = torch.device("cpu")
 
     # Encoder
-    if kwargs["encoder"] == 'resnet18':
-        encoder = models.resnet18
-    elif kwargs["encoder"] == 'resnet34':
-        encoder = models.resnet34
-    elif kwargs["encoder"] == 'resnet50':
-        encoder = models.resnet50
-    else:
-        raise Exception(f'Invalid encoder {kwargs["encoder"]}')
+    encoder = get_encoder(kwargs["encoder"])
     
 
     if not kwargs["strategy"] in standalone_strategies:
-        # SSL model
+    # SSL model
         if kwargs["model"] == 'simsiam':
             ssl_model = SimSiam(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
                             dim_pred=kwargs["dim_pred"], save_pth=save_pth).to(device)
@@ -161,6 +155,15 @@ def exec_experiment(**kwargs):
                             emp_tcr_param=kwargs["emp_tcr_param"], emp_tcr_eps=kwargs["emp_tcr_eps"], 
                             emp_patch_sim=kwargs["emp_patch_sim"], save_pth=save_pth).to(device)
             num_views = kwargs["num_views"]
+
+        elif kwargs["model"] == 'mae':
+            ssl_model = MAE(image_size=image_size, patch_size=kwargs["mae_patch_size"], emb_dim=kwargs["mae_emb_dim"],
+                            encoder_layer=kwargs["mae_encoder_layer"], encoder_head=kwargs["mae_encoder_head"],
+                            decoder_layer=kwargs["mae_decoder_layer"], decoder_head=kwargs["mae_decoder_head"],
+                            mask_ratio=kwargs["mae_mask_ratio"], eval_avg_pooling=kwargs["mae_eval_avg_pooling"]
+).to(device)
+
+            num_views = 1
             
         else:
             raise Exception(f'Invalid model {kwargs["model"]}')

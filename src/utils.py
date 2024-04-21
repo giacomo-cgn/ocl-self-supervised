@@ -151,11 +151,21 @@ def read_command_line_args():
     parser.add_argument('--num-views', type=int, default=2) # Most Instance Discrimination SSL methods use 2, but can vary (e.g EMP)
     parser.add_argument('--lambd', type=float, default=5e-3) # For Barlow Twins
     parser.add_argument('--byol-momentum', type=float, default=0.99)
-    parser.add_argument('--return-momentum-encoder', type=bool, default=True)
+    parser.add_argument('--return-momentum-encoder', type=str_to_bool, default=True)
     parser.add_argument('--emp-tcr-param', type=float, default=1)
     parser.add_argument('--emp-tcr-eps', type=float, default=0.2)
     parser.add_argument('--emp-patch-sim', type=float, default=200)
-
+    
+    # MAE params
+    parser.add_argument('--mae-patch-size', type=int, default=2)                
+    parser.add_argument('--mae-emb-dim', type=int, default=192)
+    parser.add_argument('--mae-encoder-layer', type=int, default=12)
+    parser.add_argument('--mae-encoder-head', type=int, default=3)
+    parser.add_argument('--mae-decoder-layer', type=int, default=4)                
+    parser.add_argument('--mae-decoder-head', type=int, default=3)
+    parser.add_argument('--mae-mask-ratio', type=float, default=0.75)
+    parser.add_argument('--mae-eval-avg-pooling', type=str_to_bool, default=False)
+        
 
     # SCALE params
     parser.add_argument('--scale-dim-features', type=int, default=128)
