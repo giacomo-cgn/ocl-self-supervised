@@ -4,6 +4,10 @@ from ..ssl_models import AbstractSSLModel
 from .abstract_strategy import AbstractStrategy
 
 class MinRed(AbstractStrategy):
+    """
+    Continual strategy based on training only on buffer samples, eliminating most correlated samples from buffer (to be paired with MinRed buffer).
+    From the article of Purushwalkam et al. https://arxiv.org/abs/2203.12710 .
+    """
 
     def __init__(self,
                  ssl_model: AbstractSSLModel = None,
