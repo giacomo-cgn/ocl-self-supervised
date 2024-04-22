@@ -1,4 +1,4 @@
-This library is made for executing experiments with Continual Self-Supervised Learning. 
+This library is made for executing experiments on **Continual Self-Supervised Learning**. 
 
 It allows a wide range of experiments, thanks to its modular nature for SSL models, Continual strategies (to counter forgetting), encoders and buffers.
 Moreover, it can handle both conventional (i.e. train for multiple epochs for each experience) and online continual learning setups.
