@@ -98,7 +98,7 @@ class Trainer():
         self.strategy.before_experience()
         
         for epoch in range(self.train_epochs):
-            for mb_idx, stream_mbatch in tqdm(enumerate(data_loader)):
+            for mb_idx, stream_mbatch in enumerate(tqdm(data_loader)):
                 stream_mbatch = stream_mbatch.to(self.device)
 
                 stream_mbatch = self.strategy.before_mb_passes(stream_mbatch)
@@ -111,18 +111,17 @@ class Trainer():
                     x_views_list = self.transforms(mbatch)
 
                     x_views_list = self.strategy.after_transforms(x_views_list)
-                    
-                    # Concat all tensors in the list in a single tensor
-                    # x_views = torch.cat(x_views_list, dim=0)
 
+                    # Skip training if mb size == 1 (problems with batchnorm)
+                    if len(x_views_list[0]) == 1:
+                        print(f'Skipping batch of size 1 at epoch: {epoch}, mb_idx: {mb_idx}')
+                        continue
                     # Forward pass of SSL model (z: projector features, e: encoder features)
                     loss, z_list, e_list = self.ssl_model(x_views_list)
 
-                    # Subdivide into minibatch of features, each containing features corresponding to one view
-                    # z_list, e_list = z_views.chunk(self.n_patches, dim=0), e_views.chunk(self.n_patches, dim=0)
-
                     # Strategy after forward pass
                     loss_strategy = self.strategy.after_forward(x_views_list, loss, z_list, e_list)
+
 
                     # Backward pass
                     self.optimizer.zero_grad()
