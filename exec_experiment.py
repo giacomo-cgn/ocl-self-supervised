@@ -279,7 +279,7 @@ def exec_experiment(**kwargs):
         print(f'==== Beginning self supervised training on iid dataset ====')
         trained_ssl_model = trainer.train_experience(iid_tr_dataset, exp_idx=0)
 
-        exec_probing(kwargs, benchmark, trained_ssl_model, 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
+        exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
                      probing_separate_pth_dict)
     else:
         # Self supervised training over the experiences
