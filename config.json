@@ -1,14 +1,14 @@
 {
     "common_params":
     {
-        "gpu-idx": 0,
-        "dataset": "imagenet100",
+        "gpu-idx": 3,
+        "dataset": "cifar100",
         "dataset-root": "/data/cossu/imagenet/imagenet",
-        "mb-passes": 1,
+        "mb-passes": 6,
         "epochs": 1,
         "tr-mb-size": 10,
         "repl-mb-size": 128,
-        "iid": true,
+        "iid": false,
         "omega": 0.05,
         "momentum-ema": 0.999,
         "eval-mb-size": 256
@@ -16,11 +16,10 @@
     "experiments":
     [
         {
-            "model": "simsiam",
-            "strategy" : "no_strategy",
-            "name": "short",
+            "model": "mae",
+            "strategy" : "replay",
             "hyperparams_search": {
-                "lr": [0.03, 0.01, 0.003]
+                "lr": [0.1, 0.03, 0.01]
             }
         }
 

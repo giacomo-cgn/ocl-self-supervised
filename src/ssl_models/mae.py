@@ -63,7 +63,9 @@ class MAE(torch.nn.Module, AbstractSSLModel):
         features, backward_indexes = self.encoder(img)
         predicted_img, mask = self.decoder(features,  backward_indexes)
         loss = self.criterion(predicted_img, img, mask)
-        return loss, [features], [features]
+        
+        return_features = rearrange(features, 't b c -> b t c')
+        return loss, [return_features], [return_features]
     
     def get_encoder(self): 
        return self.encoder
