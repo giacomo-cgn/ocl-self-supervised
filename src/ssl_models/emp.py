@@ -10,6 +10,7 @@ class EMP(nn.Module, AbstractSSLModel):
     """
     def __init__(self,
                  base_encoder,
+                 dim_backbone_features: int,
                  dim_proj: int = 2048,
                  save_pth: str  = None,
                  n_patches: int = 20,
@@ -22,6 +23,7 @@ class EMP(nn.Module, AbstractSSLModel):
         super(EMP, self).__init__()
         
         self.model_name = 'emp'
+        self.encoder = base_encoder
 
         self.save_pth = save_pth
         self.dim_projector = dim_proj
@@ -34,26 +36,16 @@ class EMP(nn.Module, AbstractSSLModel):
         self.contractive_loss = Similarity_Loss()
         self.criterion = TotalCodingRate(eps=self.emp_tcr_eps)
 
-        # Create the encoder
-        # num_classes is the output fc dimension, zero-initialize last BNs
-        self.encoder = base_encoder(num_classes=dim_proj, zero_init_residual=True)
-
         # Build a 3-layer projector
-        prev_dim = self.encoder.fc.weight.shape[1]
-
-        self.projector = nn.Sequential(nn.Linear(prev_dim, prev_dim, bias=False),
-                                        nn.BatchNorm1d(prev_dim),
+        self.projector = nn.Sequential(nn.Linear(dim_backbone_features, dim_backbone_features, bias=False),
+                                        nn.BatchNorm1d(dim_backbone_features),
                                         nn.ReLU(inplace=True), # first layer
-                                        nn.Linear(prev_dim, prev_dim, bias=False),
-                                        nn.BatchNorm1d(prev_dim),
+                                        nn.Linear(dim_backbone_features, dim_backbone_features, bias=False),
+                                        nn.BatchNorm1d(dim_backbone_features),
                                         nn.ReLU(inplace=True), # second layer
-                                        self.encoder.fc,
+                                        nn.Linear(dim_backbone_features, dim_proj),
                                         nn.BatchNorm1d(dim_proj, affine=False)) # output layer
         self.projector[6].bias.requires_grad = False # hack: not use bias as it is followed by BN 
-
-        # Replace the fc clf layer with nn.Identity(),
-        # so the encoder outputs feature maps instead of clf outputs
-        self.encoder.fc = nn.Identity()
 
         def emp_loss(z_list):
             loss_contract, _ = self.contractive_loss(z_list)

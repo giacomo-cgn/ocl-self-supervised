@@ -5,36 +5,30 @@ class SimSiam(nn.Module, AbstractSSLModel):
     """
     Build a SimSiam model.
     """
-    def __init__(self, base_encoder, dim_proj=2048, dim_pred=512, save_pth=None):
+    def __init__(self, base_encoder, dim_backbone_features, dim_proj=2048, dim_pred=512, save_pth=None):
         super(SimSiam, self).__init__()
+        self.encoder = base_encoder
         self.save_pth = save_pth
         self.model_name = 'simsiam'
         self.dim_projector = dim_proj
         self.dim_predictor = dim_pred
 
+        print('DIM_BACKBONES_FEATURES:', dim_backbone_features)
+
         # Set up criterion
         self.criterion = nn.CosineSimilarity(dim=1)
 
-        # Create the encoder
-        # num_classes is the output fc dimension, zero-initialize last BNs
-        self.encoder = base_encoder(num_classes=dim_proj, zero_init_residual=True)
-
         # Build a 3-layer projector
-        prev_dim = self.encoder.fc.weight.shape[1]
-
-        self.projector = nn.Sequential(nn.Linear(prev_dim, prev_dim, bias=False),
-                                        nn.BatchNorm1d(prev_dim),
+        self.projector = nn.Sequential(nn.Linear(dim_backbone_features, dim_backbone_features, bias=False),
+                                        nn.BatchNorm1d(dim_backbone_features),
                                         nn.ReLU(inplace=True), # first layer
-                                        nn.Linear(prev_dim, prev_dim, bias=False),
-                                        nn.BatchNorm1d(prev_dim),
+                                        nn.Linear(dim_backbone_features, dim_backbone_features, bias=False),
+                                        nn.BatchNorm1d(dim_backbone_features),
                                         nn.ReLU(inplace=True), # second layer
-                                        self.encoder.fc,
+                                        nn.Linear(dim_backbone_features, dim_proj),
                                         nn.BatchNorm1d(dim_proj, affine=False)) # output layer
         self.projector[6].bias.requires_grad = False # hack: not use bias as it is followed by BN
 
-        # Replace the fc clf layer with nn.Identity(),
-        # so the encoder outputs feature maps instead of clf outputs
-        self.encoder.fc = nn.Identity()
 
         # Build a 2-layer predictor
         self.predictor = nn.Sequential(nn.Linear(dim_proj, dim_pred, bias=False),

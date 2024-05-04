@@ -8,9 +8,11 @@ from ..utils import update_ema_params
 
 class BYOL(nn.Module, AbstractSSLModel):
 
-    def __init__(self, base_encoder, dim_proj=2048, dim_pred=512,
+    def __init__(self, base_encoder, dim_backbone_features,
+                  dim_proj=2048, dim_pred=512,
                   byol_momentum=0.9, return_momentum_encoder=True, 
                   save_pth=None):
+        
         super(BYOL, self).__init__()
         self.save_pth = save_pth
         self.model_name = 'byol'
@@ -21,21 +23,17 @@ class BYOL(nn.Module, AbstractSSLModel):
         self.return_momentum_encoder = return_momentum_encoder
 
         # Online encoder
-        self.online_encoder = base_encoder(num_classes=dim_proj, zero_init_residual=True)
+        self.online_encoder = base_encoder
         # Online projector
-        prev_dim = self.online_encoder.fc.weight.shape[1]
-        self.online_projector = nn.Sequential(nn.Linear(prev_dim, prev_dim, bias=False),
-                                        nn.BatchNorm1d(prev_dim),
+        self.online_projector = nn.Sequential(nn.Linear(dim_backbone_features, dim_backbone_features, bias=False),
+                                        nn.BatchNorm1d(dim_backbone_features),
                                         nn.ReLU(inplace=True), # first layer
-                                        nn.Linear(prev_dim, prev_dim, bias=False),
-                                        nn.BatchNorm1d(prev_dim),
+                                        nn.Linear(dim_backbone_features, dim_backbone_features, bias=False),
+                                        nn.BatchNorm1d(dim_backbone_features),
                                         nn.ReLU(inplace=True), # second layer
-                                        self.online_encoder.fc,
+                                        nn.Linear(dim_backbone_features, dim_proj),
                                         nn.BatchNorm1d(dim_proj, affine=False)) # output layer
         self.online_projector[6].bias.requires_grad = False # hack: not use bias as it is followed by BN
-        # Replace the fc clf layer with nn.Identity(),
-        # so the encoder outputs feature maps instead of clf outputs
-        self.online_encoder.fc = nn.Identity()
 
         # Momentum encoder
         self.momentum_encoder = copy.deepcopy(self.online_encoder)

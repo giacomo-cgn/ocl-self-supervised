@@ -8,7 +8,7 @@ import numpy as np
 
 from src.get_datasets import get_benchmark, get_iid_dataset
 from src.exec_probing import exec_probing
-from src.get_encoder import get_encoder
+from src.backbones import get_encoder
 
 from src.ssl_models.barlow_twins import BarlowTwins
 from src.ssl_models.simsiam import SimSiam
@@ -130,28 +130,32 @@ def exec_experiment(**kwargs):
         device = torch.device("cpu")
 
     # Encoder
-    encoder = get_encoder(kwargs["encoder"])
+    encoder, dim_encoder_features = get_encoder(kwargs["encoder"])
     
 
     if not kwargs["strategy"] in standalone_strategies:
     # SSL model
         if kwargs["model"] == 'simsiam':
-            ssl_model = SimSiam(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
-                            dim_pred=kwargs["dim_pred"], save_pth=save_pth).to(device)
+            ssl_model = SimSiam(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
+                                dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
+                                save_pth=save_pth).to(device)
             num_views = 2
         elif kwargs["model"] == 'byol':
-            ssl_model = BYOL(base_encoder=encoder, dim_proj=kwargs["dim_proj"],
-                        dim_pred=kwargs["dim_pred"], byol_momentum=kwargs["byol_momentum"],
-                        return_momentum_encoder=kwargs["return_momentum_encoder"], save_pth=save_pth).to(device)
+            ssl_model = BYOL(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
+                             dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
+                             byol_momentum=kwargs["byol_momentum"], return_momentum_encoder=kwargs["return_momentum_encoder"],
+                             save_pth=save_pth).to(device)
             num_views = 2
             
         elif kwargs["model"] == 'barlow_twins':
-            ssl_model = BarlowTwins(encoder=encoder, dim_features=kwargs["dim_proj"],
-                                lambd=kwargs["lambd"], save_pth=save_pth).to(device)
+            ssl_model = BarlowTwins(encoder=encoder, dim_backbone_features=dim_encoder_features,
+                                    dim_features=kwargs["dim_proj"],
+                                    lambd=kwargs["lambd"], save_pth=save_pth).to(device)
             num_views = 2
 
         elif kwargs["model"] == 'emp':
-            ssl_model = EMP(base_encoder=encoder, dim_proj=kwargs["dim_proj"], n_patches=kwargs["num_views"],
+            ssl_model = EMP(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
+                            dim_proj=kwargs["dim_proj"], n_patches=kwargs["num_views"],
                             emp_tcr_param=kwargs["emp_tcr_param"], emp_tcr_eps=kwargs["emp_tcr_eps"], 
                             emp_patch_sim=kwargs["emp_patch_sim"], save_pth=save_pth).to(device)
             num_views = kwargs["num_views"]
