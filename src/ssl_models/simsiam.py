@@ -13,8 +13,6 @@ class SimSiam(nn.Module, AbstractSSLModel):
         self.dim_projector = dim_proj
         self.dim_predictor = dim_pred
 
-        print('DIM_BACKBONES_FEATURES:', dim_backbone_features)
-
         # Set up criterion
         self.criterion = nn.CosineSimilarity(dim=1)
 

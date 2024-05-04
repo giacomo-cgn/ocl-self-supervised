@@ -26,12 +26,16 @@ class MAE(torch.nn.Module, AbstractSSLModel):
                  ) -> None:
         super().__init__()
 
+        self.emb_dim = emb_dim
         self.encoder = MAE_Encoder(image_size, patch_size, emb_dim, encoder_layer, encoder_head, mask_ratio)
         self.decoder = MAE_Decoder(image_size, patch_size, emb_dim, decoder_layer, decoder_head)
 
         self.mask_ratio = mask_ratio
         self.eval_avg_pooling = eval_avg_pooling
         self.save_pth = save_pth
+
+        self.num_patches = (image_size // patch_size) ** 2
+        print('NUM_PATCHES', self.num_patches)
 
         self.model_name = 'mae'
 
@@ -64,10 +68,10 @@ class MAE(torch.nn.Module, AbstractSSLModel):
         predicted_img, mask = self.decoder(features,  backward_indexes)
         loss = self.criterion(predicted_img, img, mask)
         
-        return_features = rearrange(features, 't b c -> b t c')
-        return loss, [return_features], [return_features]
+        clf_features = features[0]  
+        return loss, [clf_features],  [clf_features]
     
-    def get_encoder(self): 
+    def get_encoder(self):
        return self.encoder
     
     def get_encoder_for_eval(self):
@@ -92,11 +96,11 @@ class MAE(torch.nn.Module, AbstractSSLModel):
         return torch.nn.Identity()
     
     def get_embedding_dim(self):
-        return self.projector[0].weight.shape[1]
+        return self.emb_dim
     
     def get_projector_dim(self):
         # No projector head
-        self.get_embedding_dim()
+        return self.get_embedding_dim()
     
     def get_criterion(self):
         return self.criterion, False
@@ -221,21 +225,3 @@ def random_indexes(size : int):
 
 def take_indexes(sequences, indexes):
     return torch.gather(sequences, 0, repeat(indexes, 't b -> t b c', c=sequences.shape[-1]))
-
-class PatchShuffle(torch.nn.Module):
-    def __init__(self, ratio) -> None:
-        super().__init__()
-        self.ratio = ratio
-
-    def forward(self, patches : torch.Tensor):
-        T, B, C = patches.shape
-        remain_T = int(T * (1 - self.ratio))
-
-        indexes = [random_indexes(T) for _ in range(B)]
-        forward_indexes = torch.as_tensor(np.stack([i[0] for i in indexes], axis=-1), dtype=torch.long).to(patches.device)
-        backward_indexes = torch.as_tensor(np.stack([i[1] for i in indexes], axis=-1), dtype=torch.long).to(patches.device)
-
-        patches = take_indexes(patches, forward_indexes)
-        patches = patches[:remain_T]
-
-        return patches, forward_indexes, backward_indexes
