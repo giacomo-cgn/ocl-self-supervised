@@ -122,6 +122,7 @@ def read_command_line_args():
     parser.add_argument('--tr-mb-size', type=int, default=32)
     parser.add_argument('--common-transforms', type=str_to_bool, default=True)
     parser.add_argument('--iid', type=str_to_bool, default=False)
+    parser.add_argument('--random-encoder', type=str_to_bool, default=False)
     parser.add_argument('--save-model-final', type=str_to_bool, default=True)
 
     # Probing params

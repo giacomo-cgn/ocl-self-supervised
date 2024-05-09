@@ -48,6 +48,8 @@ def exec_experiment(**kwargs):
     str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
     if kwargs["strategy"] in standalone_strategies:
         folder_name = f'{kwargs["strategy"]}_{kwargs["dataset"]}_{str_now}'
+    elif kwargs['random_encoder']:
+        folder_name = f'random_{kwargs["dataset"]}_{str_now}'
     else:
         folder_name = f'{kwargs["strategy"]}_{kwargs["model"]}_{kwargs["dataset"]}_{str_now}'
     if kwargs["iid"]:
@@ -285,6 +287,11 @@ def exec_experiment(**kwargs):
 
         exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
                      probing_separate_pth_dict)
+        
+    elif kwargs["random_encoder"]:
+        # No SSL training is done, only using the randomly initialized encoder as feature extractor
+        exec_probing(kwargs, benchmark, encoder, 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
+                     probing_separate_pth_dict)
     else:
         # Self supervised training over the experiences
         for exp_idx, exp_dataset in enumerate(benchmark.train_stream):
@@ -304,7 +311,7 @@ def exec_experiment(**kwargs):
                            output_file=os.path.join(save_pth, 'final_scores_upto.csv'))
         
     # Save final pretrained model
-    if kwargs["save_model_final"]:
+    if kwargs["save_model_final"] and not kwargs["random_encoder"]:
         if kwargs['strategy'] in standalone_strategies:
             torch.save(trained_ssl_model.get_encoder_for_eval().state_dict(),
                     os.path.join(save_pth, f'final_model_state.pth'))

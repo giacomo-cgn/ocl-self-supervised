@@ -8,7 +8,7 @@ from .probing_sklearn import ProbingSklearn
 
 def exec_probing(kwargs, probing_benchmark, encoder, pretr_exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict, probing_separate_pth_dict):
 # Probing on all experiences up to current
-    if kwargs['probing_upto'] and not kwargs['iid']:
+    if kwargs['probing_upto'] and not (kwargs['iid'] or kwargs["random_encoder"]):
         # Generate upto current exp probing datasets
         probe_upto_dataset_tr = ConcatDataset([probing_benchmark.train_stream[i] for i in range(pretr_exp_idx+1)])
         probe_upto_dataset_test = ConcatDataset([probing_benchmark.test_stream[i] for i in range(pretr_exp_idx+1)])
@@ -57,7 +57,7 @@ def exec_probing(kwargs, probing_benchmark, encoder, pretr_exp_idx, probing_tr_r
                     probe.probe(probe_tr_exp_dataset, probe_test_exp_dataset)
 
     # If iid training, probe upto each experience
-    if kwargs['probing_upto'] and kwargs['iid']:
+    if kwargs['probing_upto'] and (kwargs['iid'] or kwargs["random_encoder"]):
         for exp_idx, _ in enumerate(probing_benchmark.train_stream):
             # Generate upto current exp probing datasets
             probe_upto_dataset_tr = ConcatDataset([probing_benchmark.train_stream[i] for i in range(exp_idx+1)])
