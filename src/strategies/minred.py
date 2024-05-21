@@ -36,12 +36,14 @@ class MinRed(AbstractStrategy):
     def before_mb_passes(self, stream_mbatch):
         """Add the stream mbatch to the buffer, with mbatch features obtained 
         with an additional encoder pass."""
-        with torch.no_grad():
-            e_mbatch = self.ssl_model.get_encoder()(stream_mbatch.detach())
-            z_mbatch = self.ssl_model.get_projector()(e_mbatch)
+        # Skip if mb size == 1 (problems with batchnorm)
+        if not len(stream_mbatch) == 1:
+            with torch.no_grad():
+                e_mbatch = self.ssl_model.get_encoder()(stream_mbatch.detach())
+                z_mbatch = self.ssl_model.get_projector()(e_mbatch)
 
-        # Add stream minibatch and features to buffer
-        self.buffer.add(stream_mbatch.detach(), z_mbatch.detach())
+            # Add stream minibatch and features to buffer
+            self.buffer.add(stream_mbatch.detach(), z_mbatch.detach())
 
         return stream_mbatch
 
