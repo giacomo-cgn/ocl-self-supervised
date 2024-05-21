@@ -4,10 +4,11 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 
-from .utils import UnsupervisedDataset, init_optim
+from .utils import UnsupervisedDataset
 from .transforms import get_transforms
 from .ssl_models import AbstractSSLModel
 from .strategies import AbstractStrategy
+from .optims import init_optim
 
 
 class Trainer():

@@ -35,7 +35,6 @@ class MAE(torch.nn.Module, AbstractSSLModel):
         self.save_pth = save_pth
 
         self.num_patches = (image_size // patch_size) ** 2
-        print('NUM_PATCHES', self.num_patches)
 
         self.model_name = 'mae'
 

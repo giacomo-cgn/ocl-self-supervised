@@ -7,8 +7,9 @@ from torch.utils.data import DataLoader
 from torch.functional import F
 import torch.nn as nn
 
-from ..utils import UnsupervisedDataset, init_optim
+from ..utils import UnsupervisedDataset
 from ..transforms import get_transforms
+from ..optims import init_optim
 
 class SCALE():
 

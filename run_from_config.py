@@ -4,7 +4,7 @@ import os
 
 from src.utils import read_command_line_args
 from search_hyperparams import search_hyperparams
-from exec_experiment import exec_experiment
+from main import exec_experiment
 
 
 # Read args from command line

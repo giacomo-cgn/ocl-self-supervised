@@ -3,7 +3,7 @@ import itertools
 import datetime
 import pandas as pd
 
-from exec_experiment import exec_experiment
+from main import exec_experiment
 
 def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=True, parent_log_folder='./logs', experiment_name=''):
 

@@ -4,3 +4,6 @@ from .arp import ARP
 from .aep import AEP
 from .apre import APRE
 from .abstract_strategy import AbstractStrategy
+from .lump import LUMP
+from .minred import MinRed
+from .cassle import CaSSLe

@@ -1,6 +1,17 @@
 import torch
 from torch import optim
 
+
+def init_optim(optim_name, params, lr, momentum, weight_decay):
+    if optim_name == 'SGD':
+        return torch.optim.SGD(params, lr=lr, momentum=momentum, weight_decay=weight_decay)
+    elif optim_name == 'Adam':
+        return torch.optim.Adam(params, lr=lr, weight_decay=weight_decay)
+    elif optim_name == 'LARS':
+        return LARS(params, lr=lr, weight_decay=weight_decay)
+    else:
+        raise ValueError(f"Invalid optimizer {optim_name}")
+
 class LARS(optim.Optimizer):
     def __init__(self, params, lr, weight_decay=0, momentum=0.9, eta=0.001,
                  weight_decay_filter=False, lars_adaptation_filter=False):

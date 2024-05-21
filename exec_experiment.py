@@ -10,21 +10,9 @@ from src.get_datasets import get_benchmark, get_iid_dataset
 from src.exec_probing import exec_probing
 from src.backbones import get_encoder
 
-from src.ssl_models.barlow_twins import BarlowTwins
-from src.ssl_models.simsiam import SimSiam
-from src.ssl_models.byol import BYOL
-from src.ssl_models.emp import EMP
-from src.ssl_models.mae import MAE
+from src.ssl_models import BarlowTwins, SimSiam, BYOL, EMP, MAE
 
-from src.strategies.no_strategy import NoStrategy
-from src.strategies.replay import Replay
-from src.strategies.arp import ARP
-from src.strategies.aep import AEP
-from src.strategies.apre import APRE
-from src.strategies.lump import LUMP
-from src.strategies.minred import MinRed
-from src.strategies.cassle import CaSSLe
-
+from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe
 from src.standalone_strategies.scale import SCALE
 
 from src.trainer import Trainer

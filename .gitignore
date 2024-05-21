@@ -2,3 +2,4 @@ logs
 server_logs
 old
 __pycache__
+configs
