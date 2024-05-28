@@ -1,12 +1,12 @@
 {
     "common_params":
     {
-        "gpu-idx": 3,
+        "gpu-idx": 0,
         "dataset": "cifar100",
         "dataset-root": "/data/cossu/imagenet/imagenet",
-        "mb-passes": 6,
-        "epochs": 1,
-        "tr-mb-size": 10,
+        "mb-passes": 1,
+        "epochs": 83,
+        "tr-mb-size": 138,
         "repl-mb-size": 128,
         "iid": false,
         "omega": 0.05,
@@ -17,7 +17,8 @@
     [
         {
             "model": "mae",
-            "strategy" : "replay",
+            "strategy" : "no_strategy",
+            "iid": true,
             "hyperparams_search": {
                 "lr": [0.1, 0.03, 0.01]
             }
