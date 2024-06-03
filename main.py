@@ -107,12 +107,12 @@ def exec_experiment(**kwargs):
 
     # Device
     if torch.cuda.is_available():       
-            print(f'There are {torch.cuda.device_count()} GPU(s) available.')
-            if kwargs["gpu_idx"] < torch.cuda.device_count():
-                device = torch.device(f"cuda:{kwargs['gpu_idx']}")
-            else:
-                device = torch.device("cuda")
-            print('Device name:', torch.cuda.get_device_name(0))
+        print(f'There are {torch.cuda.device_count()} GPU(s) available.')
+        if kwargs["gpu_idx"] < torch.cuda.device_count():
+            device = torch.device(f"cuda:{kwargs['gpu_idx']}")
+        else:
+            device = torch.device("cuda")
+        print('Device name:', torch.cuda.get_device_name(0))
 
     else:
         print('No GPU available, using the CPU instead.')
