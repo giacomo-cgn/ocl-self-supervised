@@ -2,7 +2,9 @@ import os
 from tqdm import tqdm
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
+from itertools import cycle
+
 
 from .utils import UnsupervisedDataset
 from .transforms import get_transforms
@@ -83,61 +85,65 @@ class Trainer():
 
                 # Write loss file column names
                 with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
-                    f.write('loss,exp_idx,epoch,mb_idx,mb_pass\n')
+                    f.write('loss,exp_idx,tr_step\n')
 
 
     def train_experience(self, 
                          dataset,
-                         exp_idx: int
+                         exp_idx: int,
+                         tr_steps: int
                          ):
         # Prepare data
-        exp_data = UnsupervisedDataset(dataset)  
-        data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True)
+        exp_data = UnsupervisedDataset(dataset)
+        sampler = RandomSampler(dataset, replacement=True, num_samples=1e100)
+        data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, sampler=sampler)
 
         self.ssl_model.train()
 
         self.strategy.before_experience()
-        
-        for epoch in range(self.train_epochs):
-            for mb_idx, stream_mbatch in enumerate(tqdm(data_loader)):
-                stream_mbatch = stream_mbatch.to(self.device)
 
-                stream_mbatch = self.strategy.before_mb_passes(stream_mbatch)
+        for tr_step in tqdm(tr_steps):
 
-                for k in range(self.mb_passes):
-                    # Apply strategy modifications before forward pass (e.g. concat replay samples from buffer)
-                    mbatch = self.strategy.before_forward(stream_mbatch)
+            stream_mbatch = data_loader.__iter__().__next__()
 
-                    # Apply transforms, obtains a list of tensors, each containing 1 view for every sample in the mbatch
-                    x_views_list = self.transforms(mbatch)
+            stream_mbatch = stream_mbatch.to(self.device)
 
-                    x_views_list = self.strategy.after_transforms(x_views_list)
+            stream_mbatch = self.strategy.before_mb_passes(stream_mbatch)
 
-                    # Skip training if mb size == 1 (problems with batchnorm)
-                    if len(x_views_list[0]) == 1:
-                        print(f'Skipping batch of size 1 at epoch: {epoch}, mb_idx: {mb_idx}')
-                        continue
-                    # Forward pass of SSL model (z: projector features, e: encoder features)
-                    loss, z_list, e_list = self.ssl_model(x_views_list)
+            for k in range(self.mb_passes):
+                # Apply strategy modifications before forward pass (e.g. concat replay samples from buffer)
+                mbatch = self.strategy.before_forward(stream_mbatch)
 
-                    # Strategy after forward pass
-                    loss_strategy = self.strategy.after_forward(x_views_list, loss, z_list, e_list)
+                # Apply transforms, obtains a list of tensors, each containing 1 view for every sample in the mbatch
+                x_views_list = self.transforms(mbatch)
+
+                x_views_list = self.strategy.after_transforms(x_views_list)
+
+                # Skip training if mb size == 1 (problems with batchnorm)
+                if len(x_views_list[0]) == 1:
+                    print(f'Skipping batch of size 1 at tr step {tr_step}')
+                    continue
+                # Forward pass of SSL model (z: projector features, e: encoder features)
+                loss, z_list, e_list = self.ssl_model(x_views_list)
+
+                # Strategy after forward pass
+                loss_strategy = self.strategy.after_forward(x_views_list, loss, z_list, e_list)
 
 
-                    # Backward pass
-                    self.optimizer.zero_grad()
-                    loss_strategy.backward()
-                    self.optimizer.step()
+                # Backward pass
+                self.optimizer.zero_grad()
+                loss_strategy.backward()
+                self.optimizer.step()
 
-                    self.ssl_model.after_backward()
-                    self.strategy.after_backward()
+                self.ssl_model.after_backward()
+                self.strategy.after_backward()
 
-                    # Save loss, exp_idx, epoch, mb_idx and k in csv
-                    if self.save_pth is not None:
-                        with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
-                            f.write(f'{loss.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
+                # Save loss, exp_idx, epoch, mb_idx and k in csv
+                if self.save_pth is not None:
+                    with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
+                        f.write(f'{loss.item()},{exp_idx},{tr_step}\n')
 
-                self.strategy.after_mb_passes()
+            self.strategy.after_mb_passes()
 
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:

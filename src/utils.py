@@ -155,6 +155,13 @@ def read_command_line_args():
     # Buffer Features update with EMA param (originally alpha from minred)
     parser.add_argument('--features-buffer-ema', type=float, default=0.5)
 
+    # Curriculum learning
+    parser.add_argument('--curriculum-order', type=str, default='continual-iid')
+    parser.add_argument('--curriculum-ratio', type=str, default='0.5-0.5')
+    parser.add_argument('--curriculum-subset', type=str, default='1.0-1.0')
+    parser.add_argument('--curriculum-exclusive-parts', type=str_to_bool, default=False)
+
+
 
     args = parser.parse_args()
 

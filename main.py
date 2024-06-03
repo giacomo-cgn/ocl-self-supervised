@@ -5,6 +5,9 @@ import datetime
 import tqdm as tqdm
 import numpy as np
 
+from torch.utils.data import random_split
+
+
 from src.get_datasets import get_benchmark, get_iid_dataset
 from src.exec_probing import exec_probing
 from src.backbones import get_encoder
@@ -88,6 +91,14 @@ def exec_experiment(**kwargs):
         f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
         if kwargs['probing_type'] == 'knn':
             f.write(f'KNN k: {kwargs["knn_k"]}\n')
+        f.write(f'---- CURRICULUM CONFIGS ----')
+        f.write(f'Curriculum Order: {kwargs["curriculum_order"]}\n')
+        f.write(f'Curriculum Ratio: {kwargs["curriculum_ratio"]}\n')
+        f.write(f'Curriculum Subset Ratio: {kwargs["curriculum_subset"]}\n')
+        f.write(f'Curriculum Exclusive Parts:{kwargs["curriculum_exclusive_parts"]}\n')
+
+
+        
 
     # Set seed
     torch.manual_seed(kwargs["seed"])
@@ -101,8 +112,48 @@ def exec_experiment(**kwargs):
         seed=kwargs["seed"],
         val_ratio=kwargs["probing_val_ratio"],
     )
-    if kwargs["iid"]:
-        iid_tr_dataset = get_iid_dataset(benchmark)
+
+    # Curriculum
+    # Curriculum Order:
+    #  - "continual": train on a sequence of experiences (each with a subset of classes). All classes in the whole continual part
+    #  - "iid": train on a single experience containing all classes. All classes in iid part
+    # Curriculum Ratio: ratio of training steps in each training part
+    # Curriculum Subset Ratio: of the samples allocated to that training part, only use a subset of those.
+
+    # IMPORTANT! Each training part is non-exclusive
+
+    total_training_steps = kwargs["epochs"] * kwargs["num_exps"] * kwargs["mb_passes"]
+
+    curriculum_order = kwargs["curriculum_order"].split('-')
+    curriculum_ratio = [float(i) for i in kwargs["curriculum_ratio"].split('-')]
+    curriculum_subset = [float(i) for i in kwargs["curriculum_subset"].split('-')]
+    print("Curriculum Order:", curriculum_order)
+    print("Curriculum Ratio:", curriculum_ratio)
+    print("Curriculum Subset Ratio:", curriculum_subset)
+
+    assert len(curriculum_ratio) == len(curriculum_order) == len(curriculum_subset)
+    assert sum(curriculum_ratio) == 1
+    for subset in curriculum_subset:
+        assert subset > 0 and subset <= 1
+    for curriculum_part in curriculum_order:
+        assert curriculum_part in ['continual', 'iid']
+
+    exp_list = []
+    for i, curriculum_part in enumerate(curriculum_order):
+        if curriculum_part == 'iid':
+            dataset = get_iid_dataset(benchmark)
+            subset_len = curriculum_subset[i]*len(dataset)
+            subset_dataset, _ = random_split(dataset, [subset_len, len(dataset) - subset_len],
+                                     generator=torch.Generator().manual_seed(kwargs["seed"]))
+            tr_steps = int(curriculum_ratio[i] * total_training_steps)
+            exp_list.append((subset_dataset, tr_steps))
+        if curriculum_part == 'continual':
+            for j, exp_dataset in enumerate(benchmark.train_stream):
+                subset_len = curriculum_subset[i] * len(exp_dataset)
+                subset_dataset, _ = random_split(exp_dataset, [subset_len, len(exp_dataset) - subset_len],
+                                         generator=torch.Generator().manual_seed(kwargs["seed"]))
+                tr_steps = int((curriculum_ratio[i] * total_training_steps)/ kwargs["num_exps"])
+                exp_list.append((subset_dataset, tr_steps))            
 
 
     # Device
@@ -269,26 +320,14 @@ def exec_experiment(**kwargs):
             
 
 
-    if kwargs["iid"]:
-        # IID training over the entire dataset
-        print(f'==== Beginning self supervised training on iid dataset ====')
-        trained_ssl_model = trainer.train_experience(iid_tr_dataset, exp_idx=0)
+    
+    # Self supervised training over the experiences
+    for exp_idx, (exp_dataset, tr_steps) in enumerate(benchmark.train_stream):
+        print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
+        trained_ssl_model = trainer.train_experience(exp_dataset, exp_idx, tr_steps)
 
-        exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
-                     probing_separate_pth_dict)
-        
-    elif kwargs["random_encoder"]:
-        # No SSL training is done, only using the randomly initialized encoder as feature extractor
-        exec_probing(kwargs, benchmark, encoder, 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
-                     probing_separate_pth_dict)
-    else:
-        # Self supervised training over the experiences
-        for exp_idx, exp_dataset in enumerate(benchmark.train_stream):
-            print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
-            trained_ssl_model = trainer.train_experience(exp_dataset, exp_idx)
-
-            exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
-                    probing_separate_pth_dict)
+        exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
+                probing_separate_pth_dict)
                 
         
     # Calculate and save final probing scores
