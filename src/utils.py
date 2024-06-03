@@ -135,13 +135,14 @@ def read_command_line_args():
     # MAE params
     parser.add_argument('--mae-patch-size', type=int, default=2)                
     parser.add_argument('--mae-emb-dim', type=int, default=192)
-    parser.add_argument('--mae-encoder-layer', type=int, default=12)
-    parser.add_argument('--mae-encoder-head', type=int, default=3)
     parser.add_argument('--mae-decoder-layer', type=int, default=4)                
     parser.add_argument('--mae-decoder-head', type=int, default=3)
     parser.add_argument('--mae-mask-ratio', type=float, default=0.75)
-    parser.add_argument('--mae-eval-avg-pooling', type=str_to_bool, default=False)
-        
+
+    # ViT params
+    parser.add_argument('--vit-encoder-layer', type=int, default=12)
+    parser.add_argument('--vit-encoder-head', type=int, default=3)
+    parser.add_argument('--vit-avg-pooling', type=str_to_bool, default=False)
 
     # SCALE params
     parser.add_argument('--scale-dim-features', type=int, default=128)

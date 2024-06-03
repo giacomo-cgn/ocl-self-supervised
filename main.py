@@ -119,7 +119,10 @@ def exec_experiment(**kwargs):
         device = torch.device("cpu")
 
     # Encoder
-    encoder, dim_encoder_features = get_encoder(kwargs["encoder"])
+    encoder, dim_encoder_features = get_encoder(encoder_name=kwargs["encoder"],
+                                                image_size=image_size,
+                                                strategy_name=kwargs["strategy"],
+                                                vit_avg_pooling=kwargs["vit_avg_pooling"])
     
 
     if not kwargs["strategy"] in standalone_strategies:
@@ -150,10 +153,10 @@ def exec_experiment(**kwargs):
             num_views = kwargs["num_views"]
 
         elif kwargs["model"] == 'mae':
-            ssl_model = MAE(image_size=image_size, patch_size=kwargs["mae_patch_size"], emb_dim=kwargs["mae_emb_dim"],
-                            encoder_layer=kwargs["mae_encoder_layer"], encoder_head=kwargs["mae_encoder_head"],
+            ssl_model = MAE(vit_encoder=encoder,
+                            image_size=image_size, patch_size=kwargs["mae_patch_size"], emb_dim=kwargs["mae_emb_dim"],
                             decoder_layer=kwargs["mae_decoder_layer"], decoder_head=kwargs["mae_decoder_head"],
-                            mask_ratio=kwargs["mae_mask_ratio"], eval_avg_pooling=kwargs["mae_eval_avg_pooling"],
+                            mask_ratio=kwargs["mae_mask_ratio"], eval_avg_pooling=kwargs["vit_avg_pooling"],
                             save_pth=save_pth).to(device)
 
             num_views = 1

@@ -3,8 +3,9 @@ from torch import nn
 from typing import Tuple
 
 from .custom_resnets import ResNet18VariableWidth, ResNet9VariableWidth
+from .vit import ViT
 
-def get_encoder(encoder_name) -> Tuple[nn.Module, int]:
+def get_encoder(encoder_name, image_size, strategy_name, vit_avg_pooling, save_pth=None) -> Tuple[nn.Module, int]:
     """Returns an initialized encoder without the last clf layer and the encoder feature dimensions."""
 
     if encoder_name == 'resnet18':
@@ -48,8 +49,29 @@ def get_encoder(encoder_name) -> Tuple[nn.Module, int]:
         encoder = ResNet9VariableWidth(num_base_features=20)
         dim_encoder_features = encoder.fc.weight.shape[1]
         encoder.fc = nn.Identity()
+
+    elif encoder_name == 'vit_tiny':
+        if image_size == 32:
+            encoder = ViT(image_size=image_size, patch_size=2, return_avg_pooling=vit_avg_pooling, save_pth=save_pth)
+        elif image_size == 64:
+            encoder = ViT(image_size=image_size, patch_size=4, return_avg_pooling=vit_avg_pooling, save_pth=save_pth)
+        elif image_size == 224:
+            encoder = ViT(image_size=image_size, patch_size=16, return_avg_pooling=vit_avg_pooling, save_pth=save_pth)
+        elif image_size == 256:
+            encoder = ViT(image_size=image_size, patch_size=16, return_avg_pooling=vit_avg_pooling, save_pth=save_pth)
+        else:
+            raise Exception(f'Invalid image size for ViT backbone: {image_size}')
+        dim_encoder_features = encoder.emb_dim
+        if not strategy_name == 'mae':
+            # Wrap to return only 1 feature tensor
+            encoder = encoder.return_features_wrapper()            
         
     else:
-        raise Exception(f'Invalid encoder {encoder_name}')
+        raise Exception(f'Invalid encoder: {encoder_name}')
+    
+    # Print number of parameters
+    total_params = sum(p.numel() for p in encoder.parameters())
+    total_params_in_millions = total_params / 1e6
+    print(f'NUM PARAMS for {encoder_name}: {total_params_in_millions:.1f}M')
     
     return encoder, dim_encoder_features

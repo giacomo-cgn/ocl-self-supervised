@@ -18,7 +18,8 @@ def parse_config(file_path):
         "num_exps": None,
         "val_ratio": None,
         "eval_mb_size": None,
-        "iid": None
+        "iid": None,
+        "vit_avg_pooling": False
     }
     
     patterns = {
@@ -28,7 +29,8 @@ def parse_config(file_path):
         "num_exps": re.compile(r"Number of Experiences: (\d+)"),
         "val_ratio": re.compile(r"Probing Validation Ratio: ([\d.]+)"),
         "eval_mb_size": re.compile(r"Evaluation MB Size: (\d+)"),
-        "iid": re.compile(r"IID pretraining: (\w+)")
+        "iid": re.compile(r"IID pretraining: (\w+)"),
+        "vit_avg_pooling": re.compile(r"ViT Average Pooling: (\w+)")
     }
     
     with open(file_path, 'r') as file:
@@ -42,7 +44,7 @@ def parse_config(file_path):
                     config[key] = int(value)
                 elif key == "val_ratio":
                     config[key] = float(value)
-                elif key == "iid":
+                elif key in ["iid", "vit_avg_pooling"]:
                     config[key] = value.lower() == 'true'
                 else:
                     config[key] = str(value)
@@ -68,7 +70,10 @@ def save_activations(args, device):
                               seed=config['seed'],
                               val_ratio=config['val_ratio'])
     # Get encoder with saved weights
-    encoder, dim_encoder_features = get_encoder(config['encoder'])
+    encoder, dim_encoder_features = get_encoder(config['encoder'],
+                                                image_size=image_size,
+                                                strategy_name="-",
+                                                vit_avg_pooling=config['vit_avg_pooling'])
     encoder = encoder.to(device)
 
     saved_weights = torch.load(os.path.join(args.model_pth, 'final_model_state.pth'), map_location=device)
