@@ -121,7 +121,7 @@ def exec_experiment(**kwargs):
     # Encoder
     encoder, dim_encoder_features = get_encoder(encoder_name=kwargs["encoder"],
                                                 image_size=image_size,
-                                                strategy_name=kwargs["strategy"],
+                                                ssl_model_name=kwargs["model"],
                                                 vit_avg_pooling=kwargs["vit_avg_pooling"])
     
 
@@ -156,8 +156,7 @@ def exec_experiment(**kwargs):
             ssl_model = MAE(vit_encoder=encoder,
                             image_size=image_size, patch_size=kwargs["mae_patch_size"], emb_dim=kwargs["mae_emb_dim"],
                             decoder_layer=kwargs["mae_decoder_layer"], decoder_head=kwargs["mae_decoder_head"],
-                            mask_ratio=kwargs["mae_mask_ratio"], eval_avg_pooling=kwargs["vit_avg_pooling"],
-                            save_pth=save_pth).to(device)
+                            mask_ratio=kwargs["mae_mask_ratio"], save_pth=save_pth).to(device)
 
             num_views = 1
             

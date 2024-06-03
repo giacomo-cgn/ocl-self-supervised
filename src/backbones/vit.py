@@ -43,7 +43,7 @@ class ViT(torch.nn.Module):
                  return_avg_pooling=False,
                  save_pth: str = None,
                  ) -> None:
-        super().__init__()
+        super(ViT, self).__init__()
 
         self.emb_dim = emb_dim
         self.return_average_pooling = return_avg_pooling

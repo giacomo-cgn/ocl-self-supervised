@@ -72,7 +72,7 @@ def save_activations(args, device):
     # Get encoder with saved weights
     encoder, dim_encoder_features = get_encoder(config['encoder'],
                                                 image_size=image_size,
-                                                strategy_name="-",
+                                                ssl_model_name="-", # not needed because always has to return the feature extractor
                                                 vit_avg_pooling=config['vit_avg_pooling'])
     encoder = encoder.to(device)
 

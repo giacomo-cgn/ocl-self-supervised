@@ -5,7 +5,7 @@ from typing import Tuple
 from .custom_resnets import ResNet18VariableWidth, ResNet9VariableWidth
 from .vit import ViT
 
-def get_encoder(encoder_name, image_size, strategy_name, vit_avg_pooling, save_pth=None) -> Tuple[nn.Module, int]:
+def get_encoder(encoder_name, image_size, ssl_model_name, vit_avg_pooling, save_pth=None) -> Tuple[nn.Module, int]:
     """Returns an initialized encoder without the last clf layer and the encoder feature dimensions."""
 
     if encoder_name == 'resnet18':
@@ -62,9 +62,11 @@ def get_encoder(encoder_name, image_size, strategy_name, vit_avg_pooling, save_p
         else:
             raise Exception(f'Invalid image size for ViT backbone: {image_size}')
         dim_encoder_features = encoder.emb_dim
-        if not strategy_name == 'mae':
+        if not ssl_model_name == 'mae':
+            print("strategy name:", ssl_model_name)
             # Wrap to return only 1 feature tensor
-            encoder = encoder.return_features_wrapper()            
+            encoder = encoder.return_features_wrapper()
+            print("Restituisce wrapper!!!!")          
         
     else:
         raise Exception(f'Invalid encoder: {encoder_name}')
