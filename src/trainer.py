@@ -95,14 +95,16 @@ class Trainer():
                          ):
         # Prepare data
         exp_data = UnsupervisedDataset(dataset)
-        sampler = RandomSampler(dataset, replacement=True, num_samples=1e100)
+        sampler = RandomSampler(dataset, replacement=True, num_samples=int(1e10))
         data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, sampler=sampler)
 
         self.ssl_model.train()
 
         self.strategy.before_experience()
 
-        for tr_step in tqdm(tr_steps):
+        print('TR STEPS:', tr_steps)
+
+        for tr_step in tqdm(range(tr_steps)):
 
             stream_mbatch = data_loader.__iter__().__next__()
 

@@ -122,7 +122,12 @@ def exec_experiment(**kwargs):
 
     # IMPORTANT! Each training part is non-exclusive
 
-    total_training_steps = kwargs["epochs"] * kwargs["num_exps"] * kwargs["mb_passes"]
+    tr_dataset_len = 0
+    for exp_dataset in benchmark.train_stream:
+        tr_dataset_len += len(exp_dataset)
+
+    total_training_steps = int(kwargs["epochs"] * kwargs["mb_passes"] * (tr_dataset_len / kwargs["tr_mb_size"]))
+    print("TOTAL TR STEPS:", total_training_steps)
 
     curriculum_order = kwargs["curriculum_order"].split('-')
     curriculum_ratio = [float(i) for i in kwargs["curriculum_ratio"].split('-')]
@@ -142,18 +147,18 @@ def exec_experiment(**kwargs):
     for i, curriculum_part in enumerate(curriculum_order):
         if curriculum_part == 'iid':
             dataset = get_iid_dataset(benchmark)
-            subset_len = curriculum_subset[i]*len(dataset)
+            subset_len = int(curriculum_subset[i]*len(dataset))
             subset_dataset, _ = random_split(dataset, [subset_len, len(dataset) - subset_len],
                                      generator=torch.Generator().manual_seed(kwargs["seed"]))
             tr_steps = int(curriculum_ratio[i] * total_training_steps)
             exp_list.append((subset_dataset, tr_steps))
         if curriculum_part == 'continual':
             for j, exp_dataset in enumerate(benchmark.train_stream):
-                subset_len = curriculum_subset[i] * len(exp_dataset)
+                subset_len = int(curriculum_subset[i] * len(exp_dataset))
                 subset_dataset, _ = random_split(exp_dataset, [subset_len, len(exp_dataset) - subset_len],
                                          generator=torch.Generator().manual_seed(kwargs["seed"]))
                 tr_steps = int((curriculum_ratio[i] * total_training_steps)/ kwargs["num_exps"])
-                exp_list.append((subset_dataset, tr_steps))            
+                exp_list.append((subset_dataset, tr_steps))
 
 
     # Device
@@ -322,12 +327,12 @@ def exec_experiment(**kwargs):
 
     
     # Self supervised training over the experiences
-    for exp_idx, (exp_dataset, tr_steps) in enumerate(benchmark.train_stream):
+    for exp_idx, (exp_dataset, tr_steps) in enumerate(exp_list):
         print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
         trained_ssl_model = trainer.train_experience(exp_dataset, exp_idx, tr_steps)
 
-        exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
-                probing_separate_pth_dict)
+        # exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
+        #         probing_separate_pth_dict)
                 
         
     # Calculate and save final probing scores
