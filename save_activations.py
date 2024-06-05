@@ -14,6 +14,7 @@ def parse_config(file_path):
     config = {
         "seed": None,
         "encoder": None,
+        "model": None,
         "dataset": None,
         "num_exps": None,
         "val_ratio": None,
@@ -25,6 +26,7 @@ def parse_config(file_path):
     patterns = {
         "seed": re.compile(r"Seed: (\d+)"),
         "encoder": re.compile(r"Encoder: (\w+)"),
+        "model": re.compile(r"Model: (\w+)"),
         "dataset": re.compile(r"Dataset: (\w+)"),
         "num_exps": re.compile(r"Number of Experiences: (\d+)"),
         "val_ratio": re.compile(r"Probing Validation Ratio: ([\d.]+)"),
@@ -77,7 +79,10 @@ def save_activations(args, device):
     encoder = encoder.to(device)
 
     saved_weights = torch.load(os.path.join(args.model_pth, 'final_model_state.pth'), map_location=device)
-    encoder_saved_weights = {k[len('encoder.'):]: v for k, v in saved_weights.items() if k.startswith('encoder.')}
+    if config['model'] in ['simsiam', 'barlow_twins', 'emp']:
+        encoder_saved_weights = {k[len('encoder.'):]: v for k, v in saved_weights.items() if k.startswith('encoder.')}
+    elif config['model'] == 'byol':
+        encoder_saved_weights = {k[len('online_encoder.'):]: v for k, v in saved_weights.items() if k.startswith('online_encoder.')}
     encoder.load_state_dict(encoder_saved_weights)
 
 
