@@ -331,8 +331,8 @@ def exec_experiment(**kwargs):
         print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
         trained_ssl_model = trainer.train_experience(exp_dataset, exp_idx, tr_steps)
 
-        # exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
-        #         probing_separate_pth_dict)
+    exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), len(benchmark.train_stream), probing_tr_ratio_arr, device, probing_upto_pth_dict,
+            probing_separate_pth_dict)
                 
         
     # Calculate and save final probing scores
