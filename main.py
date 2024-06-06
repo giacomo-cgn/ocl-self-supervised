@@ -80,6 +80,7 @@ def exec_experiment(**kwargs):
         f.write(f'IID pretraining: {kwargs["iid"]}\n')
         f.write(f'Save final model: {kwargs["save_model_final"]}\n')
         f.write(f'-- Probing configs --\n')
+        f.write(f'Probing after all experiences: {kwargs["probing_all_exp"]}\n')
         f.write(f'Probing type: {kwargs["probing_type"]}\n')
         f.write(f'Evaluation MB Size: {kwargs["eval_mb_size"]}\n')
         f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')
@@ -278,6 +279,7 @@ def exec_experiment(**kwargs):
                      probing_separate_pth_dict)
         
     elif kwargs["random_encoder"]:
+        
         # No SSL training is done, only using the randomly initialized encoder as feature extractor
         exec_probing(kwargs, benchmark, encoder, 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
                      probing_separate_pth_dict)
@@ -286,9 +288,13 @@ def exec_experiment(**kwargs):
         for exp_idx, exp_dataset in enumerate(benchmark.train_stream):
             print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
             trained_ssl_model = trainer.train_experience(exp_dataset, exp_idx)
-
-            exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
+            if kwargs["probing_all_exp"]:
+                exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
                     probing_separate_pth_dict)
+        if not kwargs["probing_all_exp"]:
+            # Probe only at the end of training
+            exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
+                         probing_separate_pth_dict)
                 
         
     # Calculate and save final probing scores
