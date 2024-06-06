@@ -16,7 +16,7 @@ def exec_probing(kwargs, probing_benchmark, encoder, pretr_exp_idx, probing_tr_r
             probe_upto_dataset_val = ConcatDataset(probing_benchmark.valid_stream)
 
         for probing_tr_ratio in probing_tr_ratio_arr:
-            probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_joint.csv')
+            probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{pretr_exp_idx}.csv')
 
             probe = ProbingSklearn(encoder, device=device, save_file=probe_save_file,
                                    exp_idx=None, tr_samples_ratio=probing_tr_ratio,
