@@ -24,7 +24,7 @@ with open('config.json') as f:
         original_args.__setattr__(k.replace("-", "_"), v)
 
     # Params for identifying this experiment in logs
-    log_dir = os.path.join(os.path.join('logs', f'{original_args.dataset}'),
+    log_dir = os.path.join(os.path.join(config['save_folder'], f'{original_args.dataset}'),
                             f'mbtr{original_args.tr_mb_size}_mbrep{original_args.repl_mb_size}_k{original_args.mb_passes}')
 
     if config["experiments"] is not None:
