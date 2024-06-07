@@ -132,6 +132,9 @@ def read_command_line_args():
     parser.add_argument('--emp-tcr-param', type=float, default=1)
     parser.add_argument('--emp-tcr-eps', type=float, default=0.2)
     parser.add_argument('--emp-patch-sim', type=float, default=200)
+    parser.add_argument('--moco-momentum', type=float, default=0.999)
+    parser.add_argument('--moco-queue-size', type=int, default=2000)
+    parser.add_argument('--moco-temp', type=float, default=0.07)
     
     # MAE params
     parser.add_argument('--mae-patch-size', type=int, default=2)                

@@ -9,7 +9,7 @@ from src.get_datasets import get_benchmark, get_iid_dataset
 from src.exec_probing import exec_probing
 from src.backbones import get_encoder
 
-from src.ssl_models import BarlowTwins, SimSiam, BYOL, EMP, MAE
+from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, EMP, MAE
 
 from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe
 from src.standalone_strategies.scale import SCALE
@@ -144,6 +144,14 @@ def exec_experiment(**kwargs):
             ssl_model = BarlowTwins(encoder=encoder, dim_backbone_features=dim_encoder_features,
                                     dim_features=kwargs["dim_proj"],
                                     lambd=kwargs["lambd"], save_pth=save_pth).to(device)
+            num_views = 2
+
+        elif kwargs["model"] == 'moco':
+            ssl_model = MoCo(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
+                             dim_proj=kwargs["dim_proj"],
+                             moco_momentum=kwargs["moco_momentum"], moco_queue_size=kwargs["moco_queue_size"],
+                             moco_temp=kwargs["moco_temp"],return_momentum_encoder=kwargs["return_momentum_encoder"],
+                             save_pth=save_pth, device=device).to(device)
             num_views = 2
 
         elif kwargs["model"] == 'emp':
