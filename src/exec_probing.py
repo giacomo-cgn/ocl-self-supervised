@@ -58,7 +58,7 @@ def exec_probing(kwargs, probing_benchmark, encoder, pretr_exp_idx, probing_tr_r
 
     # IID or random encoder training
     if kwargs['probing_upto'] and (kwargs['iid'] or kwargs["random_encoder"]):
-        if kwargs["probe_all_exp"]:
+        if kwargs["probing_all_exp"]:
             # Probe upto each experience
             for exp_idx, _ in enumerate(probing_benchmark.train_stream):
                 # Generate upto current exp probing datasets
