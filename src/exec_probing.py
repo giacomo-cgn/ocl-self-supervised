@@ -5,8 +5,10 @@ from torch.utils.data import ConcatDataset
 from torch.utils.data import ConcatDataset
 from .probing_sklearn import ProbingSklearn
 
+from .benchmark import Benchmark 
 
-def exec_probing(kwargs, probing_benchmark, encoder, pretr_exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict, probing_separate_pth_dict):
+
+def exec_probing(kwargs, probing_benchmark: Benchmark, encoder, pretr_exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict, probing_separate_pth_dict):
 # Probing on all experiences up to current
     if kwargs['probing_upto'] and not (kwargs['iid'] or kwargs["random_encoder"]):
         # Generate upto current exp probing datasets
@@ -89,7 +91,7 @@ def exec_probing(kwargs, probing_benchmark, encoder, pretr_exp_idx, probing_tr_r
                 probe_upto_dataset_val = ConcatDataset(probing_benchmark.valid_stream)
 
             for probing_tr_ratio in probing_tr_ratio_arr:
-                probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{len(probing_benchmark.tr_stream)}.csv')
+                probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{len(probing_benchmark.train_stream)}.csv')
 
                 probe = ProbingSklearn(encoder, device=device, save_file=probe_save_file,
                                 exp_idx=None, tr_samples_ratio=probing_tr_ratio,
