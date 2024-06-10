@@ -154,7 +154,7 @@ class MoCo(nn.Module, AbstractSSLModel):
         logits /= self.moco_temp
 
         # labels: positive key indicators
-        labels = torch.zeros(logits.shape[0], dtype=torch.long).cuda()
+        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.device)
 
         # dequeue and enqueue
         self._dequeue_and_enqueue(k)
