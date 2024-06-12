@@ -96,7 +96,7 @@ def exec_experiment(**kwargs):
         f.write(f'Curriculum Ratio: {kwargs["curriculum_ratio"]}\n')
         f.write(f'Curriculum Subset Ratio: {kwargs["curriculum_subset"]}\n')
         f.write(f'Curriculum Exclusive Parts:{kwargs["curriculum_exclusive_parts"]}\n')
-
+        f.write(f'Same Size Continual Exps:{kwargs["same_size_continual_exps"]}\n')
 
         
 
@@ -144,6 +144,7 @@ def exec_experiment(**kwargs):
         assert curriculum_part in ['continual', 'iid']
 
     exp_list = []
+    last_exp_idx = 0
     for i, curriculum_part in enumerate(curriculum_order):
         if curriculum_part == 'iid':
             dataset = get_iid_dataset(benchmark)
@@ -153,12 +154,34 @@ def exec_experiment(**kwargs):
             tr_steps = int(curriculum_ratio[i] * total_training_steps)
             exp_list.append((subset_dataset, tr_steps))
         if curriculum_part == 'continual':
-            for j, exp_dataset in enumerate(benchmark.train_stream):
-                subset_len = int(curriculum_subset[i] * len(exp_dataset))
-                subset_dataset, _ = random_split(exp_dataset, [subset_len, len(exp_dataset) - subset_len],
-                                         generator=torch.Generator().manual_seed(kwargs["seed"]))
-                tr_steps = int((curriculum_ratio[i] * total_training_steps)/ kwargs["num_exps"])
-                exp_list.append((subset_dataset, tr_steps))
+            if kwargs["same_size_continual_exps"]:
+                continual_steps = int(curriculum_ratio[i] * total_training_steps)
+                steps_per_exp = int(total_training_steps/kwargs["num_exps"])
+                
+                continual_steps_allocated = 0
+                for exp_idx in range(last_exp_idx, kwargs["num_exps"]):
+                    last_exp_idx = exp_idx
+                    if continual_steps_allocated + steps_per_exp >= continual_steps:
+                        tr_steps = continual_steps - continual_steps_allocated
+                        finish_continual = True
+                    else:
+                        tr_steps = steps_per_exp
+                        finish_continual = False
+                    continual_steps_allocated += tr_steps
+                    exp_dataset = benchmark.train_stream[exp_idx]
+                    subset_len = int(curriculum_subset[i] * len(exp_dataset))
+                    subset_dataset, _ = random_split(exp_dataset, [subset_len, len(exp_dataset) - subset_len],
+                                            generator=torch.Generator().manual_seed(kwargs["seed"]))
+                    exp_list.append((subset_dataset, tr_steps))
+                    if finish_continual:
+                        break
+            else:
+                for j, exp_dataset in enumerate(benchmark.train_stream):
+                    subset_len = int(curriculum_subset[i] * len(exp_dataset))
+                    subset_dataset, _ = random_split(exp_dataset, [subset_len, len(exp_dataset) - subset_len],
+                                            generator=torch.Generator().manual_seed(kwargs["seed"]))
+                    tr_steps = int((curriculum_ratio[i] * total_training_steps)/ kwargs["num_exps"])
+                    exp_list.append((subset_dataset, tr_steps))
 
 
     # Device

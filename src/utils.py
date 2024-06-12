@@ -160,7 +160,7 @@ def read_command_line_args():
     parser.add_argument('--curriculum-ratio', type=str, default='0.5-0.5')
     parser.add_argument('--curriculum-subset', type=str, default='1.0-1.0')
     parser.add_argument('--curriculum-exclusive-parts', type=str_to_bool, default=False)
-
+    parser.add_argument('--same-size-continual-exps', type=str_to_bool, default=True)
 
 
     args = parser.parse_args()
