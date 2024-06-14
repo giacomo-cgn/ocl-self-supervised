@@ -11,6 +11,7 @@ from .transforms import get_transforms
 from .ssl_models import AbstractSSLModel
 from .strategies import AbstractStrategy
 from .optims import init_optim
+from .schedulers import init_scheduler
 
 
 class Trainer():
@@ -19,6 +20,8 @@ class Trainer():
                  ssl_model: AbstractSSLModel = None,
                  strategy: AbstractStrategy = None,
                  optim: str = 'SGD',
+                 lr_scheduler: str = None,
+                 total_tr_steps: int = 1000,
                  lr: float = 0.01,
                  momentum: float = 0.9,
                  weight_decay: float = 1e-4,
@@ -65,7 +68,9 @@ class Trainer():
         # Set up optimizer
         self.optimizer = init_optim(optim, params_to_optimize, lr=self.lr,
                                    momentum=self.momentum, weight_decay=self.weight_decay)
-
+        
+        # Set up lr scheduler (can be None)
+        self.scheduler = init_scheduler(lr_scheduler, self.optimizer, total_tr_steps)
 
         if self.save_pth is not None:
             # Save model configuration
@@ -81,6 +86,8 @@ class Trainer():
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
+                f.write(f'lr scheduler: {lr_scheduler}\n')
+                f.write(f'total_tr_steps: {total_tr_steps}\n')
 
 
                 # Write loss file column names
@@ -136,6 +143,8 @@ class Trainer():
                 self.optimizer.zero_grad()
                 loss_strategy.backward()
                 self.optimizer.step()
+                if self.scheduler is not None:
+                    self.scheduler.step()
 
                 self.ssl_model.after_backward()
                 self.strategy.after_backward()

@@ -82,6 +82,7 @@ def read_command_line_args():
     parser.add_argument('--model', type=str, default='simsiam')
     parser.add_argument('--encoder', type=str, default='resnet18')
     parser.add_argument('--optim', type=str, default='SGD')
+    parser.add_argument('--lr-scheduler', type=str, default=None)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--optim-momentum', type=float, default=0.9)
     parser.add_argument('--weight-decay', type=float, default=1e-4)
