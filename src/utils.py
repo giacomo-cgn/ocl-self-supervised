@@ -160,8 +160,13 @@ def read_command_line_args():
     parser.add_argument('--curriculum-order', type=str, default='continual-iid')
     parser.add_argument('--curriculum-ratio', type=str, default='0.5-0.5')
     parser.add_argument('--curriculum-subset', type=str, default='1.0-1.0')
-    parser.add_argument('--curriculum-exclusive-parts', type=str_to_bool, default=False)
     parser.add_argument('--same-size-continual-exps', type=str_to_bool, default=True)
+    parser.add_argument('--curriculum-gradual-start', type=float, default=0.05)
+    parser.add_argument('--curriculum-gradual-end', type=float, default=1.0)
+    parser.add_argument('--curriculum-gradual-step', type=float, default=0.05)
+
+
+
 
 
     args = parser.parse_args()

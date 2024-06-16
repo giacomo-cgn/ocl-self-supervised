@@ -5,7 +5,7 @@ import datetime
 import tqdm as tqdm
 import numpy as np
 
-from torch.utils.data import random_split
+from torch.utils.data import random_split, Subset
 
 
 from src.get_datasets import get_benchmark, get_iid_dataset
@@ -22,6 +22,8 @@ from src.trainer import Trainer
 from src.buffers import get_buffer
 
 from src.utils import write_final_scores, read_command_line_args
+
+from src.curriculum_utils import get_gradual_subset_increase_exps
 
 def exec_experiment(**kwargs):
     standalone_strategies = ['scale']
@@ -95,7 +97,6 @@ def exec_experiment(**kwargs):
         f.write(f'Curriculum Order: {kwargs["curriculum_order"]}\n')
         f.write(f'Curriculum Ratio: {kwargs["curriculum_ratio"]}\n')
         f.write(f'Curriculum Subset Ratio: {kwargs["curriculum_subset"]}\n')
-        f.write(f'Curriculum Exclusive Parts:{kwargs["curriculum_exclusive_parts"]}\n')
         f.write(f'Same Size Continual Exps:{kwargs["same_size_continual_exps"]}\n')
 
         
@@ -115,10 +116,15 @@ def exec_experiment(**kwargs):
 
     # Curriculum
     # Curriculum Order:
-    #  - "continual": train on a sequence of experiences (each with a subset of classes). All classes in the whole continual part
+    #  - "continual": train on a sequence of experiences (each with a subset of classes).
     #  - "iid": train on a single experience containing all classes. All classes in iid part
+    #  - "gradual_subset": like iid but gradually increases the subset training (from  ratio 'curriculum-gradual-start' to 'curriculum-gradual-end')
     # Curriculum Ratio: ratio of training steps in each training part
-    # Curriculum Subset Ratio: of the samples allocated to that training part, only use a subset of those.
+    # Curriculum Subset Ratio: of the samples allocated to that training part, only use a subset of those. It is not considered 
+    # for "gradual_subset" training parts
+
+    # "--same-size-continual-exps", if true the size of the continual exps are always the same and equal to 1/num_exps of the tr length
+    #   and each continual part can contain only a portion of all exps, otherwise each continual part is divided in num_exps experiences
 
     # IMPORTANT! Each training part is non-exclusive
 
@@ -141,18 +147,23 @@ def exec_experiment(**kwargs):
     for subset in curriculum_subset:
         assert subset > 0 and subset <= 1
     for curriculum_part in curriculum_order:
-        assert curriculum_part in ['continual', 'iid']
+        assert curriculum_part in ['continual', 'iid', 'gradual_subset']
 
     exp_list = []
     last_exp_idx = 0
     for i, curriculum_part in enumerate(curriculum_order):
         if curriculum_part == 'iid':
             dataset = get_iid_dataset(benchmark)
-            subset_len = int(curriculum_subset[i]*len(dataset))
-            subset_dataset, _ = random_split(dataset, [subset_len, len(dataset) - subset_len],
+            if i > 0 and curriculum_order[i-1] == 'gradual_subset' and curriculum_subset[i] == kwargs["curriculum_gradual_end"]:
+                subset = end_subset
+            else:
+                subset_len = int(curriculum_subset[i]*len(dataset))
+                subset, _ = random_split(dataset, [subset_len, len(dataset) - subset_len],
                                      generator=torch.Generator().manual_seed(kwargs["seed"]))
             tr_steps = int(curriculum_ratio[i] * total_training_steps)
-            exp_list.append((subset_dataset, tr_steps))
+            exp_list.append((subset, tr_steps))
+            last_subset = subset
+
         if curriculum_part == 'continual':
             if kwargs["same_size_continual_exps"]:
                 continual_steps = int(curriculum_ratio[i] * total_training_steps)
@@ -182,6 +193,24 @@ def exec_experiment(**kwargs):
                                             generator=torch.Generator().manual_seed(kwargs["seed"]))
                     tr_steps = int((curriculum_ratio[i] * total_training_steps)/ kwargs["num_exps"])
                     exp_list.append((subset_dataset, tr_steps))
+        
+        if curriculum_part == 'gradual_subset':
+            dataset = get_iid_dataset(benchmark)
+            tr_steps = int(curriculum_ratio[i] * total_training_steps)
+            if i > 0 and curriculum_order[i-1] == 'iid' and curriculum_subset[i-1] == kwargs["curriculum_gradual_start"]:
+                exps, end_subset = get_gradual_subset_increase_exps(dataset=dataset, total_tr_steps=tr_steps, start_subset_ratio=kwargs["curriculum_gradual_start"],
+                                                    end_subset_ratio=kwargs["curriculum_gradual_end"], step_ratio=kwargs["curriculum_gradual_step"],
+                                                    seed=kwargs["seed"], start_subset=last_subset)
+
+            else:
+                exps, end_subset = get_gradual_subset_increase_exps(dataset=dataset, total_tr_steps=tr_steps, start_subset_ratio=kwargs["curriculum_gradual_start"],
+                                                    end_subset_ratio=kwargs["curriculum_gradual_end"], step_ratio=kwargs["curriculum_gradual_step"],
+                                                    seed=kwargs["seed"])
+            exp_list.extend(exps)
+            
+
+    for data, tr_steps in exp_list:
+        print(f"Exp len: {len(data)}, Tr steps: {tr_steps}")
 
 
     # Device
