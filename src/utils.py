@@ -164,6 +164,7 @@ def read_command_line_args():
     parser.add_argument('--curriculum-gradual-start', type=float, default=0.05)
     parser.add_argument('--curriculum-gradual-end', type=float, default=1.0)
     parser.add_argument('--curriculum-gradual-step', type=float, default=0.05)
+    parser.add_argument('--subset-type', type=str, default='random')
 
 
 

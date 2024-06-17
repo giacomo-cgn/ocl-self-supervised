@@ -23,7 +23,7 @@ from src.buffers import get_buffer
 
 from src.utils import write_final_scores, read_command_line_args
 
-from src.curriculum_utils import get_gradual_subset_increase_exps
+from src.curriculum_utils import get_gradual_subset_increase_exps, SubsetSplitterWrapper
 
 def exec_experiment(**kwargs):
     standalone_strategies = ['scale']
@@ -128,6 +128,9 @@ def exec_experiment(**kwargs):
 
     # IMPORTANT! Each training part is non-exclusive
 
+    # Init the Subset splitter
+    subset_splitter = SubsetSplitterWrapper(type=kwargs["subset_type"], seed=kwargs["seed"])
+
     tr_dataset_len = 0
     for exp_dataset in benchmark.train_stream:
         tr_dataset_len += len(exp_dataset)
@@ -158,8 +161,7 @@ def exec_experiment(**kwargs):
                 subset = end_subset
             else:
                 subset_len = int(curriculum_subset[i]*len(dataset))
-                subset, _ = random_split(dataset, [subset_len, len(dataset) - subset_len],
-                                     generator=torch.Generator().manual_seed(kwargs["seed"]))
+                subset, _ = subset_splitter.subset(dataset, subset_len, len(dataset) - subset_len)
             tr_steps = int(curriculum_ratio[i] * total_training_steps)
             exp_list.append((subset, tr_steps))
             last_subset = subset
@@ -181,16 +183,14 @@ def exec_experiment(**kwargs):
                     continual_steps_allocated += tr_steps
                     exp_dataset = benchmark.train_stream[exp_idx]
                     subset_len = int(curriculum_subset[i] * len(exp_dataset))
-                    subset_dataset, _ = random_split(exp_dataset, [subset_len, len(exp_dataset) - subset_len],
-                                            generator=torch.Generator().manual_seed(kwargs["seed"]))
+                    subset_dataset , _ =  subset_splitter.subset(exp_dataset, subset_len, len(exp_dataset) - subset_len)
                     exp_list.append((subset_dataset, tr_steps))
                     if finish_continual:
                         break
             else:
                 for j, exp_dataset in enumerate(benchmark.train_stream):
                     subset_len = int(curriculum_subset[i] * len(exp_dataset))
-                    subset_dataset, _ = random_split(exp_dataset, [subset_len, len(exp_dataset) - subset_len],
-                                            generator=torch.Generator().manual_seed(kwargs["seed"]))
+                    subset_dataset, _ = subset_splitter.subset(exp_dataset, subset_len, len(exp_dataset) - subset_len)
                     tr_steps = int((curriculum_ratio[i] * total_training_steps)/ kwargs["num_exps"])
                     exp_list.append((subset_dataset, tr_steps))
         
@@ -200,12 +200,12 @@ def exec_experiment(**kwargs):
             if i > 0 and curriculum_order[i-1] == 'iid' and curriculum_subset[i-1] == kwargs["curriculum_gradual_start"]:
                 exps, end_subset = get_gradual_subset_increase_exps(dataset=dataset, total_tr_steps=tr_steps, start_subset_ratio=kwargs["curriculum_gradual_start"],
                                                     end_subset_ratio=kwargs["curriculum_gradual_end"], step_ratio=kwargs["curriculum_gradual_step"],
-                                                    seed=kwargs["seed"], start_subset=last_subset)
+                                                    subset_splitter=subset_splitter, start_subset=last_subset)
 
             else:
                 exps, end_subset = get_gradual_subset_increase_exps(dataset=dataset, total_tr_steps=tr_steps, start_subset_ratio=kwargs["curriculum_gradual_start"],
                                                     end_subset_ratio=kwargs["curriculum_gradual_end"], step_ratio=kwargs["curriculum_gradual_step"],
-                                                    seed=kwargs["seed"])
+                                                    subset_splitter=subset_splitter)
             exp_list.extend(exps)
             
 
