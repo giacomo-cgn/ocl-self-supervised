@@ -48,8 +48,9 @@ def get_gradual_subset_increase_exps(dataset, total_tr_steps, start_subset_ratio
             current_subset = Subset(dataset, current_subset.indices + new_samples.indices)
         
         # Store the subset for this step
-        exp_list.append((current_subset, tr_steps))
+        exp_list.append((current_subset, tr_steps, False)) # Do not probe in intermediate gradual increasing subsets
 
+    exp_list[-1] = (exp_list[-1][0], exp_list[-1][1], True) # Probe at the end of gradual increasing subsets
     return exp_list, current_subset
 
 

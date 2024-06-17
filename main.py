@@ -152,7 +152,7 @@ def exec_experiment(**kwargs):
     for curriculum_part in curriculum_order:
         assert curriculum_part in ['continual', 'iid', 'gradual_subset']
 
-    exp_list = []
+    exp_list = [] # Tuple (dataset: Dataset, num_tr_steps: int, probe_after_this_tr_exp: bool)
     last_exp_idx = 0
     for i, curriculum_part in enumerate(curriculum_order):
         if curriculum_part == 'iid':
@@ -163,7 +163,7 @@ def exec_experiment(**kwargs):
                 subset_len = int(curriculum_subset[i]*len(dataset))
                 subset, _ = subset_splitter.subset(dataset, subset_len, len(dataset) - subset_len)
             tr_steps = int(curriculum_ratio[i] * total_training_steps)
-            exp_list.append((subset, tr_steps))
+            exp_list.append((subset, tr_steps, True))
             last_subset = subset
 
         if curriculum_part == 'continual':
@@ -184,7 +184,7 @@ def exec_experiment(**kwargs):
                     exp_dataset = benchmark.train_stream[exp_idx]
                     subset_len = int(curriculum_subset[i] * len(exp_dataset))
                     subset_dataset , _ =  subset_splitter.subset(exp_dataset, subset_len, len(exp_dataset) - subset_len)
-                    exp_list.append((subset_dataset, tr_steps))
+                    exp_list.append((subset_dataset, tr_steps, False))
                     if finish_continual:
                         break
             else:
@@ -192,7 +192,9 @@ def exec_experiment(**kwargs):
                     subset_len = int(curriculum_subset[i] * len(exp_dataset))
                     subset_dataset, _ = subset_splitter.subset(exp_dataset, subset_len, len(exp_dataset) - subset_len)
                     tr_steps = int((curriculum_ratio[i] * total_training_steps)/ kwargs["num_exps"])
-                    exp_list.append((subset_dataset, tr_steps))
+                    exp_list.append((subset_dataset, tr_steps, False))
+
+            exp_list[-1] = (exp_list[-1][0], exp_list[-1][1], True) # Probe after all the sequence of continual exps
         
         if curriculum_part == 'gradual_subset':
             dataset = get_iid_dataset(benchmark)
@@ -209,8 +211,8 @@ def exec_experiment(**kwargs):
             exp_list.extend(exps)
             
 
-    for data, tr_steps in exp_list:
-        print(f"Exp len: {len(data)}, Tr steps: {tr_steps}")
+    for data, tr_steps, probe_after in exp_list:
+        print(f"Exp len: {len(data)}, Tr steps: {tr_steps}, Probe after: {probe_after}")
 
 
     # Device
@@ -380,12 +382,14 @@ def exec_experiment(**kwargs):
 
     
     # Self supervised training over the experiences
-    for exp_idx, (exp_dataset, tr_steps) in enumerate(exp_list):
+    for exp_idx, (exp_dataset, tr_steps, probe_after) in enumerate(exp_list):
         print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
         trained_ssl_model = trainer.train_experience(exp_dataset, exp_idx, tr_steps)
 
-    exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), len(benchmark.train_stream), probing_tr_ratio_arr, device, probing_upto_pth_dict,
+        if probe_after:
+             exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
             probing_separate_pth_dict)
+
                 
         
     # Calculate and save final probing scores
