@@ -2,8 +2,6 @@ from torch.utils.data import random_split, Subset
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-import random
-from collections import defaultdict
 
 from sklearn.model_selection import train_test_split
 
@@ -61,6 +59,9 @@ def class_balanced_split(dataset: Dataset, len1: int, len2: int, seed: int = 42)
     indices = list(range(len(dataset)))
     class_labels = [dataset[idx][1] for idx in indices]
 
+    if len1 == 0 or len2 == 0:
+        return Subset(dataset, indices[:len1]), Subset(dataset, indices[len1:])
+    
     subset_indices_1, subset_indices_2 = train_test_split(indices, test_size=len2 / (len1 + len2), stratify=class_labels, random_state=seed)
 
     return Subset(dataset, subset_indices_1), Subset(dataset, subset_indices_2)
