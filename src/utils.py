@@ -136,6 +136,7 @@ def read_command_line_args():
     parser.add_argument('--moco-queue-size', type=int, default=2000)
     parser.add_argument('--moco-temp', type=float, default=0.07)
     parser.add_argument('--moco-queue-type', type=str, default='fifo')
+    parser.add_argument('--simclr-temp', type=float, default=0.5)
     
     # MAE params
     parser.add_argument('--mae-patch-size', type=int, default=2)                
