@@ -151,6 +151,7 @@ def exec_experiment(**kwargs):
                              dim_proj=kwargs["dim_proj"],
                              moco_momentum=kwargs["moco_momentum"], moco_queue_size=kwargs["moco_queue_size"],
                              moco_temp=kwargs["moco_temp"],return_momentum_encoder=kwargs["return_momentum_encoder"],
+                             queue_type=kwargs["moco_queue_type"],
                              save_pth=save_pth, device=device).to(device)
             num_views = 2
 
