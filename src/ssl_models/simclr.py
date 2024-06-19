@@ -1,5 +1,7 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
+
 from .abstract_ssl_model import AbstractSSLModel
 
 class SimCLR(nn.Module, AbstractSSLModel):
@@ -52,7 +54,9 @@ class SimCLR(nn.Module, AbstractSSLModel):
         z2 = self.projector(e2) # NxC        
 
         batch_size = z1.size(0)
-        out = torch.cat([z1, z2], dim=0)
+        z1_norm, z2_norm = F.normalize(z1, dim=-1), F.normalize(z2, dim=-1)
+
+        out = torch.cat([z1_norm, z2_norm], dim=0)
         # [2*B, 2*B]
         sim_matrix = torch.exp(torch.mm(out, out.t().contiguous()) / self.temperature)
         mask = (torch.ones_like(sim_matrix) - torch.eye(2 * batch_size, device=sim_matrix.device)).bool()
@@ -60,7 +64,7 @@ class SimCLR(nn.Module, AbstractSSLModel):
         sim_matrix = sim_matrix.masked_select(mask).view(2 * batch_size, -1)
 
         # compute loss
-        pos_sim = torch.exp(torch.sum(z1 * z2, dim=-1) / self.temperature)
+        pos_sim = torch.exp(torch.sum(z1_norm * z2_norm, dim=-1) / self.temperature)
         # [2*B]
         pos_sim = torch.cat([pos_sim, pos_sim], dim=0)
         loss = (- torch.log(pos_sim / sim_matrix.sum(dim=-1))).mean()
