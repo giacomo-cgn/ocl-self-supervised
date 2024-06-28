@@ -5,7 +5,7 @@ import pandas as pd
 
 from main import exec_experiment
 
-def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=True, parent_log_folder='./logs', experiment_name=''):
+def search_hyperparams(args, hyperparams_dict=None, use_eval_on_joint_probing=True, parent_log_folder='./logs', experiment_name=''):
 
      standalone_strategies = ['scale']
 
@@ -72,8 +72,8 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=Tru
           experiment_save_folder = exec_experiment(**args.__dict__)
 
           # Recover results from experiment
-          if use_eval_on_upto_probing:
-               results_df = pd.read_csv(os.path.join(experiment_save_folder, 'final_scores_upto.csv'))
+          if use_eval_on_joint_probing:
+               results_df = pd.read_csv(os.path.join(experiment_save_folder, 'final_scores_joint.csv'))
           else:
                results_df = pd.read_csv(os.path.join(experiment_save_folder, 'final_scores_separate.csv'))
 

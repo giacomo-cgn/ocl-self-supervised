@@ -92,9 +92,7 @@ def read_command_line_args():
     parser.add_argument('--save-folder', type=str, default='./logs')
     parser.add_argument('--dim-proj', type=int, default=2048)
     parser.add_argument('--dim-pred', type=int, default=512)
-    parser.add_argument('--epochs', type=int, default=1)
     
-    parser.add_argument('--mb-passes', type=int, default=3)
     parser.add_argument('--tr-mb-size', type=int, default=32)
     parser.add_argument('--common-transforms', type=str_to_bool, default=True)
     parser.add_argument('--iid', type=str_to_bool, default=False)
@@ -105,7 +103,7 @@ def read_command_line_args():
     parser.add_argument('--eval-mb-size', type=int, default=512)
     parser.add_argument('--probing-type', type=str, default='ridge_regression')
     parser.add_argument('--probing-separate', type=str_to_bool, default=True)
-    parser.add_argument('--probing-upto', type=str_to_bool, default=True)
+    parser.add_argument('--probing-joint', type=str_to_bool, default=True)
     parser.add_argument('--probing-val-ratio', type=float, default=0.1)
     parser.add_argument('--use-probing-tr-ratios', type=str_to_bool, default=False)
     parser.add_argument('--knn-k', type=int, default=50)
@@ -159,15 +157,18 @@ def read_command_line_args():
     parser.add_argument('--features-buffer-ema', type=float, default=0.5)
 
     # Curriculum learning
-    parser.add_argument('--curriculum-order', type=str, default='continual-iid')
-    parser.add_argument('--curriculum-ratio', type=str, default='0.5-0.5')
-    parser.add_argument('--curriculum-subset', type=str, default='1.0-1.0')
+    parser.add_argument('--curriculum-order', type=str, default='iid')
+    parser.add_argument('--curriculum-ratio', type=str, default='1.0')
+    parser.add_argument('--curriculum-subset', type=str, default='1.0')
     parser.add_argument('--same-size-continual-exps', type=str_to_bool, default=True)
     parser.add_argument('--curriculum-gradual-start', type=float, default=0.05)
     parser.add_argument('--curriculum-gradual-end', type=float, default=1.0)
     parser.add_argument('--curriculum-gradual-step', type=float, default=0.05)
     parser.add_argument('--subset-type', type=str, default='random')
 
+    # Convergence
+    parser.add_argument('--eval-every', type=int, default=5000)
+    parser.add_argument('--tot-tr-steps', type=int, default=50000)
 
 
 

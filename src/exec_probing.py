@@ -6,17 +6,17 @@ from torch.utils.data import ConcatDataset
 from .probing_sklearn import ProbingSklearn
 
 
-def exec_probing(kwargs, probing_benchmark, encoder, pretr_exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict, probing_separate_pth_dict):
+def exec_probing(kwargs, probing_benchmark, encoder, pretr_exp_idx, probing_tr_ratio_arr, device, probing_joint_pth_dict, probing_separate_pth_dict):
     # Probing on all experiences
-    if kwargs['probing_upto']:
+    if kwargs['probing_joint']:
         # Generate joint exp probing datasets
-        probe_upto_dataset_tr = ConcatDataset(probing_benchmark.train_stream)
-        probe_upto_dataset_test = ConcatDataset(probing_benchmark.test_stream)
+        probe_joint_dataset_tr = ConcatDataset(probing_benchmark.train_stream)
+        probe_joint_dataset_test = ConcatDataset(probing_benchmark.test_stream)
         if kwargs['probing_val_ratio'] > 0:
-            probe_upto_dataset_val = ConcatDataset(probing_benchmark.valid_stream)
+            probe_joint_dataset_val = ConcatDataset(probing_benchmark.valid_stream)
 
         for probing_tr_ratio in probing_tr_ratio_arr:
-            probe_save_file = os.path.join(probing_upto_pth_dict[probing_tr_ratio], f'probe_exp_{pretr_exp_idx}.csv')
+            probe_save_file = os.path.join(probing_joint_pth_dict[probing_tr_ratio], f'probe_exp_{pretr_exp_idx}.csv')
 
             probe = ProbingSklearn(encoder, device=device, save_file=probe_save_file,
                                    exp_idx=None, tr_samples_ratio=probing_tr_ratio,
@@ -24,12 +24,12 @@ def exec_probing(kwargs, probing_benchmark, encoder, pretr_exp_idx, probing_tr_r
                                    probing_type=kwargs["probing_type"], knn_k=kwargs["knn_k"])
                                         
             
-            print(f'-- Upto Probing, probe tr ratio: {probing_tr_ratio} --')
+            print(f'-- Joint Probing, probe tr ratio: {probing_tr_ratio} --')
 
             if kwargs['probing_val_ratio'] > 0:
-                probe.probe(probe_upto_dataset_tr, probe_upto_dataset_test, probe_upto_dataset_val)
+                probe.probe(probe_joint_dataset_tr, probe_joint_dataset_test, probe_joint_dataset_val)
             else:
-                probe.probe(probe_upto_dataset_tr, probe_upto_dataset_test)
+                probe.probe(probe_joint_dataset_tr, probe_joint_dataset_test)
 
 
     # Probing on separate experiences
