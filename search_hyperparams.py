@@ -99,6 +99,4 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_joint_probing=Tr
           f.write(f"Best Val Acc: {best_val_acc}\n")
           f.write(f"Best Test Acc: {best_test_acc}\n")
           f.write(f'\nTr MB size: {args.tr_mb_size}\n')
-          f.write(f'MB passes: {args.mb_passes}\n')
-
 
