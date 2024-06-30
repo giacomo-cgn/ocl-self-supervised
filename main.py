@@ -388,12 +388,8 @@ def exec_experiment(**kwargs):
         
     # Save final pretrained model
     if kwargs["save_model_final"] and not kwargs["random_encoder"]:
-        if kwargs['strategy'] in standalone_strategies:
-            torch.save(trained_ssl_model.get_encoder_for_eval().state_dict(),
-                    os.path.join(save_pth, f'final_model_state.pth'))
-        else:
-            torch.save(trained_ssl_model.state_dict(),
-                    os.path.join(save_pth, f'final_model_state.pth'))
+        torch.save(trained_ssl_model.state_dict(),
+                os.path.join(save_pth, f'final_model_state.pth'))
 
 
     return save_pth

@@ -159,8 +159,9 @@ class Trainer():
             self.strategy.after_mb_passes()
 
             done_tr_steps += 1
-            if done_tr_steps  % eval_every == 0:
-               exec_probing(kwargs, eval_benchmark, self.ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, self.device, probing_joint_pth_dict,
+            if done_tr_steps % eval_every == 0:
+               probing_idx = done_tr_steps // eval_every
+               exec_probing(kwargs, eval_benchmark, self.ssl_model.get_encoder_for_eval(), probing_idx, probing_tr_ratio_arr, self.device, probing_joint_pth_dict,
                 probing_separate_pth_dict)
 
 

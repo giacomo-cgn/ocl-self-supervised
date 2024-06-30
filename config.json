@@ -1,14 +1,16 @@
 {
     "common_params":
     {
-        "gpu-idx": 0,
+        "gpu-idx": 3,
         "dataset": "cifar100",
         "dataset-root": "/data/cossu/imagenet/imagenet",
         "tr-mb-size": 128,
         "repl-mb-size": 128,
         "eval-mb-size": 256,
+        "save-folder": "./logs/convergence",
         "tot-tr-steps": 200000,
-        "eval-every": 5000
+        "eval-every": 5000,
+        "probing-separate": false
     },
     "experiments":
     [
