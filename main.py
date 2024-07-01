@@ -6,7 +6,7 @@ import tqdm as tqdm
 import numpy as np
 
 from src.get_datasets import get_benchmark, get_iid_dataset
-from src.exec_probing import exec_probing
+from src.probing import exec_probing, ProbingSklearn
 from src.backbones import get_encoder
 
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE
@@ -45,22 +45,6 @@ def exec_experiment(**kwargs):
     if not os.path.exists(save_pth):
         os.makedirs(save_pth)
     
-    if kwargs['probing_separate']:
-        probing_separate_pth_dict = {}
-        for probing_tr_ratio in probing_tr_ratio_arr:  
-            probing_pth = os.path.join(save_pth, f'probing_separate/probing_ratio{probing_tr_ratio}')
-            if not os.path.exists(probing_pth):
-                os.makedirs(probing_pth)
-            probing_separate_pth_dict[probing_tr_ratio] = probing_pth
-    
-    if kwargs['probing_upto']:
-        probing_upto_pth_dict = {}
-        for probing_tr_ratio in probing_tr_ratio_arr:  
-            probing_pth = os.path.join(save_pth, f'probing_upto/probing_ratio{probing_tr_ratio}')
-            if not os.path.exists(probing_pth):
-                os.makedirs(probing_pth)
-            probing_upto_pth_dict[probing_tr_ratio] = probing_pth
-
 
     # Save general kwargs
     with open(save_pth + '/config.txt', 'a') as f:
@@ -81,14 +65,11 @@ def exec_experiment(**kwargs):
         f.write(f'Save final model: {kwargs["save_model_final"]}\n')
         f.write(f'-- Probing configs --\n')
         f.write(f'Probing after all experiences: {kwargs["probing_all_exp"]}\n')
-        f.write(f'Probing type: {kwargs["probing_type"]}\n')
-        f.write(f'Evaluation MB Size: {kwargs["eval_mb_size"]}\n')
         f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')
-        f.write(f'Probing on joint exps Up To current: {kwargs["probing_upto"]}\n')
+        f.write(f'Probing on Up To current exps: {kwargs["probing_upto"]}\n')
+        f.write(f'Probing on all Joint exps: {kwargs["probing_upto"]}\n')
         f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
         f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
-        if kwargs['probing_type'] == 'knn':
-            f.write(f'KNN k: {kwargs["knn_k"]}\n')
 
     # Set seed
     torch.manual_seed(kwargs["seed"])
@@ -282,6 +263,20 @@ def exec_experiment(**kwargs):
                             save_model=False, common_transforms=kwargs["common_transforms"],
                             buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
                             dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"], buffer_type=kwargs["buffer_type"])
+        
+
+    # Init probing
+    if kwargs["probing_upto"] and not kwargs["probing_all_exp"]:
+        raise Exception("Without --probing-all-exp, probing upto is equal to probing joint, please set --probing-upto to false or --probing-all-exp to true")
+    
+    probes = []
+    if kwargs["probing_rr"]:
+         probes.append(ProbingSklearn(probe_type='rr', device=device, mb_size=kwargs["eval_mb_size"],
+                               seed=kwargs["seed"], config_save_pth=save_pth))
+    if kwargs["probing_knn"]:
+         probes.append(ProbingSklearn(probe_type='knn', device=device, mb_size=kwargs["eval_mb_size"],
+                               knn_k=kwargs["knn_k"], seed=kwargs["seed"], config_save_pth=save_pth))
+       
             
 
 
@@ -290,35 +285,40 @@ def exec_experiment(**kwargs):
         print(f'==== Beginning self supervised training on iid dataset ====')
         trained_ssl_model = trainer.train_experience(iid_tr_dataset, exp_idx=0)
 
-        exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
-                     probing_separate_pth_dict)
+        exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
+                     pretr_exp_idx=0, probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
         
     elif kwargs["random_encoder"]:
         
         # No SSL training is done, only using the randomly initialized encoder as feature extractor
-        exec_probing(kwargs, benchmark, encoder, 0, probing_tr_ratio_arr, device, probing_upto_pth_dict,
-                     probing_separate_pth_dict)
+        exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=benchmark, encoder=encoder, pretr_exp_idx=0,
+                     probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
     else:
         # Self supervised training over the experiences
         for exp_idx, exp_dataset in enumerate(benchmark.train_stream):
             print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
             trained_ssl_model = trainer.train_experience(exp_dataset, exp_idx)
             if kwargs["probing_all_exp"]:
-                exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
-                    probing_separate_pth_dict)
+                exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
+                     pretr_exp_idx=exp_idx, probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
         if not kwargs["probing_all_exp"]:
             # Probe only at the end of training
-            exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_upto_pth_dict,
-                         probing_separate_pth_dict)
+            exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
+                     pretr_exp_idx=exp_idx, probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
                 
         
     # Calculate and save final probing scores
-    if kwargs['probing_separate']:
-        write_final_scores(folder_input_path=os.path.join(save_pth, 'probing_separate'),
-                           output_file=os.path.join(save_pth, 'final_scores_separate.csv'))
-    if kwargs['probing_upto']:
-        write_final_scores(folder_input_path=os.path.join(save_pth, 'probing_upto'),
-                           output_file=os.path.join(save_pth, 'final_scores_upto.csv'))
+    for probe in probes:
+        probe_pth = os.path.join(save_pth, f'probe_{probe.get_name()}')
+        if kwargs['probing_separate']:
+            write_final_scores(probe=probe.get_name(), folder_input_path=os.path.join(probe_pth, 'probing_separate'),
+                            output_file=os.path.join(save_pth, 'final_scores_separate.csv'))
+        if kwargs['probing_joint']:
+            write_final_scores(probe=probe.get_name(), folder_input_path=os.path.join(probe_pth, 'probing_joint'),
+                            output_file=os.path.join(save_pth, 'final_scores_joint.csv'))
+        if kwargs['probing_upto'] and not kwargs["probing_joint"]:
+            write_final_scores(probe=probe.get_name(), folder_input_path=os.path.join(probe_pth, 'probing_upto'),
+                            output_file=os.path.join(save_pth, 'final_scores_joint.csv'))
         
     # Save final pretrained model
     if kwargs["save_model_final"] and not kwargs["random_encoder"]:

@@ -26,15 +26,16 @@ def update_ema_params(model_params, ema_model_params, momentum):
     
 
 
-def write_final_scores(folder_input_path, output_file):
+def write_final_scores(probe, folder_input_path, output_file):
     """
     Report final aggregated scores of the probing
 
     """
     # output_file = os.path.join(folder_path, "final_scores.csv")
-    with open(output_file, "w") as output_f:
+    with open(output_file, "a") as output_f:
         # Write header
-        output_f.write("probe_ratio,avg_val_acc,avg_test_acc\n")
+        if not os.path.exists(output_file) or os.path.getsize(output_file) == 0:
+            output_f.write("probe_type,probe_ratio,avg_val_acc,avg_test_acc\n")
 
         # Get all subfolder paths starting with "probing_ratio"
         probing_ratios_subfolders = [os.path.join(folder_input_path, f) for f in os.listdir(folder_input_path) 
@@ -59,7 +60,7 @@ def write_final_scores(folder_input_path, output_file):
             final_avg_val_acc = final_df['val_acc'].mean()
 
 
-            output_f.write(f"{probing_tr_ratio},{final_avg_val_acc},{final_avg_test_acc}\n")
+            output_f.write(f"{probe},{probing_tr_ratio},{final_avg_val_acc:.4f},{final_avg_test_acc:.4f}\n")
 
 
 def read_command_line_args():
@@ -103,9 +104,12 @@ def read_command_line_args():
     # Probing params
     parser.add_argument('--probing-all-exp', type=str_to_bool, default=False)
     parser.add_argument('--eval-mb-size', type=int, default=512)
-    parser.add_argument('--probing-type', type=str, default='ridge_regression')
+    parser.add_argument('--probing-rr', type=str_to_bool, default=True)
+    parser.add_argument('--probing-knn', type=str_to_bool, default=False)
+    parser.add_argument('--probing-torch', type=str_to_bool, default=True)
     parser.add_argument('--probing-separate', type=str_to_bool, default=True)
-    parser.add_argument('--probing-upto', type=str_to_bool, default=True)
+    parser.add_argument('--probing-upto', type=str_to_bool, default=False)
+    parser.add_argument('--probing-joint', type=str_to_bool, default=True)
     parser.add_argument('--probing-val-ratio', type=float, default=0.1)
     parser.add_argument('--use-probing-tr-ratios', type=str_to_bool, default=False)
     parser.add_argument('--knn-k', type=int, default=50)

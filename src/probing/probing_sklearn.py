@@ -1,6 +1,4 @@
 import os
-import numpy as np
-from matplotlib import pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -12,38 +10,55 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 
+from .abstract_probe import AbstractProbe
 
-class ProbingSklearn:
+
+class ProbingSklearn(AbstractProbe):
     def __init__(self,
-                 encoder: nn,
-                 probing_type: str = 'ridge_regression',
+                 probe_type: str = 'rr',
                  knn_k: int = 50,
                  device: str = 'cpu',
                  mb_size: int = 512,
-                 save_file: str = None,
-                 exp_idx: int = None,
-                 tr_samples_ratio: float = 1.0,
-                 seed: int = 42
+                 seed: int = 42,
+                 config_save_pth: str = None
                  ):
-        """
-        Initialize the Linear Probing classifier.
-
-        Args:
-        """
-        self.encoder = encoder.to(device)
-        self.probing_type = probing_type
+        
+        self.probe_type = probe_type
         self.knn_k = knn_k
         self.device = device
         self.mb_size = mb_size
-        self.save_file = save_file
-        self.exp_idx = exp_idx # Task index on which probing is executed, if None, we are in joint probing
-        self.tr_samples_ratio = tr_samples_ratio
         self.seed = seed
-        
-        # Patience on before early stopping
-        self.patience = 2
 
         self.criterion = nn.CrossEntropyLoss()
+
+        if config_save_pth is not None:
+            # Save model configuration
+            with open(config_save_pth + '/config.txt', 'a') as f:
+                # Write strategy hyperparameters
+                f.write('\n')
+                f.write('---- PROBE CONFIG ----\n')
+                f.write(f'Probing type: {probe_type}\n')
+                if probe_type == 'knn':
+                    f.write(f'KNN k: {knn_k}\n')
+                f.write(f'Eval MB size: {mb_size}\n')
+
+    def get_name(self):
+        return self.probe_type
+
+    def probe(self,
+              encoder: nn,
+              tr_dataset: Dataset,
+              test_dataset: Dataset,
+              val_dataset: Dataset = None,
+              exp_idx: int = None, # Task index on which probing is executed, if None, we are in joint or upto probing
+              tr_samples_ratio: float = 1.0,
+              save_file: str = None,
+              ):
+        
+        self.encoder = encoder.to(self.device)
+        self.exp_idx = exp_idx
+        self.save_file = save_file
+        self.tr_samples_ratio = tr_samples_ratio
 
         if self.save_file is not None:
             with open(self.save_file, 'a') as f:
@@ -53,15 +68,8 @@ class ProbingSklearn:
                         f.write('probing_exp_idx,val_acc,test_acc\n')
                     else:
                         f.write(f'val_acc,test_acc\n')
-
-    def probe(self,
-              tr_dataset: Dataset,
-              test_dataset: Dataset,
-              val_dataset: Dataset = None
-              ):
         
         # Prepare dataloaders
-
         # Select only a random ratio of the train data for probing
         used_ratio_samples = int(len(tr_dataset) * self.tr_samples_ratio)
         tr_dataset, _ = random_split(tr_dataset, [used_ratio_samples, len(tr_dataset) - used_ratio_samples],
@@ -114,9 +122,9 @@ class ProbingSklearn:
         scaler = StandardScaler()
         
         # Use a simple classifier on activations
-        if self.probing_type == 'ridge_regression':
+        if self.probe_type == 'rr':
             clf = RidgeClassifier()
-        elif self.probing_type == 'knn':
+        elif self.probe_type == 'knn':
             clf = KNeighborsClassifier(n_neighbors=self.knn_k)
 
         tr_activations = scaler.fit_transform(tr_activations)
@@ -139,11 +147,11 @@ class ProbingSklearn:
             with open(self.save_file, 'a') as f:
                 if val_dataset is None:
                     if self.exp_idx is not None:
-                        f.write(f'{self.exp_idx},_,{test_acc}\n')
+                        f.write(f'{self.exp_idx},_,{test_acc:.4f}\n')
                     else:
-                        f.write(f'_,{test_acc}\n')
+                        f.write(f'_,{test_acc:.4f}\n')
                 else:        
                     if self.exp_idx is not None:
-                        f.write(f'{self.exp_idx},{val_acc},{test_acc}\n')
+                        f.write(f'{self.exp_idx},{val_acc:.4f},{test_acc:.4f}\n')
                     else:
-                        f.write(f'{val_acc},{test_acc}\n')
+                        f.write(f'{val_acc:.4f},{test_acc:.4f}\n')

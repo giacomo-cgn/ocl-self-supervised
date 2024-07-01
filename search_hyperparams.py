@@ -79,6 +79,12 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=Tru
 
           # Only row with probe_ratio = 1
           results_df = results_df[results_df['probe_ratio'] == 1]
+          # Select preferred probe type
+          probe_type_preferences = ["torch", "rr", "knn"]
+          for probe_type in probe_type_preferences:
+               if probe_type in results_df.columns:
+                    results_df = results_df[results_df[probe_type] == results_df[probe_type].max()]
+                    break
 
           val_acc = results_df['avg_val_acc'].values[0]
           test_acc = results_df['avg_test_acc'].values[0]
