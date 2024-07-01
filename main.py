@@ -6,7 +6,7 @@ import tqdm as tqdm
 import numpy as np
 
 from src.get_datasets import get_benchmark, get_iid_dataset
-from src.probing import exec_probing, ProbingSklearn
+from src.probing import exec_probing, ProbingSklearn, ProbingPytorch
 from src.backbones import get_encoder
 
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE
@@ -276,9 +276,13 @@ def exec_experiment(**kwargs):
     if kwargs["probing_knn"]:
          probes.append(ProbingSklearn(probe_type='knn', device=device, mb_size=kwargs["eval_mb_size"],
                                knn_k=kwargs["knn_k"], seed=kwargs["seed"], config_save_pth=save_pth))
+         
+    if kwargs["probing_torch"]:
+        probes.append(ProbingPytorch(device=device, mb_size=kwargs["eval_mb_size"], config_save_pth=save_pth,
+                                 dim_encoder_features=dim_encoder_features, lr=kwargs["probe_lr"],
+                                 lr_patience=kwargs["probe_lr_patience"], lr_factor=kwargs["probe_lr_factor"],
+                                 lr_min=kwargs["probe_lr_min"], probing_epochs=kwargs["probe_epochs"]))
        
-            
-
 
     if kwargs["iid"]:
         # IID training over the entire dataset

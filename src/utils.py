@@ -113,7 +113,12 @@ def read_command_line_args():
     parser.add_argument('--probing-val-ratio', type=float, default=0.1)
     parser.add_argument('--use-probing-tr-ratios', type=str_to_bool, default=False)
     parser.add_argument('--knn-k', type=int, default=50)
-
+    parser.add_argument('--probe-lr', type=float, default=5e-2)
+    parser.add_argument('--probe-lr-patience', type=int, default=5)
+    parser.add_argument('--probe-lr-factor', type=float, default=3.0)
+    parser.add_argument('--probe-lr-min', type=float, default=1e-4)
+    parser.add_argument('--probe-epochs', type=int, default=100)
+    
 
     # Replay params
     parser.add_argument('--buffer-type', type=str, default='default')
