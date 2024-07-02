@@ -3,6 +3,8 @@ import torch
 class AbstractStrategy(torch.nn.Module):
     def __init__(self):
         super().__init__()
+        self.strategy_name = None
+
 
     def before_experience(self):
         pass
@@ -32,4 +34,4 @@ class AbstractStrategy(torch.nn.Module):
         return []
 
     def get_name(self):
-        return None
+        return self.strategy_name
