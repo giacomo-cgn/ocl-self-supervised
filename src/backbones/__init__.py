@@ -12,16 +12,25 @@ def get_encoder(encoder_name, image_size, ssl_model_name, vit_avg_pooling, save_
         encoder = models.resnet18(zero_init_residual=True)
         dim_encoder_features = encoder.fc.weight.shape[1]
         encoder.fc = nn.Identity()
+        if image_size == 32:
+            encoder.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+            encoder.maxpool = nn.Identity()
 
     elif encoder_name == 'resnet34':
         encoder = models.resnet34(zero_init_residual=True)
         dim_encoder_features = encoder.fc.weight.shape[1]
         encoder.fc = nn.Identity()
+        if image_size == 32:
+            encoder.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+            encoder.maxpool = nn.Identity()
 
     elif encoder_name == 'resnet50':
         encoder = models.resnet50(zero_init_residual=True)
         dim_encoder_features = encoder.fc.weight.shape[1]
         encoder.fc = nn.Identity()
+        if image_size == 32:
+            encoder.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+            encoder.maxpool = nn.Identity()
 
     elif encoder_name == 'resnet9':
         encoder = ResNet9VariableWidth(num_base_features=64)
@@ -32,12 +41,17 @@ def get_encoder(encoder_name, image_size, ssl_model_name, vit_avg_pooling, save_
         encoder = ResNet18VariableWidth(zero_init_residual=True, nf=128)
         dim_encoder_features = encoder.fc.weight.shape[1]
         encoder.fc = nn.Identity()
+        if image_size == 32:
+            encoder.conv1 = nn.Conv2d(3, 128, kernel_size=3, stride=1, padding=1, bias=False)
+            encoder.maxpool = nn.Identity()
 
     elif encoder_name == 'slim_resnet18':
         encoder = ResNet18VariableWidth(zero_init_residual=True, nf=20)
         dim_encoder_features = encoder.fc.weight.shape[1]
-        print('DIM_ENCODER_FEATURES SHAPE:', encoder.fc.weight.shape)
         encoder.fc = nn.Identity()
+        if image_size == 32:
+            encoder.conv1 = nn.Conv2d(3, 20, kernel_size=3, stride=1, padding=1, bias=False)
+            encoder.maxpool = nn.Identity()
 
 
     elif encoder_name == 'wide_resnet9':
