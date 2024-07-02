@@ -10,7 +10,7 @@ class NoStrategy(AbstractStrategy):
                  save_pth: str  = None,
                ):
                    
-
+        super().__init__()
         self.ssl_model = ssl_model
         self.device = device
         self.save_pth = save_pth

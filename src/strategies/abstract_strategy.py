@@ -1,8 +1,8 @@
 import torch
 
-class AbstractStrategy():
-    def __init__(self, ssl_model):
-        self.strategy_name = "AbstractStrategy"
+class AbstractStrategy(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
 
     def before_experience(self):
         pass
@@ -32,4 +32,4 @@ class AbstractStrategy():
         return []
 
     def get_name(self):
-        return self.strategy_name
+        return None

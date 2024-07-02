@@ -13,6 +13,7 @@ class Replay(AbstractStrategy):
                  replay_mb_size: int = 32,
                 ):
             
+        super().__init__()
         self.ssl_model = ssl_model
         self.buffer = buffer
         self.device = device

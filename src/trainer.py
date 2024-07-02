@@ -95,6 +95,7 @@ class Trainer():
         data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True)
 
         self.ssl_model.train()
+        self.strategy.train()
 
         self.strategy.before_experience()
         
@@ -122,7 +123,6 @@ class Trainer():
 
                     # Strategy after forward pass
                     loss_strategy = self.strategy.after_forward(x_views_list, loss, z_list, e_list)
-
 
                     # Backward pass
                     self.optimizer.zero_grad()
