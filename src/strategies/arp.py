@@ -21,6 +21,7 @@ class ARP(AbstractStrategy):
                  aligner_dim: int = 512
                 ):
 
+        super().__init__()
         self.ssl_model = ssl_model
         self.buffer = buffer
         self.device = device

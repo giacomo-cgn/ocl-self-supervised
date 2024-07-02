@@ -17,6 +17,7 @@ class LUMP(AbstractStrategy):
                  alpha_lump: float = 0.4,
     ):        
 
+        super().__init__()
         self.ssl_model = ssl_model
         self.buffer = buffer
         self.device = device

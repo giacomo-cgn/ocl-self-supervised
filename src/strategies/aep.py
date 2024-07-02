@@ -23,7 +23,7 @@ class AEP(AbstractStrategy):
                  align_after_proj: bool = True,
                  aligner_dim: int = 512
                 ):
-
+        super().__init__()
         self.ssl_model = ssl_model
         self.device = device
         self.save_pth = save_pth

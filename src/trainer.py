@@ -108,6 +108,7 @@ class Trainer():
         data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, sampler=sampler)
 
         self.ssl_model.train()
+        self.strategy.train()
 
         self.strategy.before_experience()
 
@@ -163,6 +164,9 @@ class Trainer():
                probing_idx = done_tr_steps // eval_every
                exec_probing(kwargs, eval_benchmark, self.ssl_model.get_encoder_for_eval(), probing_idx, probing_tr_ratio_arr, self.device, probing_joint_pth_dict,
                 probing_separate_pth_dict)
+               
+            self.ssl_model.train()
+            self.strategy.train()
 
 
         # Save model and optimizer state
