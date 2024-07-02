@@ -23,7 +23,8 @@ from src.buffers import get_buffer
 
 from src.utils import write_final_scores, read_command_line_args
 
-from src.curriculum_utils import get_gradual_subset_increase_exps, SubsetSplitterWrapper
+from src.curriculum_utils import get_gradual_subset_increase_exps, SubsetSplitterWrapper, get_classes_subset
+import random
 
 def exec_experiment(**kwargs):
     standalone_strategies = ['scale']
@@ -150,7 +151,7 @@ def exec_experiment(**kwargs):
     for subset in curriculum_subset:
         assert subset > 0 and subset <= 1
     for curriculum_part in curriculum_order:
-        assert curriculum_part in ['continual', 'iid', 'gradual_subset']
+        assert curriculum_part in ['continual', 'iid', 'gradual_subset', 'class_subset']
 
     exp_list = [] # Tuple (dataset: Dataset, num_tr_steps: int, probe_after_this_tr_exp: bool)
     last_exp_idx = 0
@@ -209,6 +210,25 @@ def exec_experiment(**kwargs):
                                                     end_subset_ratio=kwargs["curriculum_gradual_end"], step_ratio=kwargs["curriculum_gradual_step"],
                                                     subset_splitter=subset_splitter)
             exp_list.extend(exps)
+
+        if curriculum_part == 'class_subset':
+            num_classes_dict = {
+                'cifar10': 10,
+                'cifar100': 100,
+                'imagenet': 1000,
+                'imagenet100': 100               
+            }
+            tot_classes = num_classes_dict[kwargs["dataset"]]
+            tr_steps = int(curriculum_ratio[i] * total_training_steps)
+            num_subset_classes = int(curriculum_subset[i] * tot_classes)
+            print(f'CLASS SUBSET - {curriculum_subset[i]} of {tot_classes} classes corresponds to {num_subset_classes} classes')
+
+            dataset = get_iid_dataset(benchmark)
+            # Take num_subset_classes random classes
+            subset_classes = random.sample(range(0, tot_classes), num_subset_classes)
+            # Get all samples from dataset with those classes
+            subset = get_classes_subset(dataset, subset_classes)
+            exp_list.append((subset, tr_steps, True))
             
 
     for data, tr_steps, probe_after in exp_list:

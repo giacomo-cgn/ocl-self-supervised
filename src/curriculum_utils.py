@@ -65,3 +65,11 @@ def class_balanced_split(dataset: Dataset, len1: int, len2: int, seed: int = 42)
     subset_indices_1, subset_indices_2 = train_test_split(indices, test_size=len2 / (len1 + len2), stratify=class_labels, random_state=seed)
 
     return Subset(dataset, subset_indices_1), Subset(dataset, subset_indices_2)
+
+def get_classes_subset(dataset: Dataset, classes: list, seed: int = 42):
+    indices = []
+    for c in classes:
+        class_indices = [i for i in range(len(dataset)) if dataset[i][1] == c]
+        indices.extend(class_indices)
+        print('classes sample selected:', len(indices))
+    return Subset(dataset, indices)
