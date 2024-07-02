@@ -89,7 +89,7 @@ def exec_experiment(**kwargs):
         f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
         if kwargs['probing_type'] == 'knn':
             f.write(f'KNN k: {kwargs["knn_k"]}\n')
-        f.write(f'---- CURRICULUM CONFIGS ----')
+        f.write(f'---- CURRICULUM CONFIGS ----\n')
         f.write(f'Curriculum Order: {kwargs["curriculum_order"]}\n')
         f.write(f'Curriculum Ratio: {kwargs["curriculum_ratio"]}\n')
         f.write(f'Curriculum Subset Ratio: {kwargs["curriculum_subset"]}\n')
