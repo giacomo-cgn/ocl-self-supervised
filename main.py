@@ -67,7 +67,7 @@ def exec_experiment(**kwargs):
         f.write(f'Probing after all experiences: {kwargs["probing_all_exp"]}\n')
         f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')
         f.write(f'Probing on Up To current exps: {kwargs["probing_upto"]}\n')
-        f.write(f'Probing on all Joint exps: {kwargs["probing_upto"]}\n')
+        f.write(f'Probing on all Joint exps: {kwargs["probing_joint"]}\n')
         f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
         f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
 
