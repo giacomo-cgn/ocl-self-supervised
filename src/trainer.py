@@ -55,7 +55,7 @@ class Trainer():
         if self.common_transforms:
             self.transforms = get_transforms(dataset=self.dataset_name, model='common', n_crops=num_views)
         else:
-            self.transforms = get_transforms(dataset=self.dataset_name, model=self.ssl_model.get_name())
+            self.transforms = get_transforms(dataset=self.dataset_name, model=self.ssl_model.get_name(), n_crops=num_views)
 
         # List of params to optimize
         params_to_optimize = self.ssl_model.get_params() + self.strategy.get_params()
