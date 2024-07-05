@@ -5,7 +5,7 @@ import pandas as pd
 
 from main import exec_experiment
 
-def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=True, parent_log_folder='./logs', experiment_name=''):
+def search_hyperparams(args, hyperparams_dict=None, parent_log_folder='./logs', experiment_name=''):
 
      standalone_strategies = ['scale']
 
@@ -72,11 +72,12 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_upto_probing=Tru
           experiment_save_folder = exec_experiment(**args.__dict__)
 
           # Recover results from experiment
-          if use_eval_on_upto_probing:
-               results_df = pd.read_csv(os.path.join(experiment_save_folder, 'final_scores_upto.csv'))
-          else:
-               results_df = pd.read_csv(os.path.join(experiment_save_folder, 'final_scores_separate.csv'))
-
+          # Select preferred probing configuration
+          probe_config_preferences = ["joint", "upto", "separate"]
+          for probing_config in probe_config_preferences:
+               if args[f'probing_{probing_config}']:
+                    results_df = pd.read_csv(os.path.join(experiment_save_folder, f'final_scores_{probing_config}.csv'))
+                    break
           # Only row with probe_ratio = 1
           results_df = results_df[results_df['probe_ratio'] == 1]
           # Select preferred probe type
