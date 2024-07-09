@@ -11,7 +11,7 @@ from src.backbones import get_encoder
 
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE
 
-from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe
+from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, ReplayEMP
 from src.standalone_strategies.scale import SCALE
 
 from src.trainer import Trainer
@@ -171,9 +171,15 @@ def exec_experiment(**kwargs):
                 kwargs["buffer_type"] = "minred"
             elif kwargs["strategy"] == "scale":
                 kwargs["buffer_type"] = "scale"
+            elif kwargs["strategy"] == "replay_emp":
+                kwargs["buffer_type"] = "aug_rep"
+            else:
+                raise Exception(f'Strategy {kwargs["strategy"]} not supported')
             
         elif kwargs["buffer_type"] == "scale" and not kwargs["strategy"] == "scale":
             raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'scale'")
+        elif kwargs["buffer_type"] == "auf_rep" and not kwargs["strategy"] == "replay_emp":
+            raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'replay_emp'")
         
         buffer = get_buffer(buffer_type=kwargs["buffer_type"], mem_size=kwargs["mem_size"],
                             alpha_ema=kwargs["features_buffer_ema"], device=device)
@@ -245,6 +251,14 @@ def exec_experiment(**kwargs):
                             omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
                             use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
                             aligner_dim=aligner_dim)
+            
+        elif kwargs["strategy"] == 'replay_emp':
+            assert kwargs["buffer_type"] == "aug_rep", "Buffer type must be 'aug_rep_buffer' (AugmentedRepresentationsBuffer) for 'replay_emp' strategy"
+            assert kwargs["model"] == 'emp', "SSL model has to be 'emp' for 'replay_emp' strategy"
+            strategy = ReplayEMP(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                                buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                                emp_loss=ssl_model.get_criterion()[0], emp_tcr_param=kwargs["emp_tcr_param"],
+                                emp_tcr_eps=kwargs["emp_tcr_eps"], emp_patch_sim=kwargs["emp_patch_sim"])
 
         else:
             raise Exception(f'Strategy {kwargs["strategy"]} not supported')
