@@ -77,7 +77,7 @@ class Trainer():
                 f.write(f'Learning Rate: {self.lr}\n')
                 f.write(f'optim-momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
-                if optim == 'LARS':
+                if optim == 'lars':
                     f.write(f'lars_eta: {self.lars_eta}\n')
                 f.write(f'num_views: {self.num_views}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
