@@ -20,6 +20,7 @@ class Trainer():
                  lr: float = 0.01,
                  momentum: float = 0.9,
                  weight_decay: float = 1e-4,
+                 lars_eta: float = 0.005,
                  train_mb_size: int = 32,
                  train_epochs: int = 1,
                  mb_passes: int = 3,
@@ -39,6 +40,7 @@ class Trainer():
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
+        self.lars_eta = lars_eta
         self.train_mb_size = train_mb_size
         self.train_epochs = train_epochs
         self.mb_passes = mb_passes
@@ -61,8 +63,8 @@ class Trainer():
         params_to_optimize = self.ssl_model.get_params() + self.strategy.get_params()
 
         # Set up optimizer
-        self.optimizer = init_optim(optim, params_to_optimize, lr=self.lr,
-                                   momentum=self.momentum, weight_decay=self.weight_decay)
+        self.optimizer = init_optim(optim, params_to_optimize, lr=self.lr, momentum=self.momentum,
+                                    weight_decay=self.weight_decay, lars_eta=self.lars_eta)
 
 
         if self.save_pth is not None:
@@ -75,6 +77,8 @@ class Trainer():
                 f.write(f'Learning Rate: {self.lr}\n')
                 f.write(f'optim-momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
+                if optim == 'LARS':
+                    f.write(f'lars_eta: {self.lars_eta}\n')
                 f.write(f'num_views: {self.num_views}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
