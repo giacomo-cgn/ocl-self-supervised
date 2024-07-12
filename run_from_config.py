@@ -48,12 +48,12 @@ with open('config.json') as f:
             
             # Run hyperparam search
             log_dir = os.path.join(os.path.join(original_args.save_folder, f'{original_args.dataset}'),
-                            f'mbtr{original_args.tr_mb_size}_mbrep{original_args.repl_mb_size}_k{original_args.mb_passes}')
+                            f'mbtr{original_args.tr_mb_size}_mbrep{original_args.repl_mb_size}')
             search_hyperparams(args, hyperparams_dict=experiment["hyperparams_search"], parent_log_folder=log_dir, experiment_name=name)
     else:
         # Hyperparams search not needed
         log_dir = os.path.join(os.path.join(original_args.save_folder, f'{original_args.dataset}'),
-                            f'mbtr{original_args.tr_mb_size}_mbrep{original_args.repl_mb_size}_k{original_args.mb_passes}')
+                            f'mbtr{original_args.tr_mb_size}_mbrep{original_args.repl_mb_size}')
         original_args.__setattr__('save-folder', log_dir)
         original_args.__setattr__('save_folder', log_dir)
         exec_experiment(**original_args.__dict__)
