@@ -12,7 +12,7 @@ from src.backbones import get_encoder
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE
 
 from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, ReplayEMP
-from src.standalone_strategies.scale import SCALE
+from src.standalone_strategies import SCALE, DoubleResnet
 
 from src.trainer import Trainer
 
@@ -107,6 +107,46 @@ def exec_experiment(**kwargs):
                                                 vit_avg_pooling=kwargs["vit_avg_pooling"])
     
 
+
+    # Buffer
+    if not kwargs["strategy"] in buffer_free_strategies:
+        if kwargs["buffer_type"] == "default":
+            # Set default buffer for each strategy
+            if kwargs["strategy"] in ['replay', 'apre', 'arp', 'lump', 'double_resnet']:
+                kwargs["buffer_type"] = "reservoir"
+            elif kwargs["strategy"] == "minred":
+                kwargs["buffer_type"] = "minred"
+            elif kwargs["strategy"] == "scale":
+                kwargs["buffer_type"] = "scale"
+            elif kwargs["strategy"] == "replay_emp":
+                kwargs["buffer_type"] = "aug_rep"
+            else:
+                raise Exception(f'Strategy {kwargs["strategy"]} not supported')
+            
+        elif kwargs["buffer_type"] == "scale" and not kwargs["strategy"] == "scale":
+            raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'scale'")
+        elif kwargs["buffer_type"] == "auf_rep" and not kwargs["strategy"] == "replay_emp":
+            raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'replay_emp'")
+        
+        buffer = get_buffer(buffer_type=kwargs["buffer_type"], mem_size=kwargs["mem_size"],
+                            alpha_ema=kwargs["features_buffer_ema"], device=device)
+
+        # Save buffer configs
+        with open(save_pth + '/config.txt', 'a') as f:
+            f.write('\n')
+            f.write(f'---- BUFFER CONFIGS ----\n')
+            f.write(f'Buffer Type: {kwargs["buffer_type"]}\n')
+            f.write(f'Buffer Size: {kwargs["mem_size"]}\n')
+            if kwargs["buffer_type"] in ["minred", "reservoir", "fifo"]:
+                f.write(f'Features update EMA param (MinRed): {kwargs["features_buffer_ema"]}\n')
+
+
+    if kwargs["aligner_dim"] <= 0:
+        aligner_dim = kwargs["dim_pred"]
+    else:
+        aligner_dim = kwargs["aligner_dim"]
+    
+
     if not kwargs["strategy"] in standalone_strategies:
     # SSL model
         if kwargs["model"] == 'simsiam':
@@ -149,6 +189,14 @@ def exec_experiment(**kwargs):
                             emp_patch_sim=kwargs["emp_patch_sim"], save_pth=save_pth).to(device)
             num_views = kwargs["num_views"]
 
+        elif kwargs["model"] == 'double_resnet':
+            ssl_model = DoubleResnet(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
+                                    dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
+                                    image_size=image_size, buffer=buffer, device=device,
+                                    replay_mb_size=kwargs["repl_mb_size"], save_pth=save_pth).to(device)
+            num_views = 2
+            assert kwargs["strategy"] == kwargs["model"], 'Strategy and SSL model must be the same for DoubleResnet'
+
         elif kwargs["model"] == 'mae':
             ssl_model = MAE(vit_encoder=encoder,
                             image_size=image_size, patch_size=kwargs["mae_patch_size"], emb_dim=kwargs["mae_emb_dim"],
@@ -161,43 +209,7 @@ def exec_experiment(**kwargs):
             raise Exception(f'Invalid model {kwargs["model"]}')
         
 
-    # Buffer
-    if not kwargs["strategy"] in buffer_free_strategies:
-        if kwargs["buffer_type"] == "default":
-            # Set default buffer for each strategy
-            if kwargs["strategy"] in ['replay', 'apre', 'arp', 'lump']:
-                kwargs["buffer_type"] = "reservoir"
-            elif kwargs["strategy"] == "minred":
-                kwargs["buffer_type"] = "minred"
-            elif kwargs["strategy"] == "scale":
-                kwargs["buffer_type"] = "scale"
-            elif kwargs["strategy"] == "replay_emp":
-                kwargs["buffer_type"] = "aug_rep"
-            else:
-                raise Exception(f'Strategy {kwargs["strategy"]} not supported')
-            
-        elif kwargs["buffer_type"] == "scale" and not kwargs["strategy"] == "scale":
-            raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'scale'")
-        elif kwargs["buffer_type"] == "auf_rep" and not kwargs["strategy"] == "replay_emp":
-            raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'replay_emp'")
-        
-        buffer = get_buffer(buffer_type=kwargs["buffer_type"], mem_size=kwargs["mem_size"],
-                            alpha_ema=kwargs["features_buffer_ema"], device=device)
-
-        # Save buffer configs
-        with open(save_pth + '/config.txt', 'a') as f:
-            f.write('\n')
-            f.write(f'---- BUFFER CONFIGS ----\n')
-            f.write(f'Buffer Type: {kwargs["buffer_type"]}\n')
-            f.write(f'Buffer Size: {kwargs["mem_size"]}\n')
-            if kwargs["buffer_type"] in ["minred", "reservoir", "fifo"]:
-                f.write(f'Features update EMA param (MinRed): {kwargs["features_buffer_ema"]}\n')
-
-
-    if kwargs["aligner_dim"] <= 0:
-        aligner_dim = kwargs["dim_pred"]
-    else:
-        aligner_dim = kwargs["aligner_dim"]
+    
     
 
     if not kwargs["strategy"] in standalone_strategies:
@@ -251,6 +263,9 @@ def exec_experiment(**kwargs):
                             omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
                             use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
                             aligner_dim=aligner_dim)
+
+        elif kwargs["strategy"] == 'double_resnet':
+            strategy = ssl_model # SSL model and strategy are combined
             
         elif kwargs["strategy"] == 'replay_emp':
             assert kwargs["buffer_type"] == "aug_rep", "Buffer type must be 'aug_rep_buffer' (AugmentedRepresentationsBuffer) for 'replay_emp' strategy"

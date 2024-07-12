@@ -128,18 +128,19 @@ class Trainer():
                     # Strategy after forward pass
                     loss_strategy = self.strategy.after_forward(x_views_list, loss, z_list, e_list)
 
-                    # Backward pass
-                    self.optimizer.zero_grad()
-                    loss_strategy.backward()
-                    self.optimizer.step()
+                    if loss_strategy is not None:
+                        # Backward pass
+                        self.optimizer.zero_grad()
+                        loss_strategy.backward()
+                        self.optimizer.step()
 
                     self.ssl_model.after_backward()
                     self.strategy.after_backward()
 
                     # Save loss, exp_idx, epoch, mb_idx and k in csv
-                    if self.save_pth is not None:
+                    if self.save_pth is not None and loss_strategy is not None:
                         with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
-                            f.write(f'{loss.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
+                            f.write(f'{loss_strategy.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
 
                 self.strategy.after_mb_passes()
 

@@ -1,8 +1,7 @@
 from typing import Tuple
 
 class AbstractSSLModel():
-    def __init__(self, base_encoder):
-        self.base_encoder = base_encoder
+    def __init__(self):
         self.model_name = "AbstractSSLModel"
 
     def forward(self, x1, x2):
