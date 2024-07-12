@@ -12,7 +12,7 @@ from .ssl_models import AbstractSSLModel
 from .strategies import AbstractStrategy
 from .optims import init_optim
 from .schedulers import init_scheduler
-from .exec_probing import exec_probing
+from .probing import exec_probing
 
 
 class Trainer():
@@ -26,6 +26,7 @@ class Trainer():
                  lr: float = 0.01,
                  momentum: float = 0.9,
                  weight_decay: float = 1e-4,
+                 lars_eta: float = 0.005,
                  train_mb_size: int = 32,
                  device = 'cpu',
                  dataset_name: str = 'cifar100',
@@ -43,6 +44,8 @@ class Trainer():
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
+        self.lars_eta = lars_eta
+        self.scheduler = lr_scheduler
         self.train_mb_size = train_mb_size
         self.device = device
         self.dataset_name = dataset_name
@@ -57,17 +60,15 @@ class Trainer():
         if self.common_transforms:
             self.transforms = get_transforms(dataset=self.dataset_name, model='common', n_crops=num_views)
         else:
-            self.transforms = get_transforms(dataset=self.dataset_name, model=self.ssl_model.get_name())
+            self.transforms = get_transforms(dataset=self.dataset_name, model=self.ssl_model.get_name(), n_crops=num_views)
 
         # List of params to optimize
         params_to_optimize = self.ssl_model.get_params() + self.strategy.get_params()
 
         # Set up optimizer
-        self.optimizer = init_optim(optim, params_to_optimize, lr=self.lr,
-                                   momentum=self.momentum, weight_decay=self.weight_decay)
-        
-        # Set up lr scheduler (can be None)
-        self.scheduler = init_scheduler(lr_scheduler, self.optimizer, total_tr_steps)
+        self.optimizer = init_optim(optim, params_to_optimize, lr=self.lr, momentum=self.momentum,
+                                    weight_decay=self.weight_decay, lars_eta=self.lars_eta)
+
 
         if self.save_pth is not None:
             # Save model configuration
@@ -79,6 +80,8 @@ class Trainer():
                 f.write(f'Learning Rate: {self.lr}\n')
                 f.write(f'optim-momentum: {self.momentum}\n')
                 f.write(f'weight_decay: {self.weight_decay}\n')
+                if optim == 'lars':
+                    f.write(f'lars_eta: {self.lars_eta}\n')
                 f.write(f'num_views: {self.num_views}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'lr scheduler: {lr_scheduler}\n')
@@ -97,10 +100,9 @@ class Trainer():
                          done_tr_steps: int,
                          eval_every: int,
                          kwargs,
+                         probes,
                          eval_benchmark,
                          probing_tr_ratio_arr,
-                         probing_joint_pth_dict,
-                         probing_separate_pth_dict
                          ):
         # Prepare data
         exp_data = UnsupervisedDataset(dataset)
@@ -164,8 +166,8 @@ class Trainer():
             done_tr_steps += 1
             if done_tr_steps % eval_every == 0:
                 probing_idx = done_tr_steps // eval_every
-                exec_probing(kwargs, eval_benchmark, self.ssl_model.get_encoder_for_eval(), probing_idx, probing_tr_ratio_arr, self.device, probing_joint_pth_dict,
-                            probing_separate_pth_dict)
+                exec_probing(kwargs, probes, eval_benchmark, self.ssl_model.get_encoder_for_eval(), probing_idx,
+                             probing_tr_ratio_arr, self.save_pth)
                 self.ssl_model.train()
                 self.strategy.train()
 

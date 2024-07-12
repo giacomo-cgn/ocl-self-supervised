@@ -7,12 +7,12 @@ import numpy as np
 
 
 from src.get_datasets import get_benchmark, get_iid_dataset
-from src.exec_probing import exec_probing
+from src.probing import exec_probing, ProbingSklearn, ProbingPytorch
 from src.backbones import get_encoder
 
-from src.ssl_models import BarlowTwins, SimSiam, BYOL, SimCLR, EMP, MAE
+from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE
 
-from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe
+from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, ReplayEMP
 
 from src.trainer import Trainer
 
@@ -44,26 +44,6 @@ def exec_experiment(**kwargs):
     if not os.path.exists(save_pth):
         os.makedirs(save_pth)
     
-    if kwargs['probing_separate']:
-        probing_separate_pth_dict = {}
-        for probing_tr_ratio in probing_tr_ratio_arr:  
-            probing_pth = os.path.join(save_pth, f'probing_separate/probing_ratio{probing_tr_ratio}')
-            if not os.path.exists(probing_pth):
-                os.makedirs(probing_pth)
-            probing_separate_pth_dict[probing_tr_ratio] = probing_pth
-    else:
-        probing_separate_pth_dict = None
-    
-    if kwargs['probing_joint']:
-        probing_joint_pth_dict = {}
-        for probing_tr_ratio in probing_tr_ratio_arr:  
-            probing_pth = os.path.join(save_pth, f'probing_joint/probing_ratio{probing_tr_ratio}')
-            if not os.path.exists(probing_pth):
-                os.makedirs(probing_pth)
-            probing_joint_pth_dict[probing_tr_ratio] = probing_pth
-    else:
-        probing_joint_pth_dict = None
-
 
     # Save general kwargs
     with open(save_pth + '/config.txt', 'a') as f:
@@ -81,21 +61,18 @@ def exec_experiment(**kwargs):
         f.write(f'IID pretraining: {kwargs["iid"]}\n')
         f.write(f'Save final model: {kwargs["save_model_final"]}\n')
         f.write(f'-- Probing configs --\n')
-        f.write(f'Probing type: {kwargs["probing_type"]}\n')
-        f.write(f'Evaluation MB Size: {kwargs["eval_mb_size"]}\n')
-        f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')
-        f.write(f'Probing on joint exps Up To current: {kwargs["probing_joint"]}\n')
+        f.write(f'Probing after all experiences: {kwargs["probing_all_exp"]}\n')
+        f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')       
+        f.write(f'Probing on Up To current exps: {kwargs["probing_upto"]}\n')
+        f.write(f'Probing on all Joint exps: {kwargs["probing_joint"]}\n')
         f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
         f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
-        if kwargs['probing_type'] == 'knn':
-            f.write(f'KNN k: {kwargs["knn_k"]}\n')
+
         f.write(f'---- CURRICULUM CONFIGS ----\n')
         f.write(f'Curriculum Order: {kwargs["curriculum_order"]}\n')
         f.write(f'Curriculum Ratio: {kwargs["curriculum_ratio"]}\n')
         f.write(f'Curriculum Subset Ratio: {kwargs["curriculum_subset"]}\n')
         f.write(f'Same Size Continual Exps:{kwargs["same_size_continual_exps"]}\n')
-
-        
 
     # Set seed
     torch.manual_seed(kwargs["seed"])
@@ -256,6 +233,21 @@ def exec_experiment(**kwargs):
                             save_pth=save_pth).to(device)
         num_views = 2
 
+    elif kwargs["model"] == 'moco':
+        ssl_model = MoCo(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
+                            dim_proj=kwargs["dim_proj"],
+                            moco_momentum=kwargs["moco_momentum"], moco_queue_size=kwargs["moco_queue_size"],
+                            moco_temp=kwargs["moco_temp"],return_momentum_encoder=kwargs["return_momentum_encoder"],
+                            queue_type=kwargs["moco_queue_type"],
+                            save_pth=save_pth, device=device).to(device)
+        num_views = 2
+
+    elif kwargs["model"] == 'simclr':
+        ssl_model = SimCLR(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
+                            dim_proj=kwargs["dim_proj"], temperature=kwargs["simclr_temp"],
+                            save_pth=save_pth).to(device)
+        num_views = 2
+
     elif kwargs["model"] == 'emp':
         ssl_model = EMP(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
                         dim_proj=kwargs["dim_proj"], n_patches=kwargs["num_views"],
@@ -285,9 +277,15 @@ def exec_experiment(**kwargs):
                 kwargs["buffer_type"] = "minred"
             elif kwargs["strategy"] == "scale":
                 kwargs["buffer_type"] = "scale"
+            elif kwargs["strategy"] == "replay_emp":
+                kwargs["buffer_type"] = "aug_rep"
+            else:
+                raise Exception(f'Strategy {kwargs["strategy"]} not supported')
             
         elif kwargs["buffer_type"] == "scale" and not kwargs["strategy"] == "scale":
             raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'scale'")
+        elif kwargs["buffer_type"] == "auf_rep" and not kwargs["strategy"] == "replay_emp":
+            raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'replay_emp'")
         
         buffer = get_buffer(buffer_type=kwargs["buffer_type"], mem_size=kwargs["mem_size"],
                             alpha_ema=kwargs["features_buffer_ema"], device=device)
@@ -341,50 +339,73 @@ def exec_experiment(**kwargs):
                         buffer=buffer,
                         alpha_lump=kwargs["alpha_lump"])
         
-    elif kwargs["strategy"] == 'minred':
-        strategy = MinRed(ssl_model=ssl_model, device=device, save_pth=save_pth,
-                        buffer=buffer, replay_mb_size=kwargs["repl_mb_size"])
-    
     elif kwargs["strategy"] == 'cassle':
         strategy = CaSSLe(ssl_model=ssl_model, device=device, save_pth=save_pth,
                         omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
                         use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
                         aligner_dim=aligner_dim)
+        
+    elif kwargs["strategy"] == 'replay_emp':
+        assert kwargs["buffer_type"] == "aug_rep", "Buffer type must be 'aug_rep_buffer' (AugmentedRepresentationsBuffer) for 'replay_emp' strategy"
+        assert kwargs["model"] == 'emp', "SSL model has to be 'emp' for 'replay_emp' strategy"
+        strategy = ReplayEMP(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                            emp_loss=ssl_model.get_criterion()[0], emp_tcr_param=kwargs["emp_tcr_param"],
+                            emp_tcr_eps=kwargs["emp_tcr_eps"], emp_patch_sim=kwargs["emp_patch_sim"])
 
     else:
         raise Exception(f'Strategy {kwargs["strategy"]} not supported')
 
     # Set up the trainer wrapper
     trainer = Trainer(ssl_model=ssl_model, strategy=strategy, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                    total_tr_steps=total_training_steps, lr_scheduler=kwargs["lr_scheduler"],
-                    weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"],
-                    device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                    save_model=False, common_transforms=kwargs["common_transforms"], num_views=num_views)
+                        lars_eta= kwargs["lars_eta"],
+                        weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"],
+                        device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                        save_model=False, common_transforms=kwargs["common_transforms"], num_views=num_views)
+    
 
+    # Init probing
+    if kwargs["probing_upto"] and not kwargs["probing_all_exp"]:
+        raise Exception("Without --probing-all-exp, probing upto is equal to probing joint, please set --probing-upto to false or --probing-all-exp to true")
+    
+    probes = []
+    if kwargs["probing_rr"]:
+         probes.append(ProbingSklearn(probe_type='rr', device=device, mb_size=kwargs["eval_mb_size"],
+                               seed=kwargs["seed"], config_save_pth=save_pth))
+    if kwargs["probing_knn"]:
+         probes.append(ProbingSklearn(probe_type='knn', device=device, mb_size=kwargs["eval_mb_size"],
+                               knn_k=kwargs["knn_k"], seed=kwargs["seed"], config_save_pth=save_pth))
+         
+    if kwargs["probing_torch"]:
+        probes.append(ProbingPytorch(device=device, mb_size=kwargs["eval_mb_size"], config_save_pth=save_pth,
+                                 dim_encoder_features=dim_encoder_features, lr=kwargs["probe_lr"],
+                                 lr_patience=kwargs["probe_lr_patience"], lr_factor=kwargs["probe_lr_factor"],
+                                 lr_min=kwargs["probe_lr_min"], probing_epochs=kwargs["probe_epochs"]))
+       
 
     # Self supervised training over the experiences
     done_tr_steps = 0
     for exp_idx, (exp_dataset, tr_steps, probe_after) in enumerate(exp_list):
         print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
         trained_ssl_model = trainer.train_experience(dataset=exp_dataset, exp_idx=exp_idx, tr_steps=tr_steps,
-                                                     done_tr_steps=done_tr_steps, kwargs=kwargs, eval_benchmark=benchmark,
-                                                     probing_tr_ratio_arr=probing_tr_ratio_arr, probing_joint_pth_dict=probing_joint_pth_dict,
-                                                     probing_separate_pth_dict=probing_separate_pth_dict, eval_every=kwargs["eval_every"])
+                                                     done_tr_steps=done_tr_steps, eval_every=kwargs["eval_every"],
+                                                     kwargs=kwargs, probes=probes, eval_benchmark=benchmark,
+                                                     probing_tr_ratio_arr=probing_tr_ratio_arr)
         done_tr_steps += tr_steps
-
-        # if probe_after:
-        #      exec_probing(kwargs, benchmark, trained_ssl_model.get_encoder_for_eval(), exp_idx, probing_tr_ratio_arr, device, probing_joint_pth_dict,
-        #     probing_separate_pth_dict)
-
                 
         
     # Calculate and save final probing scores
-    if kwargs['probing_separate']:
-        write_final_scores(folder_input_path=os.path.join(save_pth, 'probing_separate'),
-                           output_file=os.path.join(save_pth, 'final_scores_separate.csv'))
-    if kwargs['probing_joint']:
-        write_final_scores(folder_input_path=os.path.join(save_pth, 'probing_joint'),
-                           output_file=os.path.join(save_pth, 'final_scores_joint.csv'))
+    for probe in probes:
+        probe_pth = os.path.join(save_pth, f'probe_{probe.get_name()}')
+        if kwargs['probing_separate']:
+            write_final_scores(probe=probe.get_name(), folder_input_path=os.path.join(probe_pth, 'probing_separate'),
+                            output_file=os.path.join(save_pth, 'final_scores_separate.csv'))
+        if kwargs['probing_joint']:
+            write_final_scores(probe=probe.get_name(), folder_input_path=os.path.join(probe_pth, 'probing_joint'),
+                            output_file=os.path.join(save_pth, 'final_scores_joint.csv'))
+        if kwargs['probing_upto'] and not kwargs["probing_joint"]:
+            write_final_scores(probe=probe.get_name(), folder_input_path=os.path.join(probe_pth, 'probing_upto'),
+                            output_file=os.path.join(save_pth, 'final_scores_joint.csv'))
         
     # Save final pretrained model
     if kwargs["save_model_final"] and not kwargs["random_encoder"]:
@@ -393,8 +414,6 @@ def exec_experiment(**kwargs):
 
 
     return save_pth
-
-
 
 
 

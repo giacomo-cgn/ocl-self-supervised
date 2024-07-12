@@ -145,6 +145,31 @@ def get_transforms_byol(dataset: str = 'cifar100'):
             # GaussianBlur(sigma=[.1, 2.]),
         ]
     return all_transforms
+
+def get_transforms_emp(dataset: str = 'cifar100'):
+    """Returns EMP augmentations with dataset specific crop."""
+    normalize = transforms.Normalize([0.5,0.5,0.5], [0.5,0.5,0.5])
+
+    if dataset in ['cifar10', 'cifar100']:
+        blur_kernel = 5
+        crop = transforms.RandomResizedCrop(32,scale=(0.25, 0.25), ratio=(1,1))
+        
+    elif dataset in ['imagenet', 'imagenet100']:
+        blur_kernel = 23 # Same as SwAV
+        transforms.RandomResizedCrop(224, scale=(0.25, 0.25),
+                                     interpolation=transforms.InterpolationMode.BICUBIC)
+        
+    
+    all_transforms = [   
+        crop,
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.2)], p=0.8),
+        transforms.RandomGrayscale(p=0.2),
+        transforms.RandomApply([transforms.GaussianBlur(blur_kernel)], p=0.1),
+        transforms.RandomSolarize(threshold=0.5 ,p=0.1), # threshold chosen from PIL solarize implementation
+        normalize
+    ]
+    return all_transforms
  
 
 def get_common_transforms(dataset: str = 'cifar100'):
@@ -175,6 +200,9 @@ def get_transforms(dataset: str, model: str, n_crops: int = 2):
 
     elif model == "byol":
         all_transforms = get_transforms_byol(dataset)
+
+    elif model in ['emp']:
+        all_transforms = get_transforms_emp(dataset) 
 
     elif model == "common":
         all_transforms = get_common_transforms(dataset)

@@ -26,15 +26,16 @@ def update_ema_params(model_params, ema_model_params, momentum):
     
 
 
-def write_final_scores(folder_input_path, output_file):
+def write_final_scores(probe, folder_input_path, output_file):
     """
     Report final aggregated scores of the probing
 
     """
     # output_file = os.path.join(folder_path, "final_scores.csv")
-    with open(output_file, "w") as output_f:
+    with open(output_file, "a") as output_f:
         # Write header
-        output_f.write("probe_ratio,avg_val_acc,avg_test_acc\n")
+        if not os.path.exists(output_file) or os.path.getsize(output_file) == 0:
+            output_f.write("probe_type,probe_ratio,avg_val_acc,avg_test_acc\n")
 
         # Get all subfolder paths starting with "probing_ratio"
         probing_ratios_subfolders = [os.path.join(folder_input_path, f) for f in os.listdir(folder_input_path) 
@@ -59,7 +60,7 @@ def write_final_scores(folder_input_path, output_file):
             final_avg_val_acc = final_df['val_acc'].mean()
 
 
-            output_f.write(f"{probing_tr_ratio},{final_avg_val_acc},{final_avg_test_acc}\n")
+            output_f.write(f"{probe},{probing_tr_ratio},{final_avg_val_acc:.4f},{final_avg_test_acc:.4f}\n")
 
 
 def read_command_line_args():
@@ -81,11 +82,12 @@ def read_command_line_args():
     parser.add_argument('--strategy', type=str, default='no_strategy')
     parser.add_argument('--model', type=str, default='simsiam')
     parser.add_argument('--encoder', type=str, default='resnet18')
-    parser.add_argument('--optim', type=str, default='SGD')
     parser.add_argument('--lr-scheduler', type=str, default=None)
+    parser.add_argument('--optim', type=str, default='sgd')
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--optim-momentum', type=float, default=0.9)
     parser.add_argument('--weight-decay', type=float, default=1e-4)
+    parser.add_argument('--lars-eta', type=float, default=0.005)
     parser.add_argument('--dataset', type=str, default='cifar100')
     parser.add_argument('--dataset-root', type=str, default='./data')
     parser.add_argument('--num-exps', type=int, default=20)
@@ -100,14 +102,23 @@ def read_command_line_args():
     parser.add_argument('--save-model-final', type=str_to_bool, default=True)
 
     # Probing params
+    parser.add_argument('--probing-all-exp', type=str_to_bool, default=False)
     parser.add_argument('--eval-mb-size', type=int, default=512)
-    parser.add_argument('--probing-type', type=str, default='ridge_regression')
+    parser.add_argument('--probing-rr', type=str_to_bool, default=True)
+    parser.add_argument('--probing-knn', type=str_to_bool, default=False)
+    parser.add_argument('--probing-torch', type=str_to_bool, default=True)
     parser.add_argument('--probing-separate', type=str_to_bool, default=True)
+    parser.add_argument('--probing-upto', type=str_to_bool, default=False)
     parser.add_argument('--probing-joint', type=str_to_bool, default=True)
     parser.add_argument('--probing-val-ratio', type=float, default=0.1)
     parser.add_argument('--use-probing-tr-ratios', type=str_to_bool, default=False)
     parser.add_argument('--knn-k', type=int, default=50)
-
+    parser.add_argument('--probe-lr', type=float, default=5e-2)
+    parser.add_argument('--probe-lr-patience', type=int, default=5)
+    parser.add_argument('--probe-lr-factor', type=float, default=3.0)
+    parser.add_argument('--probe-lr-min', type=float, default=1e-4)
+    parser.add_argument('--probe-epochs', type=int, default=100)
+    
 
     # Replay params
     parser.add_argument('--buffer-type', type=str, default='default')
@@ -130,8 +141,11 @@ def read_command_line_args():
     parser.add_argument('--emp-tcr-param', type=float, default=1)
     parser.add_argument('--emp-tcr-eps', type=float, default=0.2)
     parser.add_argument('--emp-patch-sim', type=float, default=200)
+    parser.add_argument('--moco-momentum', type=float, default=0.999)
+    parser.add_argument('--moco-queue-size', type=int, default=2000)
+    parser.add_argument('--moco-temp', type=float, default=0.07)
+    parser.add_argument('--moco-queue-type', type=str, default='fifo')
     parser.add_argument('--simclr-temp', type=float, default=0.5)
-
     
     # MAE params
     parser.add_argument('--mae-patch-size', type=int, default=2)                

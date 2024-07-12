@@ -14,6 +14,15 @@ They are all subclasses of `AbstractSSLModel`. It can be specified with the comm
 
 ### Encoder
 Some models may use different backbone encoders (e.g. different ResNets). Those can be specified with the command `--encoder`.
+Currently implemented:
+- **ResNet-18**,
+- **ResNet-9**,
+- **Wide ResNet-18** (2x the block features),
+- **Wide ResNet-9** (2x the block features),
+- **Slim ResNet-18** (~1/3 the block features),
+- **Slim ResNet-9** (~1/3 the block features),
+- **ViT**.
+
 
 ### Strategy
 The strategy handles how to regularize the model to counter forgetting across experiences. All strategies are implemented as subclasses of `AbstractStrategy`.

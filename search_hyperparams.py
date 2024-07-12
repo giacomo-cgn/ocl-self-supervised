@@ -5,7 +5,7 @@ import pandas as pd
 
 from main import exec_experiment
 
-def search_hyperparams(args, hyperparams_dict=None, use_eval_on_joint_probing=True, parent_log_folder='./logs', experiment_name=''):
+def search_hyperparams(args, hyperparams_dict=None, parent_log_folder='./logs', experiment_name=''):
 
      standalone_strategies = ['scale']
 
@@ -72,13 +72,20 @@ def search_hyperparams(args, hyperparams_dict=None, use_eval_on_joint_probing=Tr
           experiment_save_folder = exec_experiment(**args.__dict__)
 
           # Recover results from experiment
-          if use_eval_on_joint_probing:
-               results_df = pd.read_csv(os.path.join(experiment_save_folder, 'final_scores_joint.csv'))
-          else:
-               results_df = pd.read_csv(os.path.join(experiment_save_folder, 'final_scores_separate.csv'))
-
+          # Select preferred probing configuration
+          probe_config_preferences = ["joint", "upto", "separate"]
+          for probing_config in probe_config_preferences:
+               if args.__dict__[f'probing_{probing_config}']:
+                    results_df = pd.read_csv(os.path.join(experiment_save_folder, f'final_scores_{probing_config}.csv'))
+                    break
           # Only row with probe_ratio = 1
           results_df = results_df[results_df['probe_ratio'] == 1]
+          # Select preferred probe type
+          probe_type_preferences = ["torch", "rr", "knn"]
+          for probe_type in probe_type_preferences:
+               if probe_type in results_df.columns:
+                    results_df = results_df[results_df[probe_type] == results_df[probe_type].max()]
+                    break
 
           val_acc = results_df['avg_val_acc'].values[0]
           test_acc = results_df['avg_test_acc'].values[0]
