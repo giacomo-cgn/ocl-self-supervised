@@ -105,18 +105,20 @@ class Trainer():
         # Prepare data
         exp_data = UnsupervisedDataset(dataset)
         sampler = RandomSampler(dataset, replacement=True, num_samples=int(1e10))
-        data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, sampler=sampler)
+        data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, sampler=sampler, num_workers=8)
 
         self.ssl_model.train()
         self.strategy.train()
 
         self.strategy.before_experience()
 
+        training_loader_iter = iter(data_loader)
+
         print('TR STEPS:', tr_steps)
 
         for tr_step in tqdm(range(tr_steps)):
 
-            stream_mbatch = data_loader.__iter__().__next__()
+            stream_mbatch = next(training_loader_iter)
 
             stream_mbatch = stream_mbatch.to(self.device)
 
@@ -161,12 +163,11 @@ class Trainer():
 
             done_tr_steps += 1
             if done_tr_steps % eval_every == 0:
-               probing_idx = done_tr_steps // eval_every
-               exec_probing(kwargs, eval_benchmark, self.ssl_model.get_encoder_for_eval(), probing_idx, probing_tr_ratio_arr, self.device, probing_joint_pth_dict,
-                probing_separate_pth_dict)
-               
-            self.ssl_model.train()
-            self.strategy.train()
+                probing_idx = done_tr_steps // eval_every
+                exec_probing(kwargs, eval_benchmark, self.ssl_model.get_encoder_for_eval(), probing_idx, probing_tr_ratio_arr, self.device, probing_joint_pth_dict,
+                            probing_separate_pth_dict)
+                self.ssl_model.train()
+                self.strategy.train()
 
 
         # Save model and optimizer state
