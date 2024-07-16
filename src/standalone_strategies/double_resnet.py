@@ -19,6 +19,7 @@ class DoubleResnet(AbstractStrategy, AbstractSSLModel):
                  buffer = None,
                  device: str = 'cpu',
                  replay_mb_size: int = 32,
+                 return_buffer_encoder: bool = False,
                  save_pth: str = None):
         
         # nn.Module.__init__(self)
@@ -33,6 +34,7 @@ class DoubleResnet(AbstractStrategy, AbstractSSLModel):
         self.model_name = 'simsiam'
         self.dim_projector = dim_proj
         self.dim_predictor = dim_pred
+        self.return_buffer_encoder = return_buffer_encoder
 
         self.strategy_name = 'double_resnet'
         self.model_name = 'double_resnet'       
@@ -60,9 +62,10 @@ class DoubleResnet(AbstractStrategy, AbstractSSLModel):
         
         self.buffer_projector = copy.deepcopy(self.online_projector)
         self.buffer_predictor = copy.deepcopy(self.predictor)
+        self.buffer_encoder = copy.deepcopy(self.online_encoder)
         
         # Initialize Buffer-trained ResNet-9
-        self.buffer_encoder, buffer_dim_features = get_encoder('resnet9', image_size, self.model_name, False)
+        # self.buffer_encoder, buffer_dim_features = get_encoder('resnet9', image_size, self.model_name, False)
 
         if self.save_pth is not None:
             # Save model configuration
@@ -133,10 +136,16 @@ class DoubleResnet(AbstractStrategy, AbstractSSLModel):
        return self.online_encoder
     
     def get_encoder_for_eval(self):
-        return self.online_encoder
+        if self.return_buffer_encoder:
+            return self.buffer_encoder
+        else:
+            return self.online_encoder
     
     def get_projector(self):
-        return self.online_projector
+        if self.return_buffer_encoder:
+            return self.buffer_projector
+        else:
+            return self.online_projector
         
     def get_embedding_dim(self):
         return self.online_projector[0].weight.shape[1]

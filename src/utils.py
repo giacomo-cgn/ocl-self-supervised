@@ -171,6 +171,9 @@ def read_command_line_args():
     # Buffer Features update with EMA param (originally alpha from minred)
     parser.add_argument('--features-buffer-ema', type=float, default=0.5)
 
+    # double_resnet params
+    parser.add_argument('--return-buffer-encoder', type=str_to_bool, default=False)
+
 
     args = parser.parse_args()
 

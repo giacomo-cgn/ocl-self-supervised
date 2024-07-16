@@ -193,7 +193,8 @@ def exec_experiment(**kwargs):
             ssl_model = DoubleResnet(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
                                     dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
                                     image_size=image_size, buffer=buffer, device=device,
-                                    replay_mb_size=kwargs["repl_mb_size"], save_pth=save_pth).to(device)
+                                    replay_mb_size=kwargs["repl_mb_size"], return_buffer_encoder=kwargs["return_buffer_encoder"],
+                                    save_pth=save_pth).to(device)
             num_views = 2
             assert kwargs["strategy"] == kwargs["model"], 'Strategy and SSL model must be the same for DoubleResnet'
 
