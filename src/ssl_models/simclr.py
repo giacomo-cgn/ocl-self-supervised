@@ -13,7 +13,7 @@ class SimCLR(nn.Module, AbstractSSLModel):
         self.encoder = base_encoder
         self.save_pth = save_pth
         self.model_name = 'simclr'
-        self.dim_projector = dim_proj,
+        self.dim_projector = dim_proj
         self.temperature = temperature
 
         # Set up criterion
