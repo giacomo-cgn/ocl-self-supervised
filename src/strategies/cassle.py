@@ -72,6 +72,7 @@ class CaSSLe(AbstractStrategy):
                 f.write(f'align_criterion: {self.align_criterion_name}\n')
                 f.write(f'use_aligner: {self.use_aligner}\n')
                 f.write(f'align_after_proj: {self.align_after_proj}\n')
+                f.write(f'aligner_dim: {self.aligner_dim}\n')
 
 
     def get_params(self):

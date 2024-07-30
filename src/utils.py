@@ -134,6 +134,11 @@ def read_command_line_args():
     parser.add_argument('--align-after-proj', type=str_to_bool, default=True)
     parser.add_argument('--aligner-dim', type=int, default=512) # If set <= 0 it uses pred_dim instead
 
+    # ARP hybrid buffer params
+    parser.add_argument('--fifo-buffer-ratio', type=float, default=0.25)
+    parser.add_argument('--arp-hybrid-fifo-mb-ratio', type=float, default=0.5)
+
+
     # SSL models specific params
     parser.add_argument('--num-views', type=int, default=2) # Most Instance Discrimination SSL methods use 2, but can vary (e.g EMP)
     parser.add_argument('--lambd', type=float, default=5e-3) # For Barlow Twins

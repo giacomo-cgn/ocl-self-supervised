@@ -11,7 +11,7 @@ from src.backbones import get_encoder
 
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE
 
-from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, ReplayEMP
+from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, ReplayEMP, ARPHybrid
 from src.standalone_strategies import SCALE, DoubleResnet
 
 from src.trainer import Trainer
@@ -120,16 +120,19 @@ def exec_experiment(**kwargs):
                 kwargs["buffer_type"] = "scale"
             elif kwargs["strategy"] == "replay_emp":
                 kwargs["buffer_type"] = "aug_rep"
+            elif kwargs["strategy"] == "arp_hybrid":
+                kwargs["buffer_type"] = "hybrid_minred_fifo"
             else:
                 raise Exception(f'Strategy {kwargs["strategy"]} not supported')
-            
+        # Enforce buffer contraints for certain strategies  
         elif kwargs["buffer_type"] == "scale" and not kwargs["strategy"] == "scale":
             raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'scale'")
-        elif kwargs["buffer_type"] == "auf_rep" and not kwargs["strategy"] == "replay_emp":
+        elif kwargs["buffer_type"] == "aug_rep" and not kwargs["strategy"] == "replay_emp":
             raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'replay_emp'")
         
         buffer = get_buffer(buffer_type=kwargs["buffer_type"], mem_size=kwargs["mem_size"],
-                            alpha_ema=kwargs["features_buffer_ema"], device=device)
+                            alpha_ema=kwargs["features_buffer_ema"], fifo_buffer_ratio=kwargs["fifo_buffer_ratio"],
+                            device=device)
 
         # Save buffer configs
         with open(save_pth + '/config.txt', 'a') as f:
@@ -139,6 +142,8 @@ def exec_experiment(**kwargs):
             f.write(f'Buffer Size: {kwargs["mem_size"]}\n')
             if kwargs["buffer_type"] in ["minred", "reservoir", "fifo"]:
                 f.write(f'Features update EMA param (MinRed): {kwargs["features_buffer_ema"]}\n')
+            if kwargs["buffer_type"] in ['hybrid_minred_fifo']:
+                f.write(f'FIFO Buffer Ratio: {kwargs["fifo_buffer_ratio"]}\n')
 
 
     if kwargs["aligner_dim"] <= 0:
@@ -275,6 +280,14 @@ def exec_experiment(**kwargs):
                                 buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
                                 emp_loss=ssl_model.get_criterion()[0], emp_tcr_param=kwargs["emp_tcr_param"],
                                 emp_tcr_eps=kwargs["emp_tcr_eps"], emp_patch_sim=kwargs["emp_patch_sim"])
+            
+        elif kwargs["strategy"] == 'arp_hybrid':
+            assert kwargs["buffer_type"] == "hybrid_minred_fifo", "Buffer type must be 'hybrid_minred_fifo' (HybridMinRedFIFOBuffer) for 'arp_hybrid' strategy"
+            strategy = ARPHybrid(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                                buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                                omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
+                                use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"],
+                                aligner_dim=aligner_dim, fifo_samples_ratio=kwargs["arp_hybrid_fifo_mb_ratio"])
 
         else:
             raise Exception(f'Strategy {kwargs["strategy"]} not supported')

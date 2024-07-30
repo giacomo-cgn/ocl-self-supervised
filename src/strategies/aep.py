@@ -84,6 +84,7 @@ class AEP(AbstractStrategy):
                 f.write(f'momentum_ema: {self.momentum_ema}\n')
                 f.write(f'use_aligner: {self.use_aligner}\n')
                 f.write(f'align_after_proj: {self.align_after_proj}\n')
+                f.write(f'aligner_dim: {self.aligner_dim}\n')
 
     
     def get_params(self):

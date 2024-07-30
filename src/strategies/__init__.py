@@ -8,3 +8,4 @@ from .lump import LUMP
 from .minred import MinRed
 from .cassle import CaSSLe
 from .replay_emp import ReplayEMP
+from .arp_hybrid import ARPHybrid
