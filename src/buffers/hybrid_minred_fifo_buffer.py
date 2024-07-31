@@ -62,26 +62,27 @@ class HybridMinRedFIFOBuffer:
                     aligner.train()
                 else:
                     aligned_fifo = self.buffer_features_fifo
-
-                all_features = torch.cat((aligned_fifo, self.buffer_features_minred), dim=0)
                 
                 # Cosine distance = 1 - cosine similarity
-                tensor_normalized = torch.nn.functional.normalize(all_features, p=2, dim=1)
-                d = 1- torch.mm(tensor_normalized, tensor_normalized.t())
+                fifo_norm = torch.nn.functional.normalize(aligned_fifo, p=2, dim=1)
+                minred_norm = torch.nn.functional.normalize(self.buffer_features_minred, p=2, dim=1)
+                d_fifo_minred = 1 - torch.mm(fifo_norm, minred_norm.t())
+                d_minred = 1 - torch.mm(minred_norm, minred_norm.t())
                 # Set d diagonal to 1 (maximum distance for cosine distance)
-                d = d.fill_diagonal_(1.0)
-                # Nearest neighbor among the MinRed buffer for each sample
-                nearneigh, _ = torch.min(d[:, -self.buffer_minred.size(0):], dim=1)
-
+                d_minred = d_minred.fill_diagonal_(1.0)
+                # Nearest neighbor among the MinRed buffer for MinRed sample
+                nearneigh_minred, _ = torch.min(d_minred, dim=1)
+                # Nearest MinRed nieghbor of each FIFO sample
+                nearneigh_fifo, _ = torch.min(d_fifo_minred, dim=1)
 
                 # Select minimum distance between minred samples and maximum distance among fifo samples
-                max_dist_fifo, max_indices_fifo = torch.min(nearneigh[:-self.buffer_minred.size(0)], dim=0)
-                min_dist_minred, min_indices_minred = torch.min(nearneigh[-self.buffer_minred.size(0):], dim=0)
+                max_dist_fifo, max_indices_fifo = torch.min(nearneigh_fifo, dim=0)
+                min_dist_minred, min_indices_minred = torch.min(nearneigh_minred, dim=0)
 
                 if max_dist_fifo > min_dist_minred:
                     # Get index of sample to remove
                     idx_to_remove_fifo = max_indices_fifo.item()
-                    idx_to_remove_minred = min_indices_minred.item() - self.buffer_fifo.size(0)
+                    idx_to_remove_minred = min_indices_minred.item()
 
                     # Substitute sample in MinRed buffer with sample in FIFO buffer
                     self.buffer_minred[idx_to_remove_minred] = self.buffer_fifo[idx_to_remove_fifo]
@@ -96,6 +97,7 @@ class HybridMinRedFIFOBuffer:
 
             if self.buffer_fifo.size(0) > self.fifo_buffer_size:
                 self.buffer_fifo = self.buffer_fifo[:self.fifo_buffer_size]
+                self.buffer_features_fifo = self.buffer_features_fifo[:self.fifo_buffer_size]
 
 
 
