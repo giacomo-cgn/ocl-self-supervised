@@ -137,6 +137,7 @@ def read_command_line_args():
     # ARP hybrid buffer params
     parser.add_argument('--fifo-buffer-ratio', type=float, default=0.25)
     parser.add_argument('--arp-hybrid-fifo-mb-ratio', type=float, default=0.5)
+    parser.add_argument('--use-aligner-buffer', type=str_to_bool, default=True)
 
 
     # SSL models specific params

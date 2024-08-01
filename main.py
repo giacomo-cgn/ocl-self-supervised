@@ -287,7 +287,8 @@ def exec_experiment(**kwargs):
                                 buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
                                 omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
                                 use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"],
-                                aligner_dim=aligner_dim, fifo_samples_ratio=kwargs["arp_hybrid_fifo_mb_ratio"])
+                                aligner_dim=aligner_dim, fifo_samples_ratio=kwargs["arp_hybrid_fifo_mb_ratio"],
+                                use_aligner_buffer=kwargs["use_aligner_buffer"])
 
         else:
             raise Exception(f'Strategy {kwargs["strategy"]} not supported')

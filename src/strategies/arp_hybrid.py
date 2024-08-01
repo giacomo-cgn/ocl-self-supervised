@@ -20,7 +20,8 @@ class ARPHybrid(AbstractStrategy):
                  use_aligner: bool = True,
                  align_after_proj: bool = True,
                  aligner_dim: int = 512,
-                 fifo_samples_ratio: float = 0.5
+                 fifo_samples_ratio: float = 0.5,
+                 use_aligner_buffer: float = True
                 ):
 
         super().__init__()
@@ -35,6 +36,7 @@ class ARPHybrid(AbstractStrategy):
         self.align_after_proj = align_after_proj
         self.aligner_dim = aligner_dim
         self.fifo_samples_ratio = fifo_samples_ratio
+        self.use_aligner_buffer = use_aligner_buffer
 
         self.strategy_name = 'arp_hybrid'
 
@@ -80,6 +82,7 @@ class ARPHybrid(AbstractStrategy):
                 f.write(f'align_after_proj: {self.align_after_proj}\n')
                 f.write(f'aligner_dim: {self.aligner_dim}\n')
                 f.write(f'arp hybrid fifo_samples_ratio: {self.fifo_samples_ratio}\n')
+                f.write(f'use_aligner_buffer: {self.use_aligner_buffer}\n')
 
     def get_params(self):
         """Get trainable parameters of the strategy.
@@ -100,7 +103,7 @@ class ARPHybrid(AbstractStrategy):
                 z_mbatch = self.ssl_model.get_projector()(e_mbatch)
 
             # Add stream minibatch and features to buffer
-            if self.buffer.using_only_fifo:
+            if self.buffer.using_only_fifo or not self.use_aligner_buffer:
                 self.buffer.add(stream_mbatch.detach(), z_mbatch.detach())
             else:
                 self.buffer.add(stream_mbatch.detach(), z_mbatch.detach(), self.alignment_projector)
