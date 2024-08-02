@@ -79,7 +79,7 @@ class SimSiam(nn.Module, AbstractSSLModel):
         return self.dim_projector
     
     def get_criterion(self):
-        return self.criterion, True
+        return lambda x, y: -self.criterion(x,y), True
     
     def get_name(self):
         return self.model_name

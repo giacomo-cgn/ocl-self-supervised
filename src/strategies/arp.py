@@ -45,7 +45,7 @@ class ARP(AbstractStrategy):
         elif self.align_criterion_name == 'mse':
             self.align_criterion = nn.MSELoss()
         elif self.align_criterion_name == 'cosine':
-            self.align_criterion = nn.CosineSimilarity(dim=1)
+            self.align_criterion = lambda x,y: -nn.CosineSimilarity(dim=1)(x,y)
         else:
             raise Exception(f"Invalid alignment criterion: {self.align_criterion_name}")
 
