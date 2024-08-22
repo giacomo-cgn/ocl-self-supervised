@@ -91,6 +91,7 @@ def read_command_line_args():
     parser.add_argument('--dataset-root', type=str, default='./data')
     parser.add_argument('--num-exps', type=int, default=20)
     parser.add_argument('--save-folder', type=str, default='./logs')
+    parser.add_argument('--config-path', type=str, default='./config.json')
     parser.add_argument('--dim-proj', type=int, default=2048)
     parser.add_argument('--dim-pred', type=int, default=512)
     parser.add_argument('--epochs', type=int, default=1)

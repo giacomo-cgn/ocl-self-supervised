@@ -14,7 +14,7 @@ print("READING CONFIG ...")
 
 
 # Read config.json
-with open('config.json') as f:
+with open(original_args.config_path) as f:
     config = json.load(f)
 
     for k, v in config["common_params"].items():
