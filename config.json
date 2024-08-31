@@ -2,8 +2,8 @@
     "common_params":
     {
         "gpu-idx": 0,
-        "dataset": "cifar100",
-        "dataset-root": "/data/cossu/imagenet/imagenet",
+        "dataset": "imagenet100",
+        "dataset-root": "/home/giacomo/Ai/imagenet",
         "mb-passes": 1,
         "epochs": 83,
         "tr-mb-size": 138,
@@ -16,7 +16,7 @@
     "experiments":
     [
         {
-            "model": "mae",
+            "model": "simsiam",
             "strategy" : "no_strategy",
             "iid": true,
             "hyperparams_search": {

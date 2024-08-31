@@ -6,6 +6,8 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import models
 
+from avalanche.evaluation.metrics import Forgetting
+
 # Convert Avalanche dataset with labels and task labels to Pytorch dataset with only input tensors
 class UnsupervisedDataset(Dataset):
     def __init__(self, data):
@@ -23,6 +25,40 @@ class UnsupervisedDataset(Dataset):
 def update_ema_params(model_params, ema_model_params, momentum):
     for po, pm in zip(model_params, ema_model_params):
             pm.data.mul_(momentum).add_(po.data, alpha=(1. - momentum))
+
+
+def calculate_forgetting(save_pth, num_exps, probing_tr_ratio_arr=[1]):
+     # Init forgetting
+    forgetting_val = Forgetting()
+    forgetting_test = Forgetting()
+    for probe_tr_ratio in probing_tr_ratio_arr:
+        separate_pth = os.path.join(save_pth, f'probing_separate/probing_ratio{probe_tr_ratio}')
+        forgetting_folder = os.path.join(save_pth, f'forgetting/probing_ratio{probe_tr_ratio}')
+        if not os.path.exists(forgetting_folder):
+            os.makedirs(forgetting_folder)
+        with open(os.path.join(forgetting_folder, 'forgetting.csv'), 'a') as f:
+            f.write('exp_idx,val_forgetting,test_forgetting\n')
+        final_df = pd.read_csv(os.path.join(separate_pth, f'probe_exp_{num_exps-1}.csv'))
+        for exp_idx in range(num_exps):
+            initial_df = pd.read_csv(os.path.join(separate_pth, f'probe_exp_{exp_idx}.csv'))
+            # Take the row where probing_exp_idx = exp_idx  
+            initial_score_val = initial_df[initial_df['probing_exp_idx'] == exp_idx]['val_acc'].values[0]
+            initial_score_test = initial_df[initial_df['probing_exp_idx'] == exp_idx]['test_acc'].values[0]
+            forgetting_val.update_initial(k=exp_idx, v=initial_score_val)
+            forgetting_test.update_initial(k=exp_idx, v=initial_score_test)
+            final_score_val = final_df[final_df['probing_exp_idx'] == exp_idx]['val_acc'].values[0]
+            final_score_test = final_df[final_df['probing_exp_idx'] == exp_idx]['test_acc'].values[0]
+            forgetting_val.update_last(k=exp_idx, v=final_score_val)
+            forgetting_test.update_last(k=exp_idx, v=final_score_test)
+
+            with open(os.path.join(forgetting_folder, 'forgetting.csv'), 'a') as f:
+                f.write(f'{exp_idx},{forgetting_val.result()[exp_idx]},{forgetting_test.result()[exp_idx]}\n')
+
+        with open(os.path.join(forgetting_folder, 'avg_forgetting.csv'), 'a') as f:
+            f.write('val_avg_forgetting,test_avg_forgetting\n')
+            avg_val = sum(forgetting_val.result().values()) / len(forgetting_val.result().values())
+            avg_test = sum(forgetting_test.result().values()) / len(forgetting_test.result().values())
+            f.write(f'{avg_val},{avg_test}\n')
     
 
 

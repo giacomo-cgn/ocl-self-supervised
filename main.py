@@ -4,6 +4,7 @@ import os
 import datetime
 import tqdm as tqdm
 import numpy as np
+import pandas as pd
 
 from src.get_datasets import get_benchmark, get_iid_dataset
 from src.probing import exec_probing, ProbingSklearn, ProbingPytorch
@@ -18,7 +19,7 @@ from src.trainer import Trainer
 
 from src.buffers import get_buffer
 
-from src.utils import write_final_scores, read_command_line_args
+from src.utils import write_final_scores, read_command_line_args, calculate_forgetting
 
 def exec_experiment(**kwargs):
     standalone_strategies = ['scale']
@@ -314,6 +315,7 @@ def exec_experiment(**kwargs):
     if kwargs["probing_upto"] and not kwargs["probing_all_exp"]:
         raise Exception("Without --probing-all-exp, probing upto is equal to probing joint, please set --probing-upto to false or --probing-all-exp to true")
     
+    
     probes = []
     if kwargs["probing_rr"]:
          probes.append(ProbingSklearn(probe_type='rr', device=device, mb_size=kwargs["eval_mb_size"],
@@ -368,6 +370,10 @@ def exec_experiment(**kwargs):
         if kwargs['probing_upto'] and not kwargs["probing_joint"]:
             write_final_scores(probe=probe.get_name(), folder_input_path=os.path.join(probe_pth, 'probing_upto'),
                             output_file=os.path.join(save_pth, 'final_scores_joint.csv'))
+        #  Calculate forgetting
+        if kwargs["probing_separate"] and kwargs["probing_all_exp"] and not (kwargs["iid"] or kwargs["random_encoder"]):
+            calculate_forgetting(save_pth=probe_pth, num_exps=kwargs["num_exps"], probing_tr_ratio_arr=probing_tr_ratio_arr)
+
         
     # Save final pretrained model
     if kwargs["save_model_final"] and not kwargs["random_encoder"]:

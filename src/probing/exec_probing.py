@@ -4,8 +4,8 @@ from torch.utils.data import ConcatDataset
 from typing import List, Dict
 
 from torch.utils.data import ConcatDataset
-from . import AbstractProbe
 
+from . import AbstractProbe
 from ..benchmark import Benchmark 
 
 
