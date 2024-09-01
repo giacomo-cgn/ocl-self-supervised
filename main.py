@@ -1,7 +1,7 @@
 import torch
 
 import os
-import datetime
+import time
 import tqdm as tqdm
 import numpy as np
 import pandas as pd
@@ -33,7 +33,8 @@ def exec_experiment(**kwargs):
 
 
     # Set up save folders
-    str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
+    date = time.localtime()
+    str_now = f"{date.tm_mday}-{date.tm_mon}-{date.tm_year}_{date.tm_hour}:{date.tm_min}"
     if kwargs["strategy"] in standalone_strategies:
         folder_name = f'{kwargs["strategy"]}_{kwargs["dataset"]}_{str_now}'
     elif kwargs['random_encoder']:
