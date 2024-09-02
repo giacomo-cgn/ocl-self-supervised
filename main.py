@@ -299,7 +299,7 @@ def exec_experiment(**kwargs):
                           lars_eta= kwargs["lars_eta"],
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                          save_model=False, common_transforms=kwargs["common_transforms"], num_views=num_views)
+                          save_model=kwargs["save_model_every_exp"], common_transforms=kwargs["common_transforms"], num_views=num_views)
         
     else:
         # Is a standalone strategy (already includes trainer and ssl model inside the strategy itself)
