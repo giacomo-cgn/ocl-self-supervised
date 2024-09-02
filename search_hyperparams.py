@@ -24,7 +24,7 @@ def search_hyperparams(args, hyperparams_dict=None, parent_log_folder='./logs', 
           print('WARNING! - Hyperparams of the experiments not found, using default values:')
           print(hyperparams_dict)
      
-     str_now = datetime.datetime.now().strftime("%m-%d_%H-%M")
+     str_now = datetime.datetime.now().strftime("%d-%m-%y_%H:%M")
 
      if args.strategy in standalone_strategies:
           folder_name = f'hypertune_{experiment_name}_{args.strategy}_{str_now}'
@@ -83,8 +83,8 @@ def search_hyperparams(args, hyperparams_dict=None, parent_log_folder='./logs', 
           # Select preferred probe type
           probe_type_preferences = ["torch", "rr", "knn"]
           for probe_type in probe_type_preferences:
-               if probe_type in results_df.columns:
-                    results_df = results_df[results_df[probe_type] == results_df[probe_type].max()]
+               if probe_type in results_df["probe_type"].to_list():
+                    results_df = results_df[results_df["probe_type"] == probe_type]
                     break
 
           val_acc = results_df['avg_val_acc'].values[0]
@@ -99,10 +99,10 @@ def search_hyperparams(args, hyperparams_dict=None, parent_log_folder='./logs', 
                best_combination = param_dict
      
 
-     print(f"Best hyperparameter combination found: {best_combination}")
+     print(f"Best hyperparameter combination found: {best_combination}, with {probe_type} probing")
      # Save to file best combination of hyperparams, test and val accuracies
      with open(os.path.join(save_folder, 'hyperparams_config_results.txt'), 'a') as f:
-          f.write(f"\nBest hyperparameter combination: {best_combination}\n")
+          f.write(f"\nBest hyperparameter combination {best_combination}, with {probe_type} probing:\n")
           f.write(f"Best Val Acc: {best_val_acc}\n")
           f.write(f"Best Test Acc: {best_test_acc}\n")
           f.write(f'\nTr MB size: {args.tr_mb_size}\n')
