@@ -149,6 +149,6 @@ class Trainer():
             torch.save({
                 'model_state_dict': self.ssl_model.state_dict(),
                 'optimizer_state_dict': self.optimizer.state_dict()
-            }, os.path.join(self.save_pth, f'model_exp{exp_idx}.pth'))
+            }, os.path.join(self.save_pth, os.path.join('checkpoints', f'model_exp{exp_idx}.pth')))
 
         return self.ssl_model
