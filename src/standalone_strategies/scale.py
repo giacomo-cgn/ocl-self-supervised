@@ -15,6 +15,7 @@ class SCALE():
 
     def __init__(self,
                  encoder: nn.Module = None,
+                 dim_backbone_features: int = 512,
                  buffer = None,
                  buffer_type: str = 'scale',
                  optim: str = 'SGD',
@@ -46,7 +47,7 @@ class SCALE():
         if buffer is None:
             raise Exception(f'This strategy requires a buffer')
         
-        self.encoder = encoder(num_classes=dim_features, zero_init_residual=True).to(device)
+        self.encoder = encoder.to(device)
 
         self.lr = lr
         self.buffer = buffer
@@ -86,7 +87,7 @@ class SCALE():
 
         self.tr_distill_power = 0.0
 
-        prev_dim = self.encoder.fc.weight.shape[1]
+        prev_dim = dim_backbone_features
         print('prev_dim:', prev_dim)
         self.proj_dim = prev_dim
         self.encoder.fc = nn.Identity() # Remove cls output layer
@@ -115,7 +116,7 @@ class SCALE():
             'params': [param for name, param in self.criterion.named_parameters()],
         }]
         self.optimizer = init_optim(optim, all_parameters, lr=self.lr,
-                                   momentum=self.momentum, weight_decay=self.weight_decay)           
+                                   momentum=self.momentum, weight_decay=self.weight_decay, lars_eta=0.005)           
 
         self.losses_contrast = AverageMeter()
         self.losses_distill = AverageMeter()

@@ -249,12 +249,7 @@ def exec_experiment(**kwargs):
                             aligner_dim=aligner_dim, momentum_ema=kwargs["momentum_ema"])
             
         elif kwargs["strategy"] == 'scale':
-            strategy = SCALE(encoder=encoder, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                            weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                            mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                            save_model=False, common_transforms=kwargs["common_transforms"],
-                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
-                            dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"], buffer_type=kwargs["buffer_type"])
+            pass
             
         elif kwargs["strategy"] == 'lump':
             strategy = LUMP(ssl_model=ssl_model, device=device, save_pth=save_pth,
@@ -303,12 +298,13 @@ def exec_experiment(**kwargs):
         
     else:
         # Is a standalone strategy (already includes trainer and ssl model inside the strategy itself)
-        trainer = SCALE(encoder=encoder, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
-                            weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
-                            mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                            save_model=False, common_transforms=kwargs["common_transforms"],
-                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
-                            dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"], buffer_type=kwargs["buffer_type"])
+        trainer = SCALE(encoder=encoder, optim=kwargs["optim"], lr=kwargs["lr"], dim_backbone_features=dim_encoder_features,
+                        momentum=kwargs["optim_momentum"], weight_decay=kwargs["weight_decay"],
+                        train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
+                        mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
+                        save_model=False, common_transforms=kwargs["common_transforms"],
+                        buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                        dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"], buffer_type=kwargs["buffer_type"])
         
 
     # Init probing
