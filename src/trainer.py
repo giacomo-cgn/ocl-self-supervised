@@ -146,9 +146,12 @@ class Trainer():
 
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:
+            chkpt_pth = os.path.join(self.save_pth, 'checkpoints')
+            if not os.path.exists(chkpt_pth):
+                os.makedirs(chkpt_pth)
             torch.save({
                 'model_state_dict': self.ssl_model.state_dict(),
                 'optimizer_state_dict': self.optimizer.state_dict()
-            }, os.path.join(self.save_pth, os.path.join('checkpoints', f'model_exp{exp_idx}.pth')))
+            }, os.path.join(chkpt_pth, f'model_exp{exp_idx}.pth'))
 
         return self.ssl_model
