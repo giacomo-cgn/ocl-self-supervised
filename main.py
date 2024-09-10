@@ -13,7 +13,7 @@ from src.backbones import get_encoder
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE
 
 from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, ReplayEMP, ARPHybrid
-from src.standalone_strategies import SCALE, DoubleResnet
+from src.standalone_strategies import SCALE, DoubleResnet, OsirisR
 
 from src.trainer import Trainer
 
@@ -113,7 +113,7 @@ def exec_experiment(**kwargs):
     if not kwargs["strategy"] in buffer_free_strategies:
         if kwargs["buffer_type"] == "default":
             # Set default buffer for each strategy
-            if kwargs["strategy"] in ['replay', 'apre', 'arp', 'lump', 'double_resnet']:
+            if kwargs["strategy"] in ['replay', 'apre', 'arp', 'lump', 'double_resnet', 'osiris_r']:
                 kwargs["buffer_type"] = "reservoir"
             elif kwargs["strategy"] == "minred":
                 kwargs["buffer_type"] = "minred"
@@ -124,8 +124,8 @@ def exec_experiment(**kwargs):
             elif kwargs["strategy"] == "arp_hybrid":
                 kwargs["buffer_type"] = "hybrid_minred_fifo"
             else:
-                raise Exception(f'Strategy {kwargs["strategy"]} not supported')
-        # Enforce buffer contraints for certain strategies  
+                raise Exception(f'Strategy {kwargs["strategy"]} not supported for default buffer')
+        # Enforce buffer constraints for certain strategies  
         elif kwargs["buffer_type"] == "scale" and not kwargs["strategy"] == "scale":
             raise Exception(f"Buffer type {kwargs['buffer_type']} is only compatible with strategy 'scale'")
         elif kwargs["buffer_type"] == "aug_rep" and not kwargs["strategy"] == "replay_emp":
@@ -204,6 +204,15 @@ def exec_experiment(**kwargs):
             num_views = 2
             assert kwargs["strategy"] == kwargs["model"], 'Strategy and SSL model must be the same for DoubleResnet'
 
+        elif kwargs["model"] == 'osiris_r':
+            ssl_model = OsirisR(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
+                                    dim_proj=kwargs["dim_proj"], buffer=buffer, device=device,
+                                    replay_mb_size=kwargs["repl_mb_size"],
+                                    save_pth=save_pth).to(device)
+            num_views = 2
+            assert kwargs["strategy"] == kwargs["model"], 'Strategy and SSL model must be the same for Osiris-R'
+
+
         elif kwargs["model"] == 'mae':
             ssl_model = MAE(vit_encoder=encoder,
                             image_size=image_size, patch_size=kwargs["mae_patch_size"], emb_dim=kwargs["mae_emb_dim"],
@@ -220,6 +229,7 @@ def exec_experiment(**kwargs):
     
 
     if not kwargs["strategy"] in standalone_strategies:
+        print('SONO UGUALI?', kwargs["strategy"])
         # Strategy
         if kwargs["strategy"] == 'no_strategy':
             strategy = NoStrategy(ssl_model=ssl_model, device=device, save_pth=save_pth)
@@ -267,6 +277,10 @@ def exec_experiment(**kwargs):
                             aligner_dim=aligner_dim)
 
         elif kwargs["strategy"] == 'double_resnet':
+            strategy = ssl_model # SSL model and strategy are combined
+
+        elif kwargs["strategy"] == 'osiris_r':
+            print('ENTRATOOO')
             strategy = ssl_model # SSL model and strategy are combined
             
         elif kwargs["strategy"] == 'replay_emp':
