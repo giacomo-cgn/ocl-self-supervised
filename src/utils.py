@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import pandas as pd
 import argparse
 
@@ -59,6 +60,33 @@ def calculate_forgetting(save_pth, num_exps, probing_tr_ratio_arr=[1]):
             avg_val = sum(forgetting_val.result().values()) / len(forgetting_val.result().values())
             avg_test = sum(forgetting_test.result().values()) / len(forgetting_test.result().values())
             f.write(f'{avg_val},{avg_test}\n')
+
+def save_avg_stream_acc(probe, save_pth):
+    """
+        Calculate and save avg joint accuracy across the stream.
+    """
+    probing_folder = os.path.join(save_pth, f'probe_{probe}/probing_joint/probing_ratio1')
+
+    val_acc_list, test_acc_list = [], []
+    for file in os.listdir(probing_folder):
+        if file.endswith(".csv"):
+            df = pd.read_csv(os.path.join(probing_folder, file))
+            val_acc_list.append(df['val_acc'].values[0])
+            test_acc_list.append(df['test_acc'].values[0])
+
+    avg_val_acc = np.mean(val_acc_list)
+    avg_test_acc = np.mean(test_acc_list)
+
+    output_file = os.path.join(save_pth, f"avg_stream_acc.csv")
+    with open(output_file, "a") as output_f:
+        if not os.path.exists(output_file) or os.path.getsize(output_file) == 0:
+            output_f.write("probe_type, avg_val_acc, avg_test_acc\n")
+        output_f.write(f"{probe}, {avg_val_acc}, {avg_test_acc}\n")
+
+
+
+    print(f"Average Validation Accuracy: {avg_val_acc}")
+    print(f"Average Test Accuracy: {avg_test_acc}")
     
 
 

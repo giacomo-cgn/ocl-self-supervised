@@ -19,7 +19,7 @@ from src.trainer import Trainer
 
 from src.buffers import get_buffer
 
-from src.utils import write_final_scores, read_command_line_args, calculate_forgetting
+from src.utils import write_final_scores, read_command_line_args, calculate_forgetting, save_avg_stream_acc
 
 def exec_experiment(**kwargs):
     standalone_strategies = ['scale']
@@ -377,6 +377,9 @@ def exec_experiment(**kwargs):
         if kwargs['probing_joint']:
             write_final_scores(probe=probe.get_name(), folder_input_path=os.path.join(probe_pth, 'probing_joint'),
                             output_file=os.path.join(save_pth, 'final_scores_joint.csv'))
+            if kwargs["probing_all_exp"]:
+                save_avg_stream_acc(probe=probe.get_name(), save_pth=save_pth)
+
         if kwargs['probing_upto'] and not kwargs["probing_joint"]:
             write_final_scores(probe=probe.get_name(), folder_input_path=os.path.join(probe_pth, 'probing_upto'),
                             output_file=os.path.join(save_pth, 'final_scores_joint.csv'))
