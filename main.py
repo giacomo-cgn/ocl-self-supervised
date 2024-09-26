@@ -344,10 +344,22 @@ def exec_experiment(**kwargs):
     if kwargs["iid"]:
         # IID training over the entire dataset
         print(f'==== Beginning self supervised training on iid dataset ====')
-        trained_ssl_model = trainer.train_experience(iid_tr_dataset, exp_idx=0)
+        if kwargs["probing_all_exp"]:
+            # Evaluate iid trained model during training (not only at the end)
+            iid_intermediate_eval_dict = {
+                'status': True,
+                'num_exps': kwargs["num_exps"],
+                'kwargs': kwargs,
+                'probes': probes,
+                'benchmark': benchmark,
+                'probing_tr_ratio_arr': probing_tr_ratio_arr,
+            }
 
-        exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
-                     pretr_exp_idx=0, probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
+        trained_ssl_model = trainer.train_experience(iid_tr_dataset, exp_idx=0, iid_intermediate_eval_dict=iid_intermediate_eval_dict)
+
+        if not kwargs["probing_all_exp"]:
+            exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
+                        pretr_exp_idx=0, probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
         
     elif kwargs["random_encoder"]:
         

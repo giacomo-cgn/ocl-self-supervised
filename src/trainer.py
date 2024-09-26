@@ -9,6 +9,7 @@ from .transforms import get_transforms
 from .ssl_models import AbstractSSLModel
 from .strategies import AbstractStrategy
 from .optims import init_optim
+from .probing import exec_probing
 
 
 class Trainer():
@@ -92,11 +93,19 @@ class Trainer():
 
     def train_experience(self, 
                          dataset,
-                         exp_idx: int
+                         exp_idx: int,
+                         iid_intermediate_eval_dict: dict = {"status": False}, # Set to True to evaluate model at intermediate steps, contains vars for intermediate eval
                          ):
         # Prepare data
         exp_data = UnsupervisedDataset(dataset)  
         data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True)
+
+        if iid_intermediate_eval_dict["status"]:
+            # Calculate number of total training steps
+            tot_tr_steps = self.train_epochs * len(data_loader) * self.mb_passes
+            tr_step_idx = 0
+            eval_every_steps = int(tot_tr_steps / iid_intermediate_eval_dict["num_exps"])
+            eval_idx = 0
 
         self.ssl_model.train()
         self.strategy.train()
@@ -141,6 +150,17 @@ class Trainer():
                     if self.save_pth is not None and loss_strategy is not None:
                         with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
                             f.write(f'{loss_strategy.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
+
+                    # Check if have to evaluate IID model
+                    if iid_intermediate_eval_dict["status"]:
+                        tr_step_idx += 1
+                        if tr_step_idx % eval_every_steps == 0:
+                            exec_probing(kwargs=iid_intermediate_eval_dict["kwargs"], probes=iid_intermediate_eval_dict["probes"],
+                                         probing_benchmark=iid_intermediate_eval_dict["benchmark"], encoder=self.ssl_model.get_encoder_for_eval(), 
+                                         pretr_exp_idx=eval_idx, probing_tr_ratio_arr=iid_intermediate_eval_dict["probing_tr_ratio_arr"],
+                                         save_pth=self.save_pth)
+                            eval_idx += 1
+                    self.ssl_model.train()
 
                 self.strategy.after_mb_passes()
 
