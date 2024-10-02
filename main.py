@@ -12,7 +12,7 @@ from src.backbones import get_encoder
 
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE
 
-from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, ReplayEMP, ARPHybrid
+from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, CaSSLeR, ReplayEMP, ARPHybrid
 from src.standalone_strategies import SCALE, DoubleResnet, OsirisR
 
 from src.trainer import Trainer
@@ -113,7 +113,7 @@ def exec_experiment(**kwargs):
     if not kwargs["strategy"] in buffer_free_strategies:
         if kwargs["buffer_type"] == "default":
             # Set default buffer for each strategy
-            if kwargs["strategy"] in ['replay', 'apre', 'arp', 'lump', 'double_resnet', 'osiris_r']:
+            if kwargs["strategy"] in ['replay', 'apre', 'arp', 'lump', 'double_resnet', 'osiris_r', 'cassle_r']:
                 kwargs["buffer_type"] = "reservoir"
             elif kwargs["strategy"] == "minred":
                 kwargs["buffer_type"] = "minred"
@@ -275,12 +275,18 @@ def exec_experiment(**kwargs):
                             omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
                             use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
                             aligner_dim=aligner_dim)
+            
+        elif kwargs["strategy"] == 'cassle_r':
+            strategy = CaSSLeR(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                            omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
+                            use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
+                            aligner_dim=aligner_dim)
 
         elif kwargs["strategy"] == 'double_resnet':
             strategy = ssl_model # SSL model and strategy are combined
 
         elif kwargs["strategy"] == 'osiris_r':
-            print('ENTRATOOO')
             strategy = ssl_model # SSL model and strategy are combined
             
         elif kwargs["strategy"] == 'replay_emp':
