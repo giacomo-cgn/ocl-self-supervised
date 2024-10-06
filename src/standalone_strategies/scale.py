@@ -162,7 +162,7 @@ class SCALE():
                          ):
         # Prepare data
         exp_data = UnsupervisedDataset(dataset)  
-        data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True)
+        data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True, num_workers=8)
 
         self.encoder.train()
         

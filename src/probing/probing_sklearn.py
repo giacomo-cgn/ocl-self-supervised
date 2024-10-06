@@ -75,10 +75,10 @@ class ProbingSklearn(AbstractProbe):
         tr_dataset, _ = random_split(tr_dataset, [used_ratio_samples, len(tr_dataset) - used_ratio_samples],
                                      generator=torch.Generator().manual_seed(self.seed)) # Generator to ensure same splits
     
-        train_loader = DataLoader(dataset=tr_dataset, batch_size=self.mb_size, shuffle=True)
-        test_loader = DataLoader(dataset=test_dataset, batch_size=self.mb_size, shuffle=False)
+        train_loader = DataLoader(dataset=tr_dataset, batch_size=self.mb_size, shuffle=True, num_workers=8)
+        test_loader = DataLoader(dataset=test_dataset, batch_size=self.mb_size, shuffle=False, num_workers=8)
         if val_dataset is not None:
-            val_loader = DataLoader(dataset=val_dataset, batch_size=self.mb_size, shuffle=False)
+            val_loader = DataLoader(dataset=val_dataset, batch_size=self.mb_size, shuffle=False, num_workers=8)
 
         with torch.no_grad():
 

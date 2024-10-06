@@ -98,7 +98,7 @@ class Trainer():
                          ):
         # Prepare data
         exp_data = UnsupervisedDataset(dataset)  
-        data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True)
+        data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True, drop_last=True, num_workers=8)
 
         if iid_intermediate_eval_dict["status"]:
             # Calculate number of total training steps
@@ -127,10 +127,6 @@ class Trainer():
 
                     x_views_list = self.strategy.after_transforms(x_views_list)
 
-                    # Skip training if mb size == 1 (problems with batchnorm)
-                    if len(x_views_list[0]) == 1:
-                        print(f'Skipping batch of size 1 at epoch: {epoch}, mb_idx: {mb_idx}')
-                        continue
                     # Forward pass of SSL model (z: projector features, e: encoder features)
                     loss, z_list, e_list = self.ssl_model(x_views_list)
 
