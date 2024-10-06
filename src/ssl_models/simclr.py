@@ -39,20 +39,9 @@ class SimCLR(nn.Module, AbstractSSLModel):
                 f.write('---- SSL MODEL CONFIG ----\n')
                 f.write(f'MODEL: {self.model_name}\n')
                 f.write(f'dim_projector: {dim_proj}\n')
-                f.write(f'SimCLR temperature: {self.temperature}\n')            
+                f.write(f'SimCLR temperature: {self.temperature}\n')
 
-    def forward(self, x_views_list):
-
-        x1 = x_views_list[0]
-        x2 = x_views_list[1]
-
-        # Compute features for both views
-        e1 = self.encoder(x1)
-        e2 = self.encoder(x2)
-
-        z1 = self.projector(e1) # NxC
-        z2 = self.projector(e2) # NxC        
-
+    def simclr_loss(self, z1, z2):
         batch_size = z1.size(0)
         z1_norm, z2_norm = F.normalize(z1, dim=-1), F.normalize(z2, dim=-1)
 
@@ -68,6 +57,21 @@ class SimCLR(nn.Module, AbstractSSLModel):
         # [2*B]
         pos_sim = torch.cat([pos_sim, pos_sim], dim=0)
         loss = (- torch.log(pos_sim / sim_matrix.sum(dim=-1))).mean()
+        return loss
+
+    def forward(self, x_views_list):
+
+        x1 = x_views_list[0]
+        x2 = x_views_list[1]
+
+        # Compute features for both views
+        e1 = self.encoder(x1)
+        e2 = self.encoder(x2)
+
+        z1 = self.projector(e1) # NxC
+        z2 = self.projector(e2) # NxC        
+        loss = self.simclr_loss(z1, z2)
+        
 
         return loss, [z1, z2], [e1, e2]
     
@@ -87,7 +91,7 @@ class SimCLR(nn.Module, AbstractSSLModel):
         return self.dim_projector
     
     def get_criterion(self):
-        return None, False
+        return self.simclr_loss, True
     
     def get_name(self):
         return self.model_name

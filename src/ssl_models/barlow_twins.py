@@ -26,11 +26,12 @@ class BarlowTwins(nn.Module, AbstractSSLModel):
                                         ) # output layer
         self.projector[6].bias.requires_grad = False # hack: not use bias as it is followed by BN
 
-        self.bn_loss = nn.BatchNorm1d(dim_features, affine=False)
+        # self.bn_loss = nn.BatchNorm1d(dim_features, affine=False)
 
         def barlow_twins_loss(z1, z2):
-            z1 = self.bn_loss(z1)
-            z2 = self.bn_loss(z2)
+            bn = torch.nn.BatchNorm1d(self.dim_features, affine=False).to(z1.device)
+            z1 = bn(z1)
+            z2 = bn(z2)
 
             batch_size = z1.shape[0]
             # print("z1 shape:", z1.shape)
