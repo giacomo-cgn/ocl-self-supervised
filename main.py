@@ -360,6 +360,10 @@ def exec_experiment(**kwargs):
                 'benchmark': benchmark,
                 'probing_tr_ratio_arr': probing_tr_ratio_arr,
             }
+        else:
+            iid_intermediate_eval_dict = {
+                'status': False,
+            }
 
         trained_ssl_model = trainer.train_experience(iid_tr_dataset, exp_idx=0, iid_intermediate_eval_dict=iid_intermediate_eval_dict)
 
