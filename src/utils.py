@@ -137,6 +137,7 @@ def read_command_line_args():
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu-idx', type=int, default=0)
+    parser.add_argument('--name', type=str, default='')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--strategy', type=str, default='no_strategy')
     parser.add_argument('--model', type=str, default='simsiam')
@@ -162,6 +163,9 @@ def read_command_line_args():
     parser.add_argument('--random-encoder', type=str_to_bool, default=False)
     parser.add_argument('--save-model-final', type=str_to_bool, default=True)
     parser.add_argument('--save-model-every-exp', type=str_to_bool, default=False)
+
+    # Multi-processing params
+    parser.add_argument('--max-process', type=int, default=1)
 
     # Probing params
     parser.add_argument('--probing-all-exp', type=str_to_bool, default=False)

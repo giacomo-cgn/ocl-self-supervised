@@ -38,7 +38,7 @@ with open(original_args.config_path) as f:
 
             # Apply experiment specific params
             for k, v in experiment.items():
-                if k not in experiment["hyperparams_search"] and k != "name" and k != "hyperparams_search":
+                if k not in experiment["hyperparams_search"] and k != "hyperparams_search":
                     args.__setattr__ (k, v)
                     # Add also variant with param name with "-" substituted with "_" and vice versa
                     args.__setattr__(k.replace("_", "-"), v)

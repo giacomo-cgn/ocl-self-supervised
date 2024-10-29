@@ -2,6 +2,8 @@ import os
 import itertools
 import datetime
 import pandas as pd
+from concurrent.futures import ProcessPoolExecutor, wait
+
 
 from main import exec_experiment
 
@@ -12,8 +14,7 @@ def search_hyperparams(args, hyperparams_dict=None, parent_log_folder='./logs', 
      if args.probing_val_ratio == 0.0:
           print('WARNING! - probing_val_ratio is 0, cannot execute hyperparams search. Exiting this experiment...')
           return
-          
-
+     
      # model_name = 'no_strategy_simsiam' 
      if hyperparams_dict is None:
           # Define current searched hyperparams in lists
@@ -48,56 +49,24 @@ def search_hyperparams(args, hyperparams_dict=None, parent_log_folder='./logs', 
 
      # Generate all combinations of hyperparameters
      param_combinations = list(itertools.product(*param_values))
+     process_args_list = []
+     for i, combination in enumerate(param_combinations):
+          process_args_list.append((combination, param_names, save_folder, args, i))
 
+     with ProcessPoolExecutor(max_workers = args.max_process) as executor:
+          results_list = list(executor.map(run_and_gather_experiment, process_args_list))
+     
      best_val_acc = 0
-     # Iterate through each combination and execute the train function
-     for combination in param_combinations:
-          param_dict = dict(zip(param_names, combination))
-          print('<<<<<<<<<<<<<<< Executing experiment with:', param_dict, '>>>>>>>>>>>>>>>>>')
-
-          # Update args with hyperparams
-          for k, v in param_dict.items():
-               args.__setattr__(k, v)
-               # Add also variant with param name with "-" substituted with "_" and vice versa
-               args.__setattr__(k.replace("_", "-"), v)
-               args.__setattr__(k.replace("-", "_"), v)
-
-          # Set args model 
-          # args.model = model_name
-
-          # Set args save_folder
-          args.save_folder = save_folder
-
-          # Execute experiment
-          experiment_save_folder = exec_experiment(**args.__dict__)
-
-          # Recover results from experiment
-          # Select preferred probing configuration
-          probe_config_preferences = ["joint", "upto", "separate"]
-          for probing_config in probe_config_preferences:
-               if args.__dict__[f'probing_{probing_config}']:
-                    results_df = pd.read_csv(os.path.join(experiment_save_folder, f'final_scores_{probing_config}.csv'))
-                    break
-          # Only row with probe_ratio = 1
-          results_df = results_df[results_df['probe_ratio'] == 1]
-          # Select preferred probe type
-          probe_type_preferences = ["torch", "rr", "knn"]
-          for probe_type in probe_type_preferences:
-               if probe_type in results_df["probe_type"].to_list():
-                    results_df = results_df[results_df["probe_type"] == probe_type]
-                    break
-
-          val_acc = results_df['avg_val_acc'].values[0]
-          test_acc = results_df['avg_test_acc'].values[0]
-
-          with open(os.path.join(save_folder, 'hyperparams_config_results.txt'), 'a') as f:
-               f.write(f"{param_dict}, Val Acc: {val_acc}, Test Acc: {test_acc} \n")
-
-          if val_acc > best_val_acc:
+     probe_type_list = []
+     print(f'len results list {len(results_list)}')
+     print(results_list)
+     for val_acc, test_acc, param_dict, probe_type in results_list:
+           probe_type_list.append(probe_type)
+           if val_acc > best_val_acc:
                best_val_acc = val_acc
                best_test_acc = test_acc
                best_combination = param_dict
-     
+     assert all(s == probe_type_list[0] for s in probe_type_list), "Not all experiments have the same preferred probe type, cannot compare results"
 
      print(f"Best hyperparameter combination found: {best_combination}, with {probe_type} probing")
      # Save to file best combination of hyperparams, test and val accuracies
@@ -109,3 +78,50 @@ def search_hyperparams(args, hyperparams_dict=None, parent_log_folder='./logs', 
           f.write(f'MB passes: {args.mb_passes}\n')
 
 
+def run_and_gather_experiment(process_args):
+     combination, param_names, save_folder, args, idx = process_args
+     # Launch an experiment with a new process and gather its results
+     param_dict = dict(zip(param_names, combination))
+     print('<<<<<<<<<<<<<<< Executing experiment with:', param_dict, '>>>>>>>>>>>>>>>>>')
+     args.__setattr__('name', args.__dict__['name'] + f'_{idx}')
+     print('<<<<<<<<<<<<<<< Experiment name:', args.__dict__['name'], '>>>>>>>>>>>>>>>>>')
+
+     # Update args with hyperparams
+     for k, v in param_dict.items():
+          args.__setattr__(k, v)
+          # Add also variant with param name with "-" substituted with "_" and vice versa
+          args.__setattr__(k.replace("_", "-"), v)
+          args.__setattr__(k.replace("-", "_"), v)
+     
+     # Set args model 
+     # args.model = model_name
+
+     # Set args save_folder
+     args.save_folder = save_folder
+
+     # Execute experiment
+     experiment_save_folder = exec_experiment(**args.__dict__)
+
+     # Recover results from experiment
+     # Select preferred probing configuration
+     probe_config_preferences = ["joint", "upto", "separate"]
+     for probing_config in probe_config_preferences:
+          if args.__dict__[f'probing_{probing_config}']:
+               results_df = pd.read_csv(os.path.join(experiment_save_folder, f'final_scores_{probing_config}.csv'))
+               break
+     # Only row with probe_ratio = 1
+     results_df = results_df[results_df['probe_ratio'] == 1]
+     # Select preferred probe type
+     probe_type_preferences = ["torch", "rr", "knn"]
+     for probe_type in probe_type_preferences:
+          if probe_type in results_df["probe_type"].to_list():
+               results_df = results_df[results_df["probe_type"] == probe_type]
+               break
+
+     val_acc = results_df['avg_val_acc'].values[0]
+     test_acc = results_df['avg_test_acc'].values[0]
+
+     with open(os.path.join(save_folder, 'hyperparams_config_results.txt'), 'a') as f:
+          f.write(f"{param_dict}, Val Acc: {val_acc}, Test Acc: {test_acc} \n")
+
+     return val_acc, test_acc, param_dict, probe_type

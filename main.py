@@ -42,7 +42,7 @@ def exec_experiment(**kwargs):
         folder_name = f'{kwargs["strategy"]}_{kwargs["model"]}_{kwargs["dataset"]}_{str_now}'
     if kwargs["iid"]:
         folder_name = 'iid_' + folder_name
-    save_pth = os.path.join(kwargs["save_folder"], folder_name)
+    save_pth = os.path.join(kwargs["save_folder"], f'{folder_name}_{kwargs["name"]}')
     if not os.path.exists(save_pth):
         os.makedirs(save_pth)
     
