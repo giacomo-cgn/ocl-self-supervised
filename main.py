@@ -25,6 +25,15 @@ def exec_experiment(**kwargs):
     standalone_strategies = ['scale']
     buffer_free_strategies = ['no_strategy', 'aep', 'cassle']
 
+    # Checks for CLEAR
+    if  kwargs["datset"] == "clear100":
+        if kwargs["num_exps"] != 11:
+            print(f'WARNING: Selected number of experiences {kwargs["num_exps"]} is different from default CLEAR100 experiences, resetting to 11 experiences.')
+            kwargs["num_exps"] = 11
+        if kwargs["iid"]:
+            print(f'WARNING: IID pretraining is not supported for CLEAR100, resetting to False.')
+            kwargs["iid"] = False
+
     # Ratios of tr set used for training linear probe
     if kwargs["use_probing_tr_ratios"]:
         probing_tr_ratio_arr = [0.05, 0.1, 0.5, 1]
@@ -230,7 +239,6 @@ def exec_experiment(**kwargs):
     
 
     if not kwargs["strategy"] in standalone_strategies:
-        print('SONO UGUALI?', kwargs["strategy"])
         # Strategy
         if kwargs["strategy"] == 'no_strategy':
             strategy = NoStrategy(ssl_model=ssl_model, device=device, save_pth=save_pth)
