@@ -33,6 +33,15 @@ def get_dataset_transforms(dataset: str):
             transforms.Normalize(
             (0.485, 0.456, 0.406), (0.228, 0.224, 0.225)
     )])
+    elif dataset in ['clear10', 'clear100']:
+        return transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize(224),
+            transforms.CenterCrop(224),
+            transforms.Normalize(
+            (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+    )])
+
     else:
         raise ValueError("Dataset not supported")
 
@@ -46,7 +55,7 @@ def get_dataset_crop(dataset: str):
     elif dataset == 'cifar10':
         # return transforms.RandomCrop(32, padding=4)
         return transforms.RandomResizedCrop(32, scale=(0.2, 1.))
-    elif dataset in ['imagenet100', 'imagenet']:
+    elif dataset in ['imagenet100', 'imagenet', 'clear100']:
         # return transforms.RandomCrop(64, padding=8)
         return transforms.RandomResizedCrop(224, scale=(0.2, 1.))
     else:

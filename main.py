@@ -83,6 +83,7 @@ def exec_experiment(**kwargs):
         num_exps=kwargs["num_exps"],
         seed=kwargs["seed"],
         val_ratio=kwargs["probing_val_ratio"],
+        evaluation_protocol_clear=kwargs["evaluation_protocol_clear"],
     )
     if kwargs["iid"]:
         iid_tr_dataset = get_iid_dataset(benchmark)

@@ -167,6 +167,9 @@ def read_command_line_args():
     # Multi-processing params
     parser.add_argument('--max-process', type=int, default=1)
 
+    # Datasets
+    parser.add_argument('--evaluation-protocol-clear', type=str, default='iid') # iid (curr exp eval) or streaming (next exp eval)
+
     # Probing params
     parser.add_argument('--probing-all-exp', type=str_to_bool, default=False)
     parser.add_argument('--eval-mb-size', type=int, default=512)

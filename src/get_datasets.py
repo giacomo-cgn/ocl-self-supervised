@@ -5,8 +5,11 @@ import torch
 from torch.utils.data import ConcatDataset, Subset
 
 from avalanche.benchmarks.classic import SplitCIFAR100, SplitCIFAR10, SplitImageNet
+# from avalanche.benchmarks.classic.clear import CLEAR
+from .clear_dataset import CLEAR
+
 from .benchmark import Benchmark
-def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.1):
+def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.1, evaluation_protocol_clear='iid'):
 
     return_task_id = False
     shuffle = True
@@ -74,6 +77,18 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
                     benchmark.classes_order_original_ids.index(class_id)
                 )
 
+    elif dataset_name == 'clear100':
+
+        benchmark = CLEAR(
+            data_name='clear100',
+            evaluation_protocol=evaluation_protocol_clear,
+            feature_type=None,
+            seed=seed%5, # allowed seed in 0-4 range
+            dataset_root=None,
+            train_transform=get_dataset_transforms(dataset_name),
+            eval_transform=get_dataset_transforms(dataset_name),
+        )
+        image_size = 224
 
     # Create Benchmark object with tr, test (and validation) streams
     tr_stream = []
@@ -85,10 +100,22 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
             valid_stream.append(val_exp_dataset)
         else:
             tr_stream.append(experience.dataset)
+    
+    if num_exps != len(tr_stream):
+        print(f'WARNING: Selected number of experiences {num_exps} is different from default CLEAR100 experiences, resetting to {len(tr_stream)} experiences.')
 
     test_stream = []
     for experience in benchmark.test_stream:
         test_stream.append(experience.dataset)
+
+    print(f'len tr stream: {len(tr_stream)}, len valid stream: {len(valid_stream)}, len test stream: {len(test_stream)}')
+    for i in range(len(tr_stream)):
+        print(f'len tr exp {i}: {len(tr_stream[i])}')
+    for i in range(len(valid_stream)):
+        print(f'len valid exp {i}: {len(valid_stream[i])}')
+    for i in range(len(test_stream)):
+        print(f'len test exp {i}: {len(test_stream[i])}')
+    
 
     if val_ratio > 0:
         benchmark = Benchmark(train_stream=tr_stream, test_stream=test_stream, valid_stream=valid_stream)
