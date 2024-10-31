@@ -26,7 +26,7 @@ def exec_experiment(**kwargs):
     buffer_free_strategies = ['no_strategy', 'aep', 'cassle']
 
     # Checks for CLEAR
-    if  kwargs["datset"] == "clear100":
+    if  kwargs["dataset"] == "clear100":
         if kwargs["num_exps"] != 11:
             print(f'WARNING: Selected number of experiences {kwargs["num_exps"]} is different from default CLEAR100 experiences, resetting to 11 experiences.')
             kwargs["num_exps"] = 11
