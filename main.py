@@ -73,6 +73,13 @@ def exec_experiment(**kwargs):
         f.write(f'Replay MB Size: {kwargs["repl_mb_size"]}\n')
         f.write(f'IID pretraining: {kwargs["iid"]}\n')
         f.write(f'Save final model: {kwargs["save_model_final"]}\n')
+        f.write(f'-- Pretrained weights initialization configs --\n')
+        f.write(f'Pretrain init: {kwargs["pretrain_init"]}\n')
+        if kwargs["pretrain_init"]:
+            f.write(f'Pretrain init type: {kwargs["pretrain_init_type"]}\n')
+            f.write(f'Pretrain init path: {kwargs["pretrain_init_pth"]}\n')
+            f.write(f'Pretrain init projector: {kwargs["pretrain_init_projector"]}\n')
+
         f.write(f'-- Probing configs --\n')
         f.write(f'Probing after all experiences: {kwargs["probing_all_exp"]}\n')
         f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')

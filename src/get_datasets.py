@@ -107,16 +107,7 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
     test_stream = []
     for experience in benchmark.test_stream:
         test_stream.append(experience.dataset)
-
-    print(f'len tr stream: {len(tr_stream)}, len valid stream: {len(valid_stream)}, len test stream: {len(test_stream)}')
-    for i in range(len(tr_stream)):
-        print(f'len tr exp {i}: {len(tr_stream[i])}')
-    for i in range(len(valid_stream)):
-        print(f'len valid exp {i}: {len(valid_stream[i])}')
-    for i in range(len(test_stream)):
-        print(f'len test exp {i}: {len(test_stream[i])}')
     
-
     if val_ratio > 0:
         benchmark = Benchmark(train_stream=tr_stream, test_stream=test_stream, valid_stream=valid_stream)
     else:
