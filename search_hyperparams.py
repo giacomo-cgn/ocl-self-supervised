@@ -126,4 +126,4 @@ def search_hyperparams(args, hyperparams_dict=None, parent_log_folder='./logs', 
           f.write(f'MB passes: {args.mb_passes}\n')
 
 def launch_exec_experiment(args_dict):
-     exec_experiment(**args_dict)
+     return exec_experiment(**args_dict)
