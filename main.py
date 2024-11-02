@@ -388,10 +388,10 @@ def exec_experiment(**kwargs):
                         pretr_exp_idx=0, probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
         
     elif kwargs["random_encoder"]:
-        
         # No SSL training is done, only using the randomly initialized encoder as feature extractor
         exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=benchmark, encoder=encoder, pretr_exp_idx=0,
                      probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
+
     else:
         # Self supervised training over the experiences
         for exp_idx, exp_dataset in enumerate(benchmark.train_stream):
@@ -431,12 +431,17 @@ def exec_experiment(**kwargs):
         chkpt_pth = os.path.join(save_pth, 'checkpoints')
         if not os.path.exists(chkpt_pth):
             os.makedirs(chkpt_pth)
-        if kwargs['strategy'] in standalone_strategies:
-            torch.save(trained_ssl_model.get_encoder_for_eval().state_dict(),
+        if kwargs["random_encoder"]:
+            torch.save(encoder.state_dict(),
                     os.path.join(chkpt_pth, f'final_model_state.pth'))
         else:
-            torch.save(trained_ssl_model.state_dict(),
-                    os.path.join(chkpt_pth, f'final_model_state.pth'))
+            if kwargs['strategy'] in standalone_strategies:
+                torch.save(trained_ssl_model.get_encoder_for_eval().state_dict(),
+                        os.path.join(chkpt_pth, f'final_model_state.pth'))
+            else:
+                # Default case:
+                torch.save(trained_ssl_model.state_dict(),
+                        os.path.join(chkpt_pth, f'final_model_state.pth'))
 
 
     return save_pth
