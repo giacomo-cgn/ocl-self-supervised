@@ -122,7 +122,12 @@ def exec_experiment(**kwargs):
     encoder, dim_encoder_features = get_encoder(encoder_name=kwargs["encoder"],
                                                 image_size=image_size,
                                                 ssl_model_name=kwargs["model"],
-                                                vit_avg_pooling=kwargs["vit_avg_pooling"])
+                                                vit_avg_pooling=kwargs["vit_avg_pooling"],
+                                                pretrain_init=kwargs["pretrain_init"],
+                                                pretrain_init_type=kwargs["pretrain_init_type"],
+                                                pretrain_init_pth=kwargs["pretrain_init_pth"],
+                                                save_pth=save_pth
+                                                )
     
 
 

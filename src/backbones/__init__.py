@@ -20,9 +20,9 @@ def get_encoder(encoder_name, image_size, ssl_model_name, vit_avg_pooling,
         if pretrain_init:
             if pretrain_init_type == 'imagenet_1k':
                 if image_size != 224:
-                    print(f'Warning: pretraining image size != current image size, not updating first layers.')
                     update_first_layer = False
                 encoder = pytorch_encoder(weights='DEFAULT')
+                print(f'Encoder initialized with imagenet_1k weights')
             elif pretrain_init_type != 'path':
                 raise ValueError("Unsupported pretrained initialization type.")
         else:
@@ -114,5 +114,7 @@ def get_encoder(encoder_name, image_size, ssl_model_name, vit_avg_pooling,
             print("Warning: no encoder weights found in the pretrained model, loading from path.")
             encoder_saved_weights = saved_weights
         encoder.load_state_dict(encoder_saved_weights)
+        print(f'Encoder initialized from path: {pretrain_init_pth}')
+
     
     return encoder, dim_encoder_features
