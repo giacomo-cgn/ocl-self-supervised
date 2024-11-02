@@ -104,6 +104,7 @@ def search_hyperparams(args, hyperparams_dict=None, parent_log_folder='./logs', 
           val_acc = results_df['avg_val_acc'].values[0]
           test_acc = results_df['avg_test_acc'].values[0]
 
+          param_dict = dict(zip(param_names, param_combinations[i]))
           with open(os.path.join(save_folder, 'hyperparams_config_results.txt'), 'a') as f:
                f.write(f"{param_dict}, Val Acc: {val_acc}, Test Acc: {test_acc} \n")
 
