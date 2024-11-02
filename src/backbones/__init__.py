@@ -8,23 +8,25 @@ from .custom_resnets import ResNet18VariableWidth, ResNet9VariableWidth
 from .vit import ViT
 
 def get_encoder(encoder_name, image_size, ssl_model_name, vit_avg_pooling, 
-                pretrain_init=False, pretrain_init_type='imagenet_1k', pretrain_init_pth=None,
+                pretrain_init_type='none', pretrain_init_source='imagenet_1k', pretrain_init_pth=None,
                 save_pth=None) -> Tuple[nn.Module, int]:
     """Returns an initialized encoder without the last clf layer and the encoder feature dimensions."""
 
-    if pretrain_init and pretrain_init_type != 'path' and encoder_name not in ['resnet18', 'resnet34', 'resnet50']:
+    if pretrain_init_type == 'encoder' and pretrain_init_source != 'path' and encoder_name not in ['resnet18', 'resnet34', 'resnet50']:
         raise ValueError("Pytorch pretrained initialization only supported for ResNet18, ResNet34, and ResNet50, the others are custom net. Please set --pretrain-init-type = 'path'.")
 
     def pytorch_backbone_init(pytorch_encoder):
         update_first_layer = True
-        if pretrain_init:
-            if pretrain_init_type == 'imagenet_1k':
+        if pretrain_init_type == 'encoder':
+            if pretrain_init_source == 'imagenet_1k':
                 if image_size != 224:
                     update_first_layer = False
                 encoder = pytorch_encoder(weights='DEFAULT')
                 print(f'Encoder initialized with imagenet_1k weights')
-            elif pretrain_init_type != 'path':
-                raise ValueError("Unsupported pretrained initialization type.")
+            elif pretrain_init_source == 'path':
+                encoder = pytorch_encoder(zero_init_residual=True)
+            else:
+                raise ValueError("Unsupported pretrained initialization source.")
         else:
             encoder = pytorch_encoder(zero_init_residual=True)
 
@@ -104,7 +106,7 @@ def get_encoder(encoder_name, image_size, ssl_model_name, vit_avg_pooling,
     total_params_in_millions = total_params / 1e6
     print(f'NUM PARAMS for {encoder_name}: {total_params_in_millions:.1f}M')
 
-    if pretrain_init and pretrain_init_type == 'path' and pretrain_init_pth is not None:
+    if pretrain_init_type == 'encoder' and pretrain_init_source == 'path' and pretrain_init_pth is not None:
         saved_weights = torch.load(pretrain_init_pth, map_location='cpu')
         if len([v for k, v in saved_weights.items() if k.startswith('encoder.')]) > 0:
             encoder_saved_weights = {k[len('encoder.'):]: v for k, v in saved_weights.items() if k.startswith('encoder.')}

@@ -168,10 +168,9 @@ def read_command_line_args():
     parser.add_argument('--max-process', type=int, default=1)
 
     # Pretrain initialization
-    parser.add_argument('--pretrain-init', type=str_to_bool, default=False)
-    parser.add_argument('--pretrain-init-type', type=str, default='imagenet_1k')
+    parser.add_argument('--pretrain-init-type', type=str, default='none')
+    parser.add_argument('--pretrain-init-source', type=str, default='imagenet_1k')
     parser.add_argument('--pretrain-init-pth', type=str, default='' )
-    parser.add_argument('--pretrain-init-projector', type=str_to_bool, default=False)
 
     # Datasets
     parser.add_argument('--evaluation-protocol-clear', type=str, default='iid') # iid (curr exp eval) or streaming (next exp eval)

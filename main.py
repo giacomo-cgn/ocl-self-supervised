@@ -10,7 +10,7 @@ from src.get_datasets import get_benchmark, get_iid_dataset
 from src.probing import exec_probing, ProbingSklearn, ProbingPytorch
 from src.backbones import get_encoder
 
-from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE
+from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE, recover_ssl_model
 
 from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, CaSSLeR, ReplayEMP, ARPHybrid
 from src.standalone_strategies import SCALE, DoubleResnet, OsirisR
@@ -74,11 +74,10 @@ def exec_experiment(**kwargs):
         f.write(f'IID pretraining: {kwargs["iid"]}\n')
         f.write(f'Save final model: {kwargs["save_model_final"]}\n')
         f.write(f'-- Pretrained weights initialization configs --\n')
-        f.write(f'Pretrain init: {kwargs["pretrain_init"]}\n')
-        if kwargs["pretrain_init"]:
-            f.write(f'Pretrain init type: {kwargs["pretrain_init_type"]}\n')
+        f.write(f'Pretrain init: {kwargs["pretrain_init_type"]}\n')
+        if kwargs["pretrain_init_type"] == 'encoder' or kwargs["pretrain_init_type"] == 'ssl':
+            f.write(f'Pretrain init source: {kwargs["pretrain_init_source"]}\n')
             f.write(f'Pretrain init path: {kwargs["pretrain_init_pth"]}\n')
-            f.write(f'Pretrain init projector: {kwargs["pretrain_init_projector"]}\n')
 
         f.write(f'-- Probing configs --\n')
         f.write(f'Probing after all experiences: {kwargs["probing_all_exp"]}\n')
@@ -123,8 +122,8 @@ def exec_experiment(**kwargs):
                                                 image_size=image_size,
                                                 ssl_model_name=kwargs["model"],
                                                 vit_avg_pooling=kwargs["vit_avg_pooling"],
-                                                pretrain_init=kwargs["pretrain_init"],
                                                 pretrain_init_type=kwargs["pretrain_init_type"],
+                                                pretrain_init_source=kwargs["pretrain_init_source"],
                                                 pretrain_init_pth=kwargs["pretrain_init_pth"],
                                                 save_pth=save_pth
                                                 )
@@ -174,25 +173,24 @@ def exec_experiment(**kwargs):
     else:
         aligner_dim = kwargs["aligner_dim"]
     
-
+    # ---- SSL model ----
     if not kwargs["strategy"] in standalone_strategies:
-    # SSL model
         if kwargs["model"] == 'simsiam':
             ssl_model = SimSiam(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
                                 dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
-                                save_pth=save_pth).to(device)
+                                save_pth=save_pth)
             num_views = 2
         elif kwargs["model"] == 'byol':
             ssl_model = BYOL(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
                              dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
                              byol_momentum=kwargs["byol_momentum"], return_momentum_encoder=kwargs["return_momentum_encoder"],
-                             save_pth=save_pth).to(device)
+                             save_pth=save_pth)
             num_views = 2
             
         elif kwargs["model"] == 'barlow_twins':
             ssl_model = BarlowTwins(encoder=encoder, dim_backbone_features=dim_encoder_features,
                                     dim_features=kwargs["dim_proj"],
-                                    lambd=kwargs["lambd"], save_pth=save_pth).to(device)
+                                    lambd=kwargs["lambd"], save_pth=save_pth)
             num_views = 2
 
         elif kwargs["model"] == 'moco':
@@ -201,20 +199,20 @@ def exec_experiment(**kwargs):
                              moco_momentum=kwargs["moco_momentum"], moco_queue_size=kwargs["moco_queue_size"],
                              moco_temp=kwargs["moco_temp"],return_momentum_encoder=kwargs["return_momentum_encoder"],
                              queue_type=kwargs["moco_queue_type"],
-                             save_pth=save_pth, device=device).to(device)
+                             save_pth=save_pth, device=device)
             num_views = 2
 
         elif kwargs["model"] == 'simclr':
             ssl_model = SimCLR(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
                              dim_proj=kwargs["dim_proj"], temperature=kwargs["simclr_temp"],
-                             save_pth=save_pth).to(device)
+                             save_pth=save_pth)
             num_views = 2
 
         elif kwargs["model"] == 'emp':
             ssl_model = EMP(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
                             dim_proj=kwargs["dim_proj"], n_patches=kwargs["num_views"],
                             emp_tcr_param=kwargs["emp_tcr_param"], emp_tcr_eps=kwargs["emp_tcr_eps"], 
-                            emp_patch_sim=kwargs["emp_patch_sim"], save_pth=save_pth).to(device)
+                            emp_patch_sim=kwargs["emp_patch_sim"], save_pth=save_pth)
             num_views = kwargs["num_views"]
 
         elif kwargs["model"] == 'double_resnet':
@@ -222,7 +220,7 @@ def exec_experiment(**kwargs):
                                     dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
                                     image_size=image_size, buffer=buffer, device=device,
                                     replay_mb_size=kwargs["repl_mb_size"], return_buffer_encoder=kwargs["return_buffer_encoder"],
-                                    save_pth=save_pth).to(device)
+                                    save_pth=save_pth)
             num_views = 2
             assert kwargs["strategy"] == kwargs["model"], 'Strategy and SSL model must be the same for DoubleResnet'
 
@@ -230,7 +228,7 @@ def exec_experiment(**kwargs):
             ssl_model = OsirisR(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
                                     dim_proj=kwargs["dim_proj"], buffer=buffer, device=device,
                                     replay_mb_size=kwargs["repl_mb_size"],
-                                    save_pth=save_pth).to(device)
+                                    save_pth=save_pth)
             num_views = 2
             assert kwargs["strategy"] == kwargs["model"], 'Strategy and SSL model must be the same for Osiris-R'
 
@@ -239,19 +237,24 @@ def exec_experiment(**kwargs):
             ssl_model = MAE(vit_encoder=encoder,
                             image_size=image_size, patch_size=kwargs["mae_patch_size"], emb_dim=kwargs["mae_emb_dim"],
                             decoder_layer=kwargs["mae_decoder_layer"], decoder_head=kwargs["mae_decoder_head"],
-                            mask_ratio=kwargs["mae_mask_ratio"], save_pth=save_pth).to(device)
-
+                            mask_ratio=kwargs["mae_mask_ratio"], save_pth=save_pth)
             num_views = 1
             
         else:
-            raise Exception(f'Invalid model {kwargs["model"]}')
+            raise Exception(f'Invalid model {kwargs["model"]}') 
         
-
+        # Initialization from pretrained weights of SSL model
+        if kwargs["pretrain_init_type"] == 'ssl':
+            if kwargs["pretrain_init_source"] == 'path':
+                ssl_model = recover_ssl_model(ssl_model, kwargs["pretrain_init_pth"])
+            else:
+                raise Exception(f'Invalid pretrain_init_source for ssl type pretrain initialization: {kwargs["pretrain_init_source"]}')
+            
+        ssl_model = ssl_model.to(device)
+            
     
-    
-
+    # ---- Strategy ----
     if not kwargs["strategy"] in standalone_strategies:
-        # Strategy
         if kwargs["strategy"] == 'no_strategy':
             strategy = NoStrategy(ssl_model=ssl_model, device=device, save_pth=save_pth)
 
