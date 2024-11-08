@@ -61,6 +61,7 @@ def exec_experiment(**kwargs):
         f.write('\n')
         f.write(f'---- EXPERIMENT CONFIGS ----\n')
         f.write(f'Seed: {kwargs["seed"]}\n')
+        f.write(f'Dataset Seed: {kwargs["dataset_seed"]}\n')
         f.write(f'Experiment Date: {str_now}\n')
         f.write(f'Model: {kwargs["model"]}\n')
         f.write(f'Encoder: {kwargs["encoder"]}\n')
@@ -96,7 +97,7 @@ def exec_experiment(**kwargs):
         dataset_name=kwargs["dataset"],
         dataset_root=kwargs["dataset_root"],
         num_exps=kwargs["num_exps"],
-        seed=kwargs["seed"],
+        seed=kwargs["dataset_seed"],
         val_ratio=kwargs["probing_val_ratio"],
         evaluation_protocol_clear=kwargs["evaluation_protocol_clear"],
     )

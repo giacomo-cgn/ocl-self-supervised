@@ -69,7 +69,7 @@ def save_activations(args, device):
     benchmark, image_size = get_benchmark(dataset_name=config['dataset'],
                               dataset_root=args.dataset_root, 
                               num_exps=config['num_exps'],
-                              seed=config['seed'],
+                              seed=config['dataset_seed'],
                               val_ratio=config['val_ratio'])
     # Get encoder with saved weights
     encoder, dim_encoder_features = get_encoder(config['encoder'],
