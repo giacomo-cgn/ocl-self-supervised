@@ -1,10 +1,13 @@
 from .transforms import get_dataset_transforms
 import random
+import numpy as np
+from sklearn.model_selection import train_test_split
 
 import torch
 from torch.utils.data import ConcatDataset, Subset
 
 from avalanche.benchmarks.classic import SplitCIFAR100, SplitCIFAR10, SplitImageNet
+from torchvision.datasets import SVHN, StanfordCars
 # from avalanche.benchmarks.classic.clear import CLEAR
 from .clear_dataset import CLEAR
 
@@ -119,8 +122,55 @@ def get_iid_dataset(benchmark: Benchmark):
      iid_dataset_tr = ConcatDataset([tr_exp_dataset for tr_exp_dataset in benchmark.train_stream])
      return iid_dataset_tr
 
+def get_downstream_benchmark(downstream_name, dataset_root, seed=42, val_ratio=0.1):
+    if downstream_name == 'svhn':
+        train_dataset = SVHN(root='./data', split='train', download=True, transform=get_dataset_transforms(downstream_name))
+        test_dataset = SVHN(root='./data', split='test', download=True, transform=get_dataset_transforms(downstream_name))
+        if val_ratio > 0:
+            train_dataset, val_dataset = torch_val_split(val_ratio, train_dataset)
+            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset], valid_stream=[val_dataset])
+        else:
+            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset])
+        
+    elif downstream_name == 'cars':
+        train_dataset = StanfordCars(root=dataset_root, split='train', download=False, transform=get_dataset_transforms(downstream_name))
+        test_dataset = StanfordCars(root=dataset_root, split='test', download=False, transform=get_dataset_transforms(downstream_name))
+        if val_ratio > 0:
+            train_dataset, val_dataset = torch_val_split(val_ratio, train_dataset)
+            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset], valid_stream=[val_dataset])
+        else:
+            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset])
+        
+
+def torch_val_split(val_ratio, dataset):
+    if not 0.0 <= val_ratio <= 1.0:
+        raise ValueError("validation_size must be a float in [0, 1].")
+
+    num_tot = len(dataset)
+    num_val = int(val_ratio * num_tot)
+
+    # Get the labels for each data point in the training set
+    try:
+        labels = dataset.labels
+    except AttributeError:
+        labels = [dataset[i][1] for i in range(num_tot)]
+
+    # Perform stratified split to ensure the validation set is class balanced
+    train_indices, val_indices = train_test_split(
+        np.arange(num_tot),
+        test_size=num_val,
+        stratify=labels,  # this ensures class balance
+        random_state=42
+    )
+    # Create Subsets for training and validation using the indices
+    train_subset = Subset(dataset, train_indices)
+    val_subset = Subset(dataset, val_indices)
+    return train_subset, val_subset
+
+
 
 def class_balanced_split(validation_size, experience):
+    # From Avalanche.benchmarks
     """Class-balanced train/validation splits.
 
     This splitting strategy splits `experience` into two experiences

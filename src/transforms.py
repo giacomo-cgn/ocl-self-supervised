@@ -41,9 +41,22 @@ def get_dataset_transforms(dataset: str):
             transforms.Normalize(
             (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
     )])
+    elif dataset == 'svhn':
+        return transforms.Compose([
+                    transforms.Resize(32),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    elif dataset == 'cars':
+        return transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(
+            (0.4707, 0.4602, 0.4550), (0.2638, 0.2629, 0.2678)
+    )]) 
+    
 
     else:
-        raise ValueError("Dataset not supported")
+        raise ValueError(f'Base Trandforms for dataset "{dataset}" not supported')
 
 
 def get_dataset_crop(dataset: str):

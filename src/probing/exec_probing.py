@@ -25,8 +25,8 @@ def exec_probing(kwargs: Dict,
     
         # PROBING UTPO (probing on all all experiences up to current pretr_exp_idx)
         if kwargs["probing_upto"]:
-            # IID or random encoder training -> generate all upto datasets and probe on each of them
-            if kwargs['iid'] or kwargs["random_encoder"]:
+            # IID or no SSL training -> generate all upto datasets and probe on each of them
+            if kwargs['iid'] or kwargs["no_train"]:
                 # Probe upto each experience
                 for exp_idx, _ in enumerate(probing_benchmark.train_stream):
                     # Generate upto current exp probing datasets

@@ -20,6 +20,21 @@ class UnsupervisedDataset(Dataset):
     def __getitem__(self, idx):
         input_tensor, _, _ = self.data[idx]
         return input_tensor
+    
+class SupervisedDataset(Dataset):
+    def __init__(self, data):
+        self.data = data
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        if len(self.data[idx]) >= 3:
+            input_tensor, label, _ = self.data[idx]
+        elif len(self.data[idx]) == 2:
+            input_tensor, label = self.data[idx]
+            
+        return input_tensor, label
 
 
 @torch.no_grad() 
@@ -161,9 +176,14 @@ def read_command_line_args():
     parser.add_argument('--tr-mb-size', type=int, default=32)
     parser.add_argument('--common-transforms', type=str_to_bool, default=True)
     parser.add_argument('--iid', type=str_to_bool, default=False)
-    parser.add_argument('--random-encoder', type=str_to_bool, default=False)
+    parser.add_argument('--no-train', type=str_to_bool, default=False)
     parser.add_argument('--save-model-final', type=str_to_bool, default=True)
     parser.add_argument('--save-model-every-exp', type=str_to_bool, default=False)
+
+    # Downstream task params
+    parser.add_argument('--downstream', type=str_to_bool, default=False)
+    parser.add_argument('--downstream-dataset', type=str, default='svhn')
+    parser.add_argument('--downstream-dataset-root', type=str, default='./data')
 
     # Multi-processing params
     parser.add_argument('--max-process', type=int, default=1)

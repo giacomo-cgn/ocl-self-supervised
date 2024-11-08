@@ -8,8 +8,7 @@ from torch.utils.data.dataset import Dataset
 import torch.nn.functional as F
 
 from .abstract_probe import AbstractProbe
-import torch
-
+from ..utils import SupervisedDataset
 class ProbingPytorch(AbstractProbe):
     def __init__(self,                 
                  device: str = 'cpu',
@@ -87,10 +86,12 @@ class ProbingPytorch(AbstractProbe):
         used_ratio_samples = int(len(tr_dataset) * self.tr_samples_ratio)
         tr_dataset, _ = random_split(tr_dataset, [used_ratio_samples, len(tr_dataset) - used_ratio_samples],
                                      generator=torch.Generator().manual_seed(self.seed)) # Generator to ensure same splits
-    
+        tr_dataset = SupervisedDataset(tr_dataset)
         train_loader = DataLoader(dataset=tr_dataset, batch_size=self.mb_size, shuffle=True, num_workers=8)
+        test_dataset = SupervisedDataset(test_dataset)
         test_loader = DataLoader(dataset=test_dataset, batch_size=self.mb_size, shuffle=False, num_workers=8)
         if val_dataset is not None:
+            val_dataset = SupervisedDataset(val_dataset)
             val_loader = DataLoader(dataset=val_dataset, batch_size=self.mb_size, shuffle=False, num_workers=8)
 
         with torch.no_grad():
@@ -101,7 +102,7 @@ class ProbingPytorch(AbstractProbe):
             # Get encoder activations for tr dataloader
             tr_activations_list = []
             tr_labels_list = []
-            for inputs, labels, _ in train_loader:
+            for inputs, labels in train_loader:
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
                 activations = self.encoder(inputs)
                 tr_activations_list.append(activations.detach())
@@ -112,7 +113,7 @@ class ProbingPytorch(AbstractProbe):
             # Get encoder activations for val dataloader
             val_activations_list = []
             val_labels_list = []
-            for inputs, labels, _ in val_loader:
+            for inputs, labels in val_loader:
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
                 activations = self.encoder(inputs)
                 val_activations_list.append(activations.detach())
@@ -123,7 +124,7 @@ class ProbingPytorch(AbstractProbe):
             # Get encoder activations for test dataloader
             test_activations_list = []
             test_labels_list = []
-            for inputs, labels, _ in test_loader:
+            for inputs, labels in test_loader:
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
                 activations = self.encoder(inputs)
                 test_activations_list.append(activations.detach())

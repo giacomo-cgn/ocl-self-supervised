@@ -6,7 +6,7 @@ import tqdm as tqdm
 import numpy as np
 import pandas as pd
 
-from src.get_datasets import get_benchmark, get_iid_dataset
+from src.get_datasets import get_benchmark, get_iid_dataset, get_downstream_benchmark
 from src.probing import exec_probing, ProbingSklearn, ProbingPytorch
 from src.backbones import get_encoder
 
@@ -45,8 +45,8 @@ def exec_experiment(**kwargs):
     str_now = datetime.datetime.now().strftime("%d-%m-%y_%H:%M")
     if kwargs["strategy"] in standalone_strategies:
         folder_name = f'{kwargs["strategy"]}_{kwargs["dataset"]}_{str_now}'
-    elif kwargs['random_encoder']:
-        folder_name = f'random_{kwargs["dataset"]}_{str_now}'
+    elif kwargs['no_train']:
+        folder_name = f'notrain_{kwargs["dataset"]}_{str_now}'
     else:
         folder_name = f'{kwargs["strategy"]}_{kwargs["model"]}_{kwargs["dataset"]}_{str_now}'
     if kwargs["iid"]:
@@ -66,6 +66,9 @@ def exec_experiment(**kwargs):
         f.write(f'Model: {kwargs["model"]}\n')
         f.write(f'Encoder: {kwargs["encoder"]}\n')
         f.write(f'Dataset: {kwargs["dataset"]}\n')
+        if kwargs["downstream"]:
+            f.write(f'Downstream: {kwargs["downstream"]}\n')
+            f.write(f'Downstream Dataset: {kwargs["downstream_dataset"]}\n')
         f.write(f'Number of Experiences: {kwargs["num_exps"]}\n')
         f.write(f'Memory Size: {kwargs["mem_size"]}\n')
         f.write(f'MB Passes: {kwargs["mb_passes"]}\n')
@@ -103,6 +106,15 @@ def exec_experiment(**kwargs):
     )
     if kwargs["iid"]:
         iid_tr_dataset = get_iid_dataset(benchmark)
+
+    # Downstream
+    if kwargs["downstream"]:
+        downstream_benchmark = get_downstream_benchmark(
+            downstream_name=kwargs["downstream_dataset"],
+            dataset_root=kwargs["downstream_dataset_root"],
+            seed=kwargs["dataset_seed"],
+            val_ratio=kwargs["probing_val_ratio"],
+        )
 
 
     # Device
@@ -372,6 +384,13 @@ def exec_experiment(**kwargs):
                                  lr_min=kwargs["probe_lr_min"], probing_epochs=kwargs["probe_epochs"]))
        
 
+    if kwargs["downstream"]:
+        # Using downstream as probing
+        probing_benchmark = downstream_benchmark
+    else:
+        probing_benchmark = benchmark
+
+
     if kwargs["iid"]:
         # IID training over the entire dataset
         print(f'==== Beginning self supervised training on iid dataset ====')
@@ -393,12 +412,12 @@ def exec_experiment(**kwargs):
         trained_ssl_model = trainer.train_experience(iid_tr_dataset, exp_idx=0, iid_intermediate_eval_dict=iid_intermediate_eval_dict)
 
         if not kwargs["probing_all_exp"]:
-            exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
+            exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=probing_benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
                         pretr_exp_idx=0, probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
         
-    elif kwargs["random_encoder"]:
+    elif kwargs["no_train"]:
         # No SSL training is done, only using the randomly initialized encoder as feature extractor
-        exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=benchmark, encoder=encoder, pretr_exp_idx=0,
+        exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=probing_benchmark, encoder=encoder, pretr_exp_idx=0,
                      probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
 
     else:
@@ -407,11 +426,11 @@ def exec_experiment(**kwargs):
             print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
             trained_ssl_model = trainer.train_experience(exp_dataset, exp_idx)
             if kwargs["probing_all_exp"]:
-                exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
+                exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=probing_benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
                      pretr_exp_idx=exp_idx, probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
         if not kwargs["probing_all_exp"]:
             # Probe only at the end of training
-            exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
+            exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=probing_benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
                      pretr_exp_idx=exp_idx, probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
                 
         
@@ -431,7 +450,7 @@ def exec_experiment(**kwargs):
             write_final_scores(probe=probe.get_name(), folder_input_path=os.path.join(probe_pth, 'probing_upto'),
                             output_file=os.path.join(save_pth, 'final_scores_joint.csv'))
         #  Calculate forgetting
-        if kwargs["probing_separate"] and kwargs["probing_all_exp"] and not (kwargs["iid"] or kwargs["random_encoder"]):
+        if kwargs["probing_separate"] and kwargs["probing_all_exp"] and not (kwargs["iid"] or kwargs["no_train"]):
             calculate_forgetting(save_pth=probe_pth, num_exps=kwargs["num_exps"], probing_tr_ratio_arr=probing_tr_ratio_arr)
 
         
@@ -440,7 +459,7 @@ def exec_experiment(**kwargs):
         chkpt_pth = os.path.join(save_pth, 'checkpoints')
         if not os.path.exists(chkpt_pth):
             os.makedirs(chkpt_pth)
-        if kwargs["random_encoder"]:
+        if kwargs["no_train"]:
             torch.save(encoder.state_dict(),
                     os.path.join(chkpt_pth, f'final_model_state.pth'))
         else:
