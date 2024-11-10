@@ -91,9 +91,6 @@ def exec_experiment(**kwargs):
         f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
         f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
 
-    # Set seed
-    torch.manual_seed(kwargs["seed"])
-    np.random.default_rng(kwargs["seed"])
 
     # Dataset
     benchmark, image_size = get_benchmark(
@@ -116,6 +113,9 @@ def exec_experiment(**kwargs):
             val_ratio=kwargs["probing_val_ratio"],
         )
 
+    # Set seed (After get_benchmark!)
+    torch.manual_seed(kwargs["seed"])
+    np.random.default_rng(kwargs["seed"])
 
     # Device
     if torch.cuda.is_available():       

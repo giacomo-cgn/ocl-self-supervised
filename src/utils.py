@@ -95,8 +95,8 @@ def save_avg_stream_acc(probe, save_pth):
     output_file = os.path.join(save_pth, f"avg_stream_acc.csv")
     with open(output_file, "a") as output_f:
         if not os.path.exists(output_file) or os.path.getsize(output_file) == 0:
-            output_f.write("probe_type, avg_val_acc, avg_test_acc\n")
-        output_f.write(f"{probe}, {avg_val_acc:.4f}, {avg_test_acc:.4f}\n")
+            output_f.write("probe_type,avg_val_acc,avg_test_acc\n")
+        output_f.write(f"{probe},{avg_val_acc:.4f},{avg_test_acc:.4f}\n")
     
 
 

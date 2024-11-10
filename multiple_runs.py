@@ -61,40 +61,51 @@ def multiple_runs(args, seeds, parent_log_folder='./logs', experiment_name=''):
                     break
 
           test_acc = results_df['avg_test_acc'].values[0]
-          final_test_acc_list.append(test_acc)
+          final_test_acc_list.append(test_acc*100)
 
           if args.probing_val_ratio > 0.0:
                val_acc = results_df['avg_val_acc'].values[0]
-               final_val_acc_list.append(val_acc)
+               final_val_acc_list.append(val_acc*100)
 
           if os.path.exists(os.path.join(experiment_save_folder, 'avg_stream_acc.csv')):
                df = pd.read_csv(os.path.join(experiment_save_folder, 'avg_stream_acc.csv'))
                # Select row were column probe_type == probe_type
                df = df[df['probe_type'] == probe_type]
-               avg_test_acc_list.append(df['avg_test_acc'].values[0])
+               avg_test_acc_list.append(df['avg_test_acc'].values[0]*100)
                if args.probing_val_ratio > 0.0:
-                    avg_val_acc_list.append(df['avg_val_acc'].values[0])
+                    avg_val_acc_list.append(df['avg_val_acc'].values[0]*100)
 
-     # Calculate mean and std for every value
-     final_val_mean = sum(final_val_acc_list) / len(final_val_acc_list)
-     final_val_std = (sum([(x - final_val_mean) ** 2 for x in final_val_acc_list]) / len(final_val_acc_list)) ** 0.5
-     final_test_mean = sum(final_test_acc_list) / len(final_test_acc_list)
-     final_test_std = (sum([(x - final_test_mean) ** 2 for x in final_test_acc_list]) / len(final_test_acc_list)) ** 0.5
+     
      # Write results to file
      with open(os.path.join(save_folder, 'multiple_runs_results.txt'), 'a') as f:
-          f.write(f"\nFinal results:\n")
-          f.write(f"Final Test Acc: {final_test_mean:.4f} +- {final_test_std:.4f}\n")
+          f.write(f"\n#### Final results: ####\n")
+          f.write(f'Final Avg Test Acc List: {final_test_acc_list}\n')
+          final_test_mean = sum(final_test_acc_list) / len(final_test_acc_list)
+          final_test_std = (sum([(x - final_test_mean) ** 2 for x in final_test_acc_list]) / len(final_test_acc_list)) ** 0.5
+          f.write(f"Final Test Acc: {final_test_mean:.3f} +- {final_test_std:.3f}\n")
+          f.write(f"Final Test Acc: {final_test_mean:.1f} +- {final_test_std:.1f}\n")
+          
           if len(avg_val_acc_list) > 0:
-               f.write(f"Final Val Acc: {final_val_mean:.4f} +- {final_val_std:.4f}\n")
+               final_val_mean = sum(final_val_acc_list) / len(final_val_acc_list)
+               final_val_std = (sum([(x - final_val_mean) ** 2 for x in final_val_acc_list]) / len(final_val_acc_list)) ** 0.5
+               f.write(f'\nFinal Avg Val Acc List: {final_val_acc_list}\n')
+               f.write(f"Final Val Acc: {final_val_mean:.3f} +- {final_val_std:.3f}\n")
+               f.write(f"Final Val Acc: {final_val_mean:.1f} +- {final_val_std:.1f}\n")
+
           if len(avg_test_acc_list) > 0:
-               f.write(f"\Stream Avg results:\n")
+               f.write(f"\n#### Stream Avg results: ####\n")
+               f.write(f'Stream Avg Test Acc List: {avg_test_acc_list}\n')
                avg_test_mean = sum(avg_test_acc_list) / len(avg_test_acc_list)
                avg_test_std = (sum([(x - avg_test_mean) ** 2 for x in avg_test_acc_list]) / len(avg_test_acc_list)) ** 0.5
-               f.write(f"Stream Avg Test Acc: {avg_test_mean:.4f} +- {avg_test_std:.4f}\n")
+               f.write(f"Stream Avg Test Acc: {avg_test_mean:.3f} +- {avg_test_std:.3f}\n")
+               f.write(f"Stream Avg Test Acc: {avg_test_mean:.1f} +- {avg_test_std:.1f}\n")
+
           if len(avg_val_acc_list) > 0:
+               f.write(f'\nStream Avg Val Acc List: {avg_test_acc_list}\n')
                avg_val_mean = sum(avg_val_acc_list) / len(avg_val_acc_list)
                avg_val_std = (sum([(x - avg_val_mean) ** 2 for x in avg_val_acc_list]) / len(avg_val_acc_list)) ** 0.5
-               f.write(f"Stream Avg Val Acc: {avg_val_mean:.4f} +- {avg_val_std:.4f}\n")
+               f.write(f"Stream Avg Val Acc: {avg_val_mean:.3f} +- {avg_val_std:.3f}\n")
+               f.write(f"Stream Avg Val Acc: {avg_val_mean:.1f} +- {avg_val_std:.1f}\n")
 
 
 def launch_exec_experiment(args_dict):

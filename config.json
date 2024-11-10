@@ -2,27 +2,34 @@
     "common_params":
     {
         "gpu-idx": 0,
-        "dataset": "imagenet100",
-        "dataset-root": "/home/giacomo/Ai/imagenet",
+        "dataset": "cifar100",
+        "dataset-root": "/data/cossu/imagenet/imagenet",
+        "tr-mb-size": 10,
+        "repl-mb-size": 10,
+        "eval-mb-size": 256,
+        "epochs": 1,
+        "save-folder": "./logs/clear_test",
+        "probing-separate": false,
+        "probing-torch": true,
+        "probing-rr": false,
+        "probing-all-exp": true,
         "mb-passes": 1,
-        "epochs": 83,
-        "tr-mb-size": 138,
-        "repl-mb-size": 128,
-        "iid": false,
-        "omega": 0.05,
-        "momentum-ema": 0.999,
-        "eval-mb-size": 256
+        "max-process": 1
     },
     "experiments":
     [
         {
+            "multiple_runs": {
+                "seeds": [1,2]
+            },
             "model": "simsiam",
-            "strategy" : "no_strategy",
-            "iid": true,
-            "hyperparams_search": {
-                "lr": [0.1, 0.03, 0.01]
-            }
+            "strategy" : "replay",
+            "downstream": true,
+            "downstream-dataset": "svhn",
+            "downstream-dataset-root": "/home/giacomo/Ai/StanfordCars",
+            "no-train": true,
+            "mb-passes": 1
         }
-
+        
     ]
 }
