@@ -124,8 +124,8 @@ def get_iid_dataset(benchmark: Benchmark):
 
 def get_downstream_benchmark(downstream_name, dataset_root, seed=42, val_ratio=0.1):
     if downstream_name == 'svhn':
-        train_dataset = SVHN(root='./data', split='train', download=True, transform=get_dataset_transforms(downstream_name))
-        test_dataset = SVHN(root='./data', split='test', download=True, transform=get_dataset_transforms(downstream_name))
+        train_dataset = SVHN(root=dataset_root, split='train', download=True, transform=get_dataset_transforms(downstream_name))
+        test_dataset = SVHN(root=dataset_root, split='test', download=True, transform=get_dataset_transforms(downstream_name))
         if val_ratio > 0:
             train_dataset, val_dataset = torch_val_split(val_ratio, train_dataset)
             return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset], valid_stream=[val_dataset])
