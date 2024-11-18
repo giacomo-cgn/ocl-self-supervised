@@ -8,6 +8,8 @@ from .moco import MoCo
 from .simclr import SimCLR
 from .emp import EMP
 from .mae import MAE
+from .simsiam_multiview import SimSiamMultiview
+from .byol_multiview import BYOLMultiview
 from .abstract_ssl_model import AbstractSSLModel
 
 def recover_ssl_model(ssl_model: AbstractSSLModel, path: str) -> AbstractSSLModel:

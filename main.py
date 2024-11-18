@@ -10,7 +10,7 @@ from src.get_datasets import get_benchmark, get_iid_dataset, get_downstream_benc
 from src.probing import exec_probing, ProbingSklearn, ProbingPytorch
 from src.backbones import get_encoder
 
-from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE, recover_ssl_model
+from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE, SimSiamMultiview, BYOLMultiview, recover_ssl_model
 
 from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, CaSSLeR, ReplayEMP, ARPHybrid
 from src.standalone_strategies import SCALE, DoubleResnet, OsirisR
@@ -193,12 +193,24 @@ def exec_experiment(**kwargs):
                                 dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
                                 save_pth=save_pth)
             num_views = 2
+        elif kwargs["model"] == 'simsiam_multiview':
+            ssl_model = SimSiamMultiview(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
+                                         dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
+                                         n_patches=kwargs["num_views"], save_pth=save_pth)
+            num_views = kwargs["num_views"]
+
         elif kwargs["model"] == 'byol':
             ssl_model = BYOL(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
                              dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
                              byol_momentum=kwargs["byol_momentum"], return_momentum_encoder=kwargs["return_momentum_encoder"],
                              save_pth=save_pth)
             num_views = 2
+        elif kwargs["model"] == 'byol_multiview':
+            ssl_model = BYOLMultiview(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
+                                      dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
+                                      byol_momentum=kwargs["byol_momentum"], return_momentum_encoder=kwargs["return_momentum_encoder"],
+                                      n_patches=kwargs["num_views"], save_pth=save_pth)
+            num_views = kwargs["num_views"]
             
         elif kwargs["model"] == 'barlow_twins':
             ssl_model = BarlowTwins(encoder=encoder, dim_backbone_features=dim_encoder_features,
