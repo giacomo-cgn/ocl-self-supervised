@@ -1,4 +1,4 @@
-from .transforms import get_dataset_transforms
+from .transforms import get_dataset_transforms, MultiPatchTransforms
 import random
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -12,10 +12,20 @@ from torchvision.datasets import SVHN, StanfordCars
 from .clear_dataset import CLEAR
 
 from .benchmark import Benchmark
-def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.1, evaluation_protocol_clear='iid'):
+def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.1, evaluation_protocol_clear='iid', transforms='default', num_views=2):
 
     return_task_id = False
     shuffle = True
+
+    # Get transformations to be applied to the dataset
+    if transforms == 'default':
+        # Default transformation is only normalization, the other can be applied online
+        train_transform = get_dataset_transforms(dataset_name)
+        eval_transform = get_dataset_transforms(dataset_name)
+    elif transforms == 'multipatch':
+        # Transforms for multipatch training and evaluation
+        train_transform = MultiPatchTransforms(num_patch=num_views, dataset_name=dataset_name)
+        eval_transform = MultiPatchTransforms(num_patch=num_views, dataset_name=dataset_name)
 
     if dataset_name == 'cifar100':
         benchmark = SplitCIFAR100(
@@ -23,7 +33,7 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
                 seed=seed, # Fixed seed for reproducibility
                 return_task_id=return_task_id,
                 shuffle=shuffle,
-                train_transform=get_dataset_transforms(dataset_name),
+                train_transform=train_transform,
                 eval_transform=get_dataset_transforms(dataset_name),
             )
         image_size = 32
@@ -34,8 +44,8 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
                 seed=seed, # Fixed seed for reproducibility
                 return_task_id=return_task_id,
                 shuffle=shuffle,
-                train_transform=get_dataset_transforms(dataset_name),
-                eval_transform=get_dataset_transforms(dataset_name),
+                train_transform=train_transform,
+                eval_transform=eval_transform,
             )
         image_size = 32
         
@@ -46,8 +56,8 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
                 seed=seed, # Fixed seed for reproducibility
                 return_task_id=return_task_id,
                 shuffle=shuffle,
-                train_transform=get_dataset_transforms(dataset_name),
-                eval_transform=get_dataset_transforms(dataset_name),
+                train_transform=train_transform,
+                eval_transform=eval_transform,
             )
         image_size = 224
         
@@ -61,8 +71,8 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
             fixed_class_order = classes,
             return_task_id=return_task_id,
             shuffle=shuffle,
-            train_transform=get_dataset_transforms(dataset_name),
-            eval_transform=get_dataset_transforms(dataset_name),
+            train_transform=train_transform,
+            eval_transform=eval_transform,
             # class_ids_from_zero_from_first_exp=True ## not allowed for Avalanche < 0.4.0
         )
         image_size = 224
@@ -88,8 +98,8 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
             feature_type=None,
             seed=seed%5, # allowed seed in 0-4 range
             dataset_root=None,
-            train_transform=get_dataset_transforms(dataset_name),
-            eval_transform=get_dataset_transforms(dataset_name),
+            train_transform=train_transform,
+            eval_transform=eval_transform,
         )
         image_size = 224
 

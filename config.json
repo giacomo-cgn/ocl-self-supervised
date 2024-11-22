@@ -10,7 +10,7 @@
         "epochs": 1,
         "save-folder": "./logs/clear_test",
         "probing-separate": false,
-        "probing-torch": true,
+        "probing-torch": false,
         "probing-rr": false,
         "probing-all-exp": true,
         "mb-passes": 1,
@@ -20,15 +20,14 @@
     [
         {
             "multiple_runs": {
-                "seeds": [1,2]
+                "seeds": [1]
             },
-            "model": "simsiam",
-            "strategy" : "replay",
-            "downstream": true,
-            "downstream-dataset": "svhn",
-            "downstream-dataset-root": "/home/giacomo/Ai/StanfordCars",
-            "no-train": true,
-            "mb-passes": 1
+            "model": "simsiam_multiview",
+            "strategy" : "no_strategy",
+            "multipatch": true,
+            "num-views": 10,
+            "online-transforms-type": "none"
+
         }
         
     ]

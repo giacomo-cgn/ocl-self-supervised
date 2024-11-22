@@ -29,7 +29,7 @@ class Trainer():
                  dataset_name: str = 'cifar100',
                  save_pth: str  = None,
                  save_model: bool = False,
-                 common_transforms: bool = True,
+                 online_transforms_type: str = 'common',
                  num_views: int = 2
                ):
         
@@ -49,16 +49,20 @@ class Trainer():
         self.dataset_name = dataset_name
         self.save_pth = save_pth
         self.save_model = save_model
-        self.common_transforms = common_transforms
+        self.online_transforms_type = online_transforms_type
         self.num_views = num_views # == 2 for most Instance Discrimination methods, but can vary e.g. EMP
 
         self.model_and_strategy_name = self.strategy.get_name() + '_' + self.ssl_model.get_name()
 
-        # Set up transforms
-        if self.common_transforms:
-            self.transforms = get_transforms(dataset=self.dataset_name, model='common', n_crops=num_views)
+         # Set up transforms
+        if self.online_transforms_type == 'common':
+            self.transforms = get_transforms(dataset=self.dataset_name, model='common')
+        elif self.online_transforms_type == 'model':
+            self.transforms = get_transforms(dataset=self.dataset_name, model=self.strategy_name)
+        elif self.online_transforms_type == 'none':
+            self.transforms = None
         else:
-            self.transforms = get_transforms(dataset=self.dataset_name, model=self.ssl_model.get_name(), n_crops=num_views)
+            raise Exception(f'Transforms type {self.online_transforms_type} not supported.')
 
         # List of params to optimize
         params_to_optimize = self.ssl_model.get_params() + self.strategy.get_params()
@@ -114,7 +118,10 @@ class Trainer():
         
         for epoch in range(self.train_epochs):
             for mb_idx, stream_mbatch in enumerate(tqdm(data_loader)):
-                stream_mbatch = stream_mbatch.to(self.device)
+                if isinstance(stream_mbatch, list):
+                    stream_mbatch = [x.to(self.device) for x in stream_mbatch]
+                else:
+                    stream_mbatch = stream_mbatch.to(self.device)
 
                 stream_mbatch = self.strategy.before_mb_passes(stream_mbatch)
 
@@ -123,7 +130,18 @@ class Trainer():
                     mbatch = self.strategy.before_forward(stream_mbatch)
 
                     # Apply transforms, obtains a list of tensors, each containing 1 view for every sample in the mbatch
-                    x_views_list = self.transforms(mbatch)
+                    if self.transforms is None:
+                        x_views_list = mbatch
+                    else:
+                        x_views_list = self.transforms(mbatch)
+
+                    x_views_list = self.strategy.after_transforms(x_views_list)
+
+                    # Forward pass of SSL model (z: projector features, e: encoder features)
+                    loss, z_list, e_list = self.ssl_model(x_views_list)
+
+                    # Strategy after forward pass
+                    loss_strategy = self.strategy.after_forward(x_views_list, loss, z_list, e_list)
 
                     x_views_list = self.strategy.after_transforms(x_views_list)
 

@@ -29,7 +29,7 @@ class SCALE():
                  dataset_name: str = 'cifar100',
                  save_pth: str  = None,
                  save_model: bool = False,
-                 common_transforms: bool = True,
+                 online_transforms_type: str = 'common',
                  mem_size: int = 2000,
                  replay_mb_size: int = 32,
 
@@ -60,7 +60,7 @@ class SCALE():
         self.dataset_name = dataset_name
         self.save_pth = save_pth
         self.save_model = save_model
-        self.common_transforms = common_transforms
+        self.online_transforms_type = online_transforms_type
         self.mem_size = mem_size
         self.replay_mb_size = replay_mb_size
 
@@ -80,10 +80,12 @@ class SCALE():
         self.strategy_name = 'SCALE'
 
         # Set up transforms
-        if self.common_transforms:
+        if self.online_transforms_type == 'common':
             self.transforms = get_transforms(dataset=self.dataset_name, model='common')
-        else:
+        elif self.online_transforms_type == 'model':
             self.transforms = get_transforms(dataset=self.dataset_name, model=self.strategy_name)
+        else:
+            raise Exception(f'Transforms type {self.online_transforms_type} not supported by SCALE.')
 
         self.tr_distill_power = 0.0
 

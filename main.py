@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from src.get_datasets import get_benchmark, get_iid_dataset, get_downstream_benchmark
-from src.probing import exec_probing, ProbingSklearn, ProbingPytorch
+from src.probing import exec_probing, ProbingSklearn, ProbingPytorch, ProbingMultipatch
 from src.backbones import get_encoder
 
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE, SimSiamMultiview, BYOLMultiview, recover_ssl_model
@@ -75,6 +75,9 @@ def exec_experiment(**kwargs):
         f.write(f'Num Epochs: {kwargs["epochs"]}\n')
         f.write(f'Train MB Size: {kwargs["tr_mb_size"]}\n')
         f.write(f'Replay MB Size: {kwargs["repl_mb_size"]}\n')
+        f.write(f'Online transforms type: {kwargs["online_transforms_type"]}\n')
+        f.write(f'Multipatch: {kwargs["multipatch"]}\n')
+        f.write(f'Num Views: {kwargs["num_views"]}\n')
         f.write(f'IID pretraining: {kwargs["iid"]}\n')
         f.write(f'Save final model: {kwargs["save_model_final"]}\n')
         f.write(f'-- Pretrained weights initialization configs --\n')
@@ -91,7 +94,6 @@ def exec_experiment(**kwargs):
         f.write(f'Probing Validation Ratio: {kwargs["probing_val_ratio"]}\n')
         f.write(f'Probing Train Ratios: {probing_tr_ratio_arr}\n')
 
-
     # Dataset
     benchmark, image_size = get_benchmark(
         dataset_name=kwargs["dataset"],
@@ -103,6 +105,23 @@ def exec_experiment(**kwargs):
     )
     if kwargs["iid"]:
         iid_tr_dataset = get_iid_dataset(benchmark)
+
+    if kwargs["multipatch"]:
+        # Check that online transforms are absent
+        assert kwargs["online_transforms_type"] == "none", f'Online transforms are not supported for multipatch at the moment. \
+                                                            Use "--online-transforms-type none" instead of {kwargs["online_transforms_type"]} .' 
+        benchmark, image_size = get_benchmark(
+            dataset_name=kwargs["dataset"],
+            dataset_root=kwargs["dataset_root"],
+            num_exps=kwargs["num_exps"],
+            seed=kwargs["dataset_seed"],
+            val_ratio=kwargs["probing_val_ratio"],
+            evaluation_protocol_clear=kwargs["evaluation_protocol_clear"],
+            transforms="multipatch",
+            num_views=kwargs["num_views"],
+        )
+        if kwargs["iid"]:
+            iid_tr_dataset = get_iid_dataset(benchmark)
 
     # Downstream
     if kwargs["downstream"]:
@@ -363,7 +382,7 @@ def exec_experiment(**kwargs):
                           lars_eta= kwargs["lars_eta"],
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                          save_model=kwargs["save_model_every_exp"], common_transforms=kwargs["common_transforms"], num_views=num_views)
+                          save_model=kwargs["save_model_every_exp"], online_transforms_type=kwargs["online_transforms_type"], num_views=num_views)
         
     else:
         # Is a standalone strategy (already includes trainer and ssl model inside the strategy itself)
@@ -371,7 +390,7 @@ def exec_experiment(**kwargs):
                         momentum=kwargs["optim_momentum"], weight_decay=kwargs["weight_decay"],
                         train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                         mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                        save_model=False, common_transforms=kwargs["common_transforms"],
+                        save_model=False, online_transforms_type=kwargs["online_transforms_type"],
                         buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
                         dim_features=kwargs["scale_dim_features"], distill_power=kwargs["scale_distill_power"], buffer_type=kwargs["buffer_type"])
         
@@ -394,7 +413,13 @@ def exec_experiment(**kwargs):
                                  dim_encoder_features=dim_encoder_features, lr=kwargs["probe_lr"],
                                  lr_patience=kwargs["probe_lr_patience"], lr_factor=kwargs["probe_lr_factor"],
                                  lr_min=kwargs["probe_lr_min"], probing_epochs=kwargs["probe_epochs"]))
-       
+        
+    if kwargs["multipatch"]:
+        probes.append(ProbingMultipatch(device=device, mb_size=kwargs["eval_mb_size"], config_save_pth=save_pth,
+                                 dim_encoder_features=dim_encoder_features, lr=kwargs["probe_lr"],
+                                 lr_patience=kwargs["probe_lr_patience"], lr_factor=kwargs["probe_lr_factor"],
+                                 lr_min=kwargs["probe_lr_min"], probing_epochs=kwargs["probe_epochs"],
+                                 eval_patches=kwargs["num_views"]))
 
     if kwargs["downstream"]:
         # Using downstream as probing

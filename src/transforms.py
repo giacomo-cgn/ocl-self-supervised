@@ -1,8 +1,9 @@
 import torch
 from torchvision import transforms
 
-from PIL import ImageFilter, ImageOps
+from PIL import ImageFilter, ImageOps, Image
 import random
+import numpy as np
 
 
 def get_dataset_transforms(dataset: str):
@@ -101,15 +102,21 @@ class GaussianBlur(object):
         x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
         return x
     
-class Solarization(object):
-    def __init__(self, p):
-        self.p = p
 
-    def __call__(self, img):
-        if random.random() < self.p:
-            return ImageOps.solarize(img)
-        else:
-            return img
+class Solarization:
+    """Solarization as a callable object."""
+
+    def __call__(self, img: Image) -> Image:
+        """Applies solarization to an input image.
+
+        Args:
+            img (Image): an image in the PIL.Image format.
+
+        Returns:
+            Image: a solarized image.
+        """
+
+        return ImageOps.solarize(img)
         
 def clamp_transform(image):
     # Clamping operation here
@@ -233,3 +240,44 @@ def get_transforms(dataset: str, model: str, n_crops: int = 2):
         raise ValueError(f"Model {model} not supported")
 
     return MultipleCropsTransform(transforms.Compose(all_transforms), n_crops)
+
+def multipatch_transforms(dataset: str, n_crops: int = 2):
+    """Returns multipatch augmentations (EMP augmentations)"""
+
+class MultiPatchTransforms(object):
+    """Multipatch augmented views generator to be applied on dataset."""
+    def __init__(self, num_patch = 2, dataset_name = 'cifar100'):
+        self.num_patch = num_patch
+        if dataset_name in ['cifar10', 'cifar100']:
+            self.crop = transforms.RandomResizedCrop(32,scale=(0.25, 0.25), ratio=(1,1))
+        elif dataset_name in ['imagenet', 'imagenet100', 'clear100']:
+            self.crop = transforms.RandomResizedCrop(224, scale=(0.25, 0.25), interpolation=transforms.InterpolationMode.BICUBIC)
+        else:
+            raise ValueError(f"Dataset {dataset_name} not supported in MultiPatchTransforms crop selection.")
+        
+    def __call__(self, x):
+        aug_transform =  transforms.Compose([
+            self.crop,
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.2)], p=0.8),
+            transforms.RandomGrayscale(p=0.2),
+            GBlur(p=0.1),
+            transforms.RandomApply([Solarization()], p=0.1),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+        ])
+
+        augmented_x = [aug_transform(x) for i in range(self.num_patch)]
+        return augmented_x
+    
+class GBlur(object):
+    def __init__(self, p):
+        self.p = p
+
+    def __call__(self, img):
+        if np.random.rand() < self.p:
+            sigma = np.random.rand() * 1.9 + 0.1
+            return img.filter(ImageFilter.GaussianBlur(sigma))
+        else:
+            return img
+

@@ -174,11 +174,16 @@ def read_command_line_args():
     
     parser.add_argument('--mb-passes', type=int, default=3)
     parser.add_argument('--tr-mb-size', type=int, default=32)
-    parser.add_argument('--common-transforms', type=str_to_bool, default=True)
+    parser.add_argument('--online-transforms-type', type=str, default='common')
     parser.add_argument('--iid', type=str_to_bool, default=False)
     parser.add_argument('--no-train', type=str_to_bool, default=False)
     parser.add_argument('--save-model-final', type=str_to_bool, default=True)
     parser.add_argument('--save-model-every-exp', type=str_to_bool, default=False)
+
+    # Multipatch params
+    parser.add_argument('--multipatch', type=str_to_bool, default=False)
+    parser.add_argument('--num-views', type=int, default=2) # Most Instance Discrimination SSL methods use 2, but can vary (e.g EMP)
+
 
     # Downstream task params
     parser.add_argument('--downstream', type=str_to_bool, default=False)
@@ -235,7 +240,6 @@ def read_command_line_args():
 
 
     # SSL models specific params
-    parser.add_argument('--num-views', type=int, default=2) # Most Instance Discrimination SSL methods use 2, but can vary (e.g EMP)
     parser.add_argument('--lambd', type=float, default=5e-3) # For Barlow Twins
     parser.add_argument('--byol-momentum', type=float, default=0.99)
     parser.add_argument('--return-momentum-encoder', type=str_to_bool, default=True)
