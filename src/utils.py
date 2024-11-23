@@ -183,6 +183,7 @@ def read_command_line_args():
     # Multipatch params
     parser.add_argument('--multipatch', type=str_to_bool, default=False)
     parser.add_argument('--num-views', type=int, default=2) # Most Instance Discrimination SSL methods use 2, but can vary (e.g EMP)
+    parser.add_argument('--num-views-eval', type=int, default=1) # num_views used for multipatch probing
 
 
     # Downstream task params

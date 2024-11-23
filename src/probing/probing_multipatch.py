@@ -10,6 +10,8 @@ import torch.nn.functional as F
 
 from .abstract_probe import AbstractProbe
 from ..utils import SupervisedDataset
+from ..transforms import MultiPatchTransforms
+
 class ProbingMultipatch(AbstractProbe):
     def __init__(self,                 
                  device: str = 'cpu',
@@ -22,7 +24,7 @@ class ProbingMultipatch(AbstractProbe):
                  lr_factor: int = 3,
                  lr_min: float = 1e-4,
                  probing_epochs: int = 100,
-                 eval_patches: int = 2
+                 eval_patches: int = 2,
     ):
         
         self.device = device
@@ -41,6 +43,7 @@ class ProbingMultipatch(AbstractProbe):
 
         self.criterion = nn.CrossEntropyLoss()
 
+
         if config_save_pth is not None:
             # Save model configuration
             with open(config_save_pth + '/config.txt', 'a') as f:
@@ -54,6 +57,7 @@ class ProbingMultipatch(AbstractProbe):
                 f.write(f'Probing lr factor: {self.lr_factor}\n')
                 f.write(f'Probing lr min: {self.lr_min}\n')
                 f.write(f'Probing epochs: {self.probing_epochs}\n')
+                f.write(f'Eval patches: {self.eval_patches}\n')
 
     def get_name(self) -> str:
         return self.probe_type
@@ -108,6 +112,7 @@ class ProbingMultipatch(AbstractProbe):
             tr_labels_list = []
             print('Getting train activations for probing...')
             for input_list, labels in tqdm(train_loader):
+                print(f'len input list: {len(input_list)}')
                 inputs = torch.cat(input_list, dim = 0).to(self.device)
                 labels = labels.to(self.device)
                 activations = self.encoder(inputs)

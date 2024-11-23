@@ -26,7 +26,8 @@
             "strategy" : "no_strategy",
             "multipatch": true,
             "num-views": 10,
-            "online-transforms-type": "none"
+            "online-transforms-type": "none",
+            "num-views-eval": 4
 
         }
         

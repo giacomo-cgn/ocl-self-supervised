@@ -123,6 +123,17 @@ def exec_experiment(**kwargs):
         if kwargs["iid"]:
             iid_tr_dataset = get_iid_dataset(benchmark)
 
+        benchmark_eval, _ = get_benchmark(
+            dataset_name=kwargs["dataset"],
+            dataset_root=kwargs["dataset_root"],
+            num_exps=kwargs["num_exps"],
+            seed=kwargs["dataset_seed"],
+            val_ratio=kwargs["probing_val_ratio"],
+            evaluation_protocol_clear=kwargs["evaluation_protocol_clear"],
+            transforms="multipatch",
+            num_views=kwargs["num_views_eval"],
+        )
+
     # Downstream
     if kwargs["downstream"]:
         downstream_benchmark = get_downstream_benchmark(
@@ -419,11 +430,13 @@ def exec_experiment(**kwargs):
                                  dim_encoder_features=dim_encoder_features, lr=kwargs["probe_lr"],
                                  lr_patience=kwargs["probe_lr_patience"], lr_factor=kwargs["probe_lr_factor"],
                                  lr_min=kwargs["probe_lr_min"], probing_epochs=kwargs["probe_epochs"],
-                                 eval_patches=kwargs["num_views"]))
+                                 eval_patches=kwargs["num_views_eval"]))
 
     if kwargs["downstream"]:
         # Using downstream as probing
         probing_benchmark = downstream_benchmark
+    elif kwargs["multipatch"]:
+        probing_benchmark = benchmark_eval # Temporary this way it does not work when mixing probe types
     else:
         probing_benchmark = benchmark
 
