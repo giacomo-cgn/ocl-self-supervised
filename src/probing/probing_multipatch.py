@@ -126,7 +126,7 @@ class ProbingMultipatch(AbstractProbe):
             val_activations_list = []
             val_labels_list = []
             print('Getting val activations for probing...')
-            for inputs, labels in tqdm(val_loader):
+            for input_list, labels in tqdm(val_loader):
                 inputs = torch.cat(input_list, dim = 0).to(self.device)
                 labels = labels.to(self.device)
                 activations = self.encoder(inputs)
@@ -140,7 +140,7 @@ class ProbingMultipatch(AbstractProbe):
             test_activations_list = []
             test_labels_list = []
             print('Getting test activations for probing...')
-            for inputs, labels in tqdm(test_loader):
+            for input_list, labels in tqdm(test_loader):
                 inputs = torch.cat(input_list, dim = 0).to(self.device)
                 labels = labels.to(self.device)
                 activations = self.encoder(inputs)

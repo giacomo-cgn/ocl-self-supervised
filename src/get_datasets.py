@@ -34,7 +34,7 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
                 return_task_id=return_task_id,
                 shuffle=shuffle,
                 train_transform=train_transform,
-                eval_transform=get_dataset_transforms(dataset_name),
+                eval_transform=eval_transform,
             )
         image_size = 32
         
