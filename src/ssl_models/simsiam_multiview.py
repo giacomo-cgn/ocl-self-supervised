@@ -9,7 +9,7 @@ class SimSiamMultiview(nn.Module, AbstractSSLModel):
     Build a SimSiam model.
     """
     def __init__(self, base_encoder, dim_backbone_features, dim_proj=2048, dim_pred=512, 
-                 n_patches=2, save_pth=None):
+                 n_patches=2, tcr_strength=0.005, save_pth=None):
         super(SimSiamMultiview, self).__init__()
         self.encoder = base_encoder
         self.save_pth = save_pth
@@ -17,6 +17,7 @@ class SimSiamMultiview(nn.Module, AbstractSSLModel):
         self.dim_projector = dim_proj
         self.dim_predictor = dim_pred
         self.n_patches = n_patches
+        self.tcr_strength = tcr_strength
 
 
         # Set up criterion
@@ -51,6 +52,8 @@ class SimSiamMultiview(nn.Module, AbstractSSLModel):
                 f.write(f'MODEL: {self.model_name}\n')
                 f.write(f'dim_projector: {dim_proj}\n')
                 f.write(f'dim_predictor: {dim_pred}\n')
+                f.write(f'n_patches: {n_patches}\n')
+                f.write(f'tcr_strength: {tcr_strength}\n')
 
     def forward(self, x_views_list):
 
@@ -80,7 +83,7 @@ class SimSiamMultiview(nn.Module, AbstractSSLModel):
         loss = -loss/num_patch
         
         loss_TCR = cal_TCR(z_list, self.criterion_tcr, num_patch)
-        loss = 200*loss + loss_TCR
+        loss = loss + self.tcr_strength*loss_TCR
 
         return loss, z_list, e_list
     

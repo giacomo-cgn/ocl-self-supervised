@@ -13,6 +13,7 @@ class BYOLMultiview(nn.Module, AbstractSSLModel):
                   dim_proj=2048, dim_pred=512,
                   byol_momentum=0.9, return_momentum_encoder=True, 
                   n_patches=2,
+                  tcr_strength=0.005,
                   save_pth=None):
         
         super(BYOLMultiview, self).__init__()
@@ -21,6 +22,7 @@ class BYOLMultiview(nn.Module, AbstractSSLModel):
         self.dim_projector = dim_proj
         self.dim_predictor = dim_pred
         self.n_patches = n_patches
+        self.tcr_strength = tcr_strength
 
         self.byol_momentum = byol_momentum
         self.return_momentum_encoder = return_momentum_encoder
@@ -70,6 +72,8 @@ class BYOLMultiview(nn.Module, AbstractSSLModel):
                 f.write(f'MODEL: {self.model_name}\n')
                 f.write(f'dim_projector: {dim_proj}\n')
                 f.write(f'dim_predictor: {dim_pred}\n')
+                f.write(f'n_patches: {n_patches}\n')
+                f.write(f'tcr_strength: {tcr_strength}\n')
 
     def forward(self, x_views_list):
         # Concat all tensors in the list in a single tensor
@@ -102,7 +106,7 @@ class BYOLMultiview(nn.Module, AbstractSSLModel):
             
         loss = -loss/num_patch
         loss_TCR = cal_TCR(z_onl_list, self.criterion_tcr, num_patch)
-        loss = 200*loss + loss_TCR
+        loss = loss + self.tcr_strength * loss_TCR
 
         return loss, z_onl_list, e_list
      

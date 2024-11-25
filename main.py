@@ -226,7 +226,8 @@ def exec_experiment(**kwargs):
         elif kwargs["model"] == 'simsiam_multiview':
             ssl_model = SimSiamMultiview(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
                                          dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
-                                         n_patches=kwargs["num_views"], save_pth=save_pth)
+                                         n_patches=kwargs["num_views"], tcr_strength=kwargs["tcr_strength"],
+                                         save_pth=save_pth)
             num_views = kwargs["num_views"]
 
         elif kwargs["model"] == 'byol':
@@ -239,7 +240,7 @@ def exec_experiment(**kwargs):
             ssl_model = BYOLMultiview(base_encoder=encoder, dim_backbone_features=dim_encoder_features,
                                       dim_proj=kwargs["dim_proj"], dim_pred=kwargs["dim_pred"],
                                       byol_momentum=kwargs["byol_momentum"], return_momentum_encoder=kwargs["return_momentum_encoder"],
-                                      n_patches=kwargs["num_views"], save_pth=save_pth)
+                                      n_patches=kwargs["num_views"], tcr_strength=kwargs["tcr_strength"], save_pth=save_pth)
             num_views = kwargs["num_views"]
             
         elif kwargs["model"] == 'barlow_twins':
