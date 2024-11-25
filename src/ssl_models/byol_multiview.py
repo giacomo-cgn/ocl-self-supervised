@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import copy
 
 from .abstract_ssl_model import AbstractSSLModel
+from .emp import TotalCodingRate, cal_TCR
 from ..utils import update_ema_params
 
 class BYOLMultiview(nn.Module, AbstractSSLModel):
@@ -57,6 +58,8 @@ class BYOLMultiview(nn.Module, AbstractSSLModel):
             return 2 - 2 * (x * y).sum(dim=-1)
         self.criterion = loss_byol
 
+        self.criterion_tcr = TotalCodingRate(eps=0.2)
+
         if self.save_pth is not None:
             # Save model configuration
             with open(self.save_pth + '/config.txt', 'a') as f:
@@ -95,11 +98,13 @@ class BYOLMultiview(nn.Module, AbstractSSLModel):
         
         loss = 0
         for i in range(num_patch):
-            loss += self.criterion(p_list[i], z_mom_avg)
+            loss += self.criterion(p_list[i], z_mom_avg).mean()
             
         loss = -loss/num_patch
+        loss_TCR = cal_TCR(z_onl_list, self.criterion_tcr, num_patch)
+        loss = 200*loss + loss_TCR
 
-        return loss.mean(), z_onl_list, e_list
+        return loss, z_onl_list, e_list
      
     @torch.no_grad()
     def update_momentum(self):

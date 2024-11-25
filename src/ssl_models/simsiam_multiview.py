@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from .abstract_ssl_model import AbstractSSLModel
+from .emp import TotalCodingRate, cal_TCR
 
 class SimSiamMultiview(nn.Module, AbstractSSLModel):
     """
@@ -20,6 +21,8 @@ class SimSiamMultiview(nn.Module, AbstractSSLModel):
 
         # Set up criterion
         self.criterion = nn.CosineSimilarity(dim=1)
+        self.criterion_tcr = TotalCodingRate(eps=0.2)
+
 
         # Build a 3-layer projector
         self.projector = nn.Sequential(nn.Linear(dim_backbone_features, dim_backbone_features, bias=False),
@@ -75,6 +78,9 @@ class SimSiamMultiview(nn.Module, AbstractSSLModel):
             loss += F.cosine_similarity(p_list[i], z_avg, dim=1).mean()
             
         loss = -loss/num_patch
+        
+        loss_TCR = cal_TCR(z_list, self.criterion_tcr, num_patch)
+        loss = 200*loss + loss_TCR
 
         return loss, z_list, e_list
     
