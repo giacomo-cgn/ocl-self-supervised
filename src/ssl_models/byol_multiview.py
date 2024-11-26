@@ -76,6 +76,7 @@ class BYOLMultiview(nn.Module, AbstractSSLModel):
                 f.write(f'dim_predictor: {dim_pred}\n')
                 f.write(f'n_patches: {n_patches}\n')
                 f.write(f'tcr_strength: {tcr_strength}\n')
+                f.write(f'alpha_multipatch: {alpha_multipatch}\n')
 
     def forward(self, x_views_list):
         # Concat all tensors in the list in a single tensor
