@@ -190,7 +190,7 @@ class SCALE():
                             combined_batch = torch.cat((replay_batch.to(self.device), mbatch), dim=0)
                     else:
                         # Try sampling from default buffer
-                        if len(self.buffer.buffer) > self.replay_mb_size:
+                        if len(self.buffer.buffer) >= self.replay_mb_size:
                             use_replay = True
                             # Sample from buffer and concat
                             replay_batch, _, replay_indices = self.buffer.sample(self.replay_mb_size)

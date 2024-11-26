@@ -72,7 +72,7 @@ class OsirisR(AbstractStrategy, AbstractSSLModel):
 
         self.stream_mbatch = stream_mbatch
 
-        if len(self.buffer.buffer) > self.replay_mb_size:
+        if len(self.buffer.buffer) >= self.replay_mb_size:
             self.use_replay = True
             # Sample from buffer and concat
             replay_batch, _, replay_indices = self.buffer.sample(self.replay_mb_size)
