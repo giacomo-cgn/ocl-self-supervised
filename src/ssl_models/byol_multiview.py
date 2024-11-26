@@ -14,6 +14,7 @@ class BYOLMultiview(nn.Module, AbstractSSLModel):
                   byol_momentum=0.9, return_momentum_encoder=True, 
                   n_patches=2,
                   tcr_strength=0.005,
+                  alpha_multipatch=200,
                   save_pth=None):
         
         super(BYOLMultiview, self).__init__()
@@ -23,6 +24,7 @@ class BYOLMultiview(nn.Module, AbstractSSLModel):
         self.dim_predictor = dim_pred
         self.n_patches = n_patches
         self.tcr_strength = tcr_strength
+        self.alpha_multipatch = alpha_multipatch
 
         self.byol_momentum = byol_momentum
         self.return_momentum_encoder = return_momentum_encoder
@@ -106,7 +108,7 @@ class BYOLMultiview(nn.Module, AbstractSSLModel):
             
         loss = -loss/num_patch
         loss_TCR = cal_TCR(z_onl_list, self.criterion_tcr, num_patch)
-        loss = loss + self.tcr_strength * loss_TCR
+        loss = self.alpha_multipatch*loss + self.tcr_strength * loss_TCR
 
         return loss, z_onl_list, e_list
      
