@@ -281,6 +281,9 @@ def read_command_line_args():
     # double_resnet params
     parser.add_argument('--return-buffer-encoder', type=str_to_bool, default=False)
 
+    # Increasing difficult augmentations
+    parser.add_argument('--psi', type=float, default=2.0)
+
 
     args = parser.parse_args()
 

@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from .utils import UnsupervisedDataset
-from .transforms import get_transforms
+from .CLA_transforms import get_cla_transforms
 from .ssl_models import AbstractSSLModel
 from .strategies import AbstractStrategy
 from .optims import init_optim
@@ -30,7 +30,9 @@ class Trainer():
                  save_pth: str  = None,
                  save_model: bool = False,
                  online_transforms_type: str = 'common',
-                 num_views: int = 2
+                 num_views: int = 2,
+                 psi: float = 2,
+                 avg_seen_count: float = 39
                ):
         
         if ssl_model is None:
@@ -52,17 +54,14 @@ class Trainer():
         self.online_transforms_type = online_transforms_type
         self.num_views = num_views # == 2 for most Instance Discrimination methods, but can vary e.g. EMP
 
+        # For increasing difficulty augmentations
+        self.psi = psi
+        self.avg_seen_count = avg_seen_count
+
         self.model_and_strategy_name = self.strategy.get_name() + '_' + self.ssl_model.get_name()
 
-         # Set up transforms
-        if self.online_transforms_type == 'common':
-            self.transforms = get_transforms(dataset=self.dataset_name, model='common')
-        elif self.online_transforms_type == 'model':
-            self.transforms = get_transforms(dataset=self.dataset_name, model=self.strategy_name)
-        elif self.online_transforms_type == 'none':
-            self.transforms = None
-        else:
-            raise Exception(f'Transforms type {self.online_transforms_type} not supported.')
+        #  Set up transforms ONLY FOR CLA
+        self.transforms = get_cla_transforms(self.dataset_name, num_views)
 
         # List of params to optimize
         params_to_optimize = self.ssl_model.get_params() + self.strategy.get_params()
@@ -126,14 +125,18 @@ class Trainer():
                 stream_mbatch = self.strategy.before_mb_passes(stream_mbatch)
 
                 for k in range(self.mb_passes):
+                    # Generate torch tensor with same length as stream_mbatch and filled with k (an integer)
+                    stream_mb_seen_count = torch.full((len(stream_mbatch),), k)
                     # Apply strategy modifications before forward pass (e.g. concat replay samples from buffer)
-                    mbatch = self.strategy.before_forward(stream_mbatch)
+                    mbatch, seen_count = self.strategy.before_forward(stream_mbatch, stream_mb_seen_count)
+
+                    tanh_seen_count = torch.tanh(self.psi/self.avg_seen_count * seen_count)
 
                     # Apply transforms, obtains a list of tensors, each containing 1 view for every sample in the mbatch
                     if self.transforms is None:
                         x_views_list = mbatch
                     else:
-                        x_views_list = self.transforms(mbatch)
+                        x_views_list = self.transforms(mbatch, tanh_seen_count)
 
                     x_views_list = self.strategy.after_transforms(x_views_list)
 

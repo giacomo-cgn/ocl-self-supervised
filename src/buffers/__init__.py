@@ -5,6 +5,7 @@ from .fifo_buffer import FIFOBuffer
 from .fifo_last_buffer import FIFOLastBuffer
 from .augmented_representations_buffer import AugmentedRepresentationsBuffer
 from .hybrid_minred_fifo_buffer import HybridMinRedFIFOBuffer
+from .fifo_buffer_count import FIFOBufferCount
 
 def get_buffer(buffer_type: str,
                mem_size: int = 2000,
@@ -16,7 +17,7 @@ def get_buffer(buffer_type: str,
     if buffer_type == 'reservoir':
         return ReservoirBuffer(mem_size, alpha_ema, device=device)
     elif buffer_type == 'fifo':
-        return FIFOBuffer(mem_size, alpha_ema)
+        return FIFOBufferCount(mem_size, alpha_ema)
     elif buffer_type == 'fifo_last':
         return FIFOLastBuffer(mem_size, alpha_ema)
     elif buffer_type == 'minred':

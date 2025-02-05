@@ -102,17 +102,19 @@ class APRE(AbstractStrategy):
         return list(self.alignment_projector.parameters())
 
     
-    def before_forward(self, stream_mbatch):
+    def before_forward(self, stream_mbatch, stream_seen_count):
         """Sample from buffer and concat with stream batch."""
 
         self.stream_mbatch = stream_mbatch
+        self.stream_seen_count = stream_seen_count
 
         if len(self.buffer.buffer) >= self.replay_mb_size:
             self.use_replay = True
             # Sample from buffer and concat
-            replay_batch, _, replay_indices = self.buffer.sample(self.replay_mb_size)
+            replay_batch, _, replay_seen_count, replay_indices, = self.buffer.sample(self.replay_mb_size)
             replay_batch = replay_batch.to(self.device)
             combined_batch = torch.cat((replay_batch, stream_mbatch), dim=0)
+            combined_seen_count = torch.cat((replay_seen_count, stream_seen_count), dim=0)
             # Save buffer indices of replayed samples
             self.replay_indices = replay_indices
 
@@ -120,8 +122,9 @@ class APRE(AbstractStrategy):
             self.use_replay = False
             # Do not sample buffer if not enough elements in it
             combined_batch = stream_mbatch
+            combined_seen_count = stream_seen_count
 
-        return combined_batch
+        return combined_batch, combined_seen_count
     
     def after_forward(self, x_views_list, loss, z_list, e_list):
         """Calculate alignment loss and update replayed samples with new encoder features
@@ -185,4 +188,4 @@ class APRE(AbstractStrategy):
         z_stream_avg = sum(z_list_stream)/len(z_list_stream)
 
         # Update buffer with new stream samples and avg features
-        self.buffer.add(self.stream_mbatch.detach(), z_stream_avg.detach())
+        self.buffer.add(self.stream_mbatch.detach(), z_stream_avg.detach(), self.stream_seen_count.detach())

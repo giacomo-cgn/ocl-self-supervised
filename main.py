@@ -391,12 +391,22 @@ def exec_experiment(**kwargs):
         else:
             raise Exception(f'Strategy {kwargs["strategy"]} not supported')
 
+        # Calculate average seen count
+        if kwargs['buffer_type'] == 'fifo':
+            _steps_in_buffer= kwargs['mem_size'] / kwargs['tr_mb_size']
+            _extraction_prob = kwargs['mem_size'] / (kwargs['mem_size'] * kwargs['mb_passes'])
+            avg_seen_count = _steps_in_buffer * _extraction_prob
+        else:
+            avg_seen_count = None
+        
+
         # Set up the trainer wrapper
         trainer = Trainer(ssl_model=ssl_model, strategy=strategy, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
                           lars_eta= kwargs["lars_eta"],
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                          save_model=kwargs["save_model_every_exp"], online_transforms_type=kwargs["online_transforms_type"], num_views=num_views)
+                          save_model=kwargs["save_model_every_exp"], online_transforms_type=kwargs["online_transforms_type"], num_views=num_views,
+                          psi=kwargs["psi"], avg_seen_count=avg_seen_count)
         
     else:
         # Is a standalone strategy (already includes trainer and ssl model inside the strategy itself)
