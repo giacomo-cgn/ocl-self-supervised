@@ -1,12 +1,15 @@
+import copy
+
 import torch
 from torch import nn
 
+from ..utils import update_ema_params
 from ..ssl_models import AbstractSSLModel
 from .abstract_strategy import AbstractStrategy
 
-class ARP(AbstractStrategy):
+class APREPhi(AbstractStrategy):
     """Continual SSL strategy that aligns current representations of buffer 
-    samples to their "past" representations stored in the buffer."""
+    samples to their "past" representations obtained via EMA of the current network."""
 
     def __init__(self,
                  ssl_model: AbstractSSLModel = None,
@@ -14,28 +17,33 @@ class ARP(AbstractStrategy):
                  device = 'cpu',
                  save_pth: str  = None,
                  replay_mb_size: int = 32,
-                 omega: float = 0.1,
+                 phi: float = 2.0,
                  align_criterion: str = 'ssl',
+                 momentum_ema: float = 0.999,
                  use_aligner: bool = True,
                  align_after_proj: bool = True,
-                 aligner_dim: int = 512
-                ):
+                 aligner_dim: int = 512,
+                 avg_seen_count: float = 38
 
+               ):
+        
         super().__init__()
         self.ssl_model = ssl_model
         self.buffer = buffer
         self.device = device
         self.save_pth = save_pth
         self.replay_mb_size = replay_mb_size
-        self.omega = omega
+        self.phi = phi
         self.align_criterion_name = align_criterion
+        self.momentum_ema = momentum_ema
         self.use_aligner = use_aligner
         self.align_after_proj = align_after_proj
         self.aligner_dim = aligner_dim
+        self.avg_seen_count = avg_seen_count
 
-        self.strategy_name = 'arp'
+        self.strategy_name = 'apre_phi'
 
-       # Set up feature alignment criterion
+        # Set up feature alignment criterion
         if self.align_criterion_name == 'ssl':
             criterion, is_binary = self.ssl_model.get_criterion()
             if is_binary:
@@ -43,11 +51,20 @@ class ARP(AbstractStrategy):
             else:
                 raise Exception(f"Needs a binary criterion for alignment, cannot use {self.ssl_model.get_name()} as alignment loss.")
         elif self.align_criterion_name == 'mse':
-            self.align_criterion = nn.MSELoss()
+            self.align_criterion = nn.MSELoss(reduction=None)
         elif self.align_criterion_name == 'cosine':
             self.align_criterion = lambda x,y: -nn.CosineSimilarity(dim=1)(x,y)
         else:
             raise Exception(f"Invalid alignment criterion: {self.align_criterion_name}")
+
+        
+        # Set up EMA model that is targeted for alignment. It is the EMA of encoder+projector
+        self.ema_encoder = copy.deepcopy(self.ssl_model.get_encoder())
+        self.ema_projector = copy.deepcopy(self.ssl_model.get_projector())
+
+        # Stop gradient in EMA model
+        self.ema_encoder.requires_grad_(False)
+        self.ema_projector.requires_grad_(False)
 
         # Set up alignment projector
         if self.align_after_proj:
@@ -63,7 +80,6 @@ class ARP(AbstractStrategy):
                                                 nn.ReLU(inplace=True),
                                                 nn.Linear(self.aligner_dim, dim_encoder_embed)).to(self.device)
 
-
         if self.save_pth is not None:
             # Save model configuration
             with open(self.save_pth + '/config.txt', 'a') as f:
@@ -71,11 +87,15 @@ class ARP(AbstractStrategy):
                 f.write('\n')
                 f.write('---- STRATEGY CONFIG ----\n')
                 f.write(f'STRATEGY: {self.strategy_name}\n')
-                f.write(f'omega: {self.omega}\n')
+                f.write(f'phi: {self.phi}\n')
                 f.write(f'align_criterion: {self.align_criterion_name}\n')
+                f.write(f'momentum_ema: {self.momentum_ema}\n')
                 f.write(f'use_aligner: {self.use_aligner}\n')
                 f.write(f'align_after_proj: {self.align_after_proj}\n')
                 f.write(f'aligner_dim: {self.aligner_dim}\n')
+                f.write(f'average seen count: {self.avg_seen_count}\n')
+
+
 
     def get_params(self):
         """Get trainable parameters of the strategy.
@@ -84,8 +104,8 @@ class ARP(AbstractStrategy):
             alignment_projector (nn.Module): The alignment projector module.
         """
         return list(self.alignment_projector.parameters())
-    
 
+    
     def before_forward(self, stream_mbatch, stream_seen_count):
         """Sample from buffer and concat with stream batch."""
 
@@ -95,14 +115,13 @@ class ARP(AbstractStrategy):
         if len(self.buffer.buffer) >= self.replay_mb_size:
             self.use_replay = True
             # Sample from buffer and concat
-            replay_batch, replay_z_old, replay_seen_count, replay_indices = self.buffer.sample(self.replay_mb_size)
-            replay_batch, replay_z_old = replay_batch.to(self.device), replay_z_old.to(self.device)
-            
+            replay_batch, _, replay_seen_count, replay_indices, = self.buffer.sample(self.replay_mb_size)
+            self.replay_seen_count = replay_seen_count
+            replay_batch = replay_batch.to(self.device)
             combined_batch = torch.cat((replay_batch, stream_mbatch), dim=0)
             combined_seen_count = torch.cat((replay_seen_count, stream_seen_count), dim=0)
             # Save buffer indices of replayed samples
             self.replay_indices = replay_indices
-            self.replay_z_old = replay_z_old
 
         else:
             self.use_replay = False
@@ -112,7 +131,6 @@ class ARP(AbstractStrategy):
 
         return combined_batch, combined_seen_count
     
-
     def after_forward(self, x_views_list, loss, z_list, e_list):
         """Calculate alignment loss and update replayed samples with new encoder features
             z_list: a list of minibatches, each minibatch corresponds to the one view of the samples
@@ -124,8 +142,7 @@ class ARP(AbstractStrategy):
         self.z_list = z_list
 
         if self.use_replay:
-            # Take only the features from the replay batch (for each view minibatch in z_list,
-            #  take only the first replay_mb_size elements)
+            # Take only the features from the replay batch (for each minibatch in z_list, take only the first replay_mb_size elements)
             z_list_replay = [z[:self.replay_mb_size] for z in z_list]
             # Concatenate the features from all views
             z_replay = torch.cat(z_list_replay, dim=0)
@@ -137,22 +154,40 @@ class ARP(AbstractStrategy):
                 # Do not use aligner
                 aligned_features = z_replay
 
-            # Extend the target old features extracted from the buffer, with copies of itself.
-            # It is needed because we use the same replay_z_old as target for all the features 
-            # corresponding to different views.
-            extended_replay_z_old = self.replay_z_old.repeat(len(z_replay) // self.replay_z_old.size(0), 1)
-            assert len(extended_replay_z_old) == len(z_replay)
+            num_views = len(z_list)
+
+            # EMA model pass only on replay samples
+            with torch.no_grad():
+                x_replay_list = [x[:self.replay_mb_size] for x in x_views_list]
+                ema_e = self.ema_encoder(torch.cat(x_replay_list, dim=0))
+                if self.align_after_proj:
+                    ema_z = self.ema_projector(ema_e)
+                else:
+                    # Directly use encoder features as alignment targets
+                    ema_z = ema_e
 
             # Compute alignment loss between aligned features and EMA features
-            loss_align = self.align_criterion(aligned_features, extended_replay_z_old)
-            loss += self.omega * loss_align.mean()
+            loss_align = self.align_criterion(aligned_features, ema_z)
+
+            tanh_seen_count = torch.tanh(self.phi/self.avg_seen_count * self.replay_seen_count).repeat(num_views).to(self.device)
+
+            loss += (tanh_seen_count * loss_align).mean()
 
             # Update replayed samples with avg of last extracted features
             avg_replayed_z = sum(z_list_replay)/len(z_list_replay)
             self.buffer.update_features(avg_replayed_z.detach(), self.replay_indices)
         
         return loss
+        
 
+    def after_backward(self):
+        """Update EMA model after each mb pass backward."""
+        # Update EMA model
+        update_ema_params(self.ssl_model.get_encoder().parameters(),
+                            self.ema_encoder.parameters(), self.momentum_ema)
+        update_ema_params(self.ssl_model.get_projector().parameters(),
+                            self.ema_projector.parameters(), self.momentum_ema)
+        
 
     def after_mb_passes(self):
         """Update buffer with new samples after all mb pass with streaming mbatch."""

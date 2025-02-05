@@ -12,7 +12,7 @@ from src.backbones import get_encoder
 
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE, SimSiamMultiview, BYOLMultiview, recover_ssl_model
 
-from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, CaSSLeR, ReplayEMP, ARPHybrid
+from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, CaSSLeR, ReplayEMP, ARPHybrid, APREPhi, ARPPhi
 from src.standalone_strategies import SCALE, DoubleResnet, OsirisR
 
 from src.trainer import Trainer
@@ -172,6 +172,13 @@ def exec_experiment(**kwargs):
                                                 )
     
 
+     # Calculate average seen count
+    if kwargs['buffer_type'] == 'fifo':
+        _steps_in_buffer= kwargs['mem_size'] / kwargs['tr_mb_size']
+        _extraction_prob = kwargs['mem_size'] / (kwargs['mem_size'] * kwargs['mb_passes'])
+        avg_seen_count = _steps_in_buffer * _extraction_prob
+    else:
+        avg_seen_count = None
 
     # Buffer
     if not kwargs["strategy"] in buffer_free_strategies:
@@ -326,6 +333,13 @@ def exec_experiment(**kwargs):
                         omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
                         use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
                         aligner_dim=aligner_dim)
+            
+        elif kwargs["strategy"] == 'arp_phi':
+            strategy = ARPPhi(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                        buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                        phi=kwargs["phi"], align_criterion=kwargs["align_criterion"],
+                        use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
+                        aligner_dim=aligner_dim, avg_seen_count=avg_seen_count)
         
         elif kwargs["strategy"] == 'aep':
             strategy = AEP(ssl_model=ssl_model, device=device, save_pth=save_pth,
@@ -339,6 +353,13 @@ def exec_experiment(**kwargs):
                             omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
                             use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
                             aligner_dim=aligner_dim, momentum_ema=kwargs["momentum_ema"])
+            
+        elif kwargs["strategy"] == 'apre_phi':
+            strategy = APREPhi(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                            phi=kwargs["phi"], align_criterion=kwargs["align_criterion"],
+                            use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
+                            aligner_dim=aligner_dim, momentum_ema=kwargs["momentum_ema"], avg_seen_count=avg_seen_count)
             
         elif kwargs["strategy"] == 'scale':
             pass
@@ -391,13 +412,6 @@ def exec_experiment(**kwargs):
         else:
             raise Exception(f'Strategy {kwargs["strategy"]} not supported')
 
-        # Calculate average seen count
-        if kwargs['buffer_type'] == 'fifo':
-            _steps_in_buffer= kwargs['mem_size'] / kwargs['tr_mb_size']
-            _extraction_prob = kwargs['mem_size'] / (kwargs['mem_size'] * kwargs['mb_passes'])
-            avg_seen_count = _steps_in_buffer * _extraction_prob
-        else:
-            avg_seen_count = None
         
 
         # Set up the trainer wrapper

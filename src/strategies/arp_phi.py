@@ -4,7 +4,7 @@ from torch import nn
 from ..ssl_models import AbstractSSLModel
 from .abstract_strategy import AbstractStrategy
 
-class ARP(AbstractStrategy):
+class ARPPhi(AbstractStrategy):
     """Continual SSL strategy that aligns current representations of buffer 
     samples to their "past" representations stored in the buffer."""
 
@@ -14,11 +14,12 @@ class ARP(AbstractStrategy):
                  device = 'cpu',
                  save_pth: str  = None,
                  replay_mb_size: int = 32,
-                 omega: float = 0.1,
+                 phi: float = 2.0,
                  align_criterion: str = 'ssl',
                  use_aligner: bool = True,
                  align_after_proj: bool = True,
-                 aligner_dim: int = 512
+                 aligner_dim: int = 512,
+                 avg_seen_count: float = 38
                 ):
 
         super().__init__()
@@ -27,13 +28,14 @@ class ARP(AbstractStrategy):
         self.device = device
         self.save_pth = save_pth
         self.replay_mb_size = replay_mb_size
-        self.omega = omega
+        self.phi = phi
         self.align_criterion_name = align_criterion
         self.use_aligner = use_aligner
         self.align_after_proj = align_after_proj
         self.aligner_dim = aligner_dim
+        self.avg_seen_count = avg_seen_count
 
-        self.strategy_name = 'arp'
+        self.strategy_name = 'arp_phi'
 
        # Set up feature alignment criterion
         if self.align_criterion_name == 'ssl':
@@ -43,7 +45,7 @@ class ARP(AbstractStrategy):
             else:
                 raise Exception(f"Needs a binary criterion for alignment, cannot use {self.ssl_model.get_name()} as alignment loss.")
         elif self.align_criterion_name == 'mse':
-            self.align_criterion = nn.MSELoss()
+            self.align_criterion = nn.MSELoss(reduction=None)
         elif self.align_criterion_name == 'cosine':
             self.align_criterion = lambda x,y: -nn.CosineSimilarity(dim=1)(x,y)
         else:
@@ -71,11 +73,12 @@ class ARP(AbstractStrategy):
                 f.write('\n')
                 f.write('---- STRATEGY CONFIG ----\n')
                 f.write(f'STRATEGY: {self.strategy_name}\n')
-                f.write(f'omega: {self.omega}\n')
+                f.write(f'phi: {self.phi}\n')
                 f.write(f'align_criterion: {self.align_criterion_name}\n')
                 f.write(f'use_aligner: {self.use_aligner}\n')
                 f.write(f'align_after_proj: {self.align_after_proj}\n')
                 f.write(f'aligner_dim: {self.aligner_dim}\n')
+                f.write(f'average seen count: {self.avg_seen_count}\n')
 
     def get_params(self):
         """Get trainable parameters of the strategy.
@@ -97,7 +100,7 @@ class ARP(AbstractStrategy):
             # Sample from buffer and concat
             replay_batch, replay_z_old, replay_seen_count, replay_indices = self.buffer.sample(self.replay_mb_size)
             replay_batch, replay_z_old = replay_batch.to(self.device), replay_z_old.to(self.device)
-            
+            self.replay_seen_count = replay_seen_count
             combined_batch = torch.cat((replay_batch, stream_mbatch), dim=0)
             combined_seen_count = torch.cat((replay_seen_count, stream_seen_count), dim=0)
             # Save buffer indices of replayed samples
@@ -136,6 +139,8 @@ class ARP(AbstractStrategy):
             else:
                 # Do not use aligner
                 aligned_features = z_replay
+            
+            num_views = len(z_list)
 
             # Extend the target old features extracted from the buffer, with copies of itself.
             # It is needed because we use the same replay_z_old as target for all the features 
@@ -145,7 +150,9 @@ class ARP(AbstractStrategy):
 
             # Compute alignment loss between aligned features and EMA features
             loss_align = self.align_criterion(aligned_features, extended_replay_z_old)
-            loss += self.omega * loss_align.mean()
+            tanh_seen_count = torch.tanh(self.phi/self.avg_seen_count * self.replay_seen_count).repeat(num_views).to(self.device)
+
+            loss += (tanh_seen_count * loss_align).mean()
 
             # Update replayed samples with avg of last extracted features
             avg_replayed_z = sum(z_list_replay)/len(z_list_replay)

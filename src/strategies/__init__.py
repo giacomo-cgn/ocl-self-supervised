@@ -10,3 +10,5 @@ from .cassle import CaSSLe
 from .cassle_r import CaSSLeR
 from .replay_emp import ReplayEMP
 from .arp_hybrid import ARPHybrid
+from .apre_phi import APREPhi
+from .arp_phi import ARPPhi
