@@ -9,6 +9,15 @@ from .transforms import clamp_transform
 
 def get_cla_transforms(dataset: str = "cifar100", n_crops: int = 2):
 
+    if dataset in ['cifar10', 'cifar100']:
+        blur_kernel = 5
+    elif dataset in ['imagenet', 'imagenet100', 'clear10', 'clear100']:
+        blur_kernel = 23
+    elif dataset in ['tinyimagenet']:
+        blur_kernel = 9
+    else:
+        raise ValueError(f"Dataset {dataset} not supported for blur kernel")
+
     augs = lambda tanh_val : transforms.Compose([
         get_dataset_crop(dataset=dataset, scale=(1.0-(0.9*tanh_val) , 1.)), # tanh_val=0.0 -> 1.0, tanh_val=1.0 -> 0.1
         transforms.RandomHorizontalFlip(p=0.1 + (0.4*tanh_val)), # tanh_val=0.0 -> 0.1 , tanh_val=1.0 -> 0.8
@@ -17,8 +26,8 @@ def get_cla_transforms(dataset: str = "cifar100", n_crops: int = 2):
             transforms.ColorJitter(brightness=0.1 + (0.6*tanh_val), contrast=0.1 + (0.6*tanh_val),
                                     saturation=0.1 + (0.6*tanh_val), hue=0.03 + (0.27*tanh_val))]
                                     , p=0.1 + (0.8*tanh_val)), # tanh_val=0.0 -> 0.1 , tanh_val=1.0 -> 0.9
-        transforms.RandomGrayscale(p=0.05 + (0.45*tanh_val)), # tanh_val=0.0 -> 0.05 , tanh_val=1.0 -> 0.5
-        transforms.RandomApply([transforms.Lambda(gaussian_blur_pytorch)], p=0.1 + (0.4*tanh_val)), # tanh_val=0.0 -> 0.1 , tanh_val=1.0 -> 0.8
+        transforms.RandomGrayscale(p=0.05 + (0.45*tanh_val)), # tanh_val=0.0 -> 0.05 , tanh_val=1.0 -> 0.
+        transforms.RandomApply([transforms.GaussianBlur(blur_kernel)], p=0.1 + (0.4*tanh_val)), # tanh_val=0.0 -> 0.1 , tanh_val=1.0 -> 0.8
         transforms.RandomSolarize(threshold=0.5, p=0.1 + (0.4*tanh_val)) # tanh_val=0.0 -> 0.1 , tanh_val=1.0 -> 0.8
     ])
 
