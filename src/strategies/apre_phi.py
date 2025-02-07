@@ -87,7 +87,7 @@ class APREPhi(AbstractStrategy):
                 f.write('\n')
                 f.write('---- STRATEGY CONFIG ----\n')
                 f.write(f'STRATEGY: {self.strategy_name}\n')
-                f.write(f'phi: {self.phi}\n')
+                f.write(f'phi (tanh for reg): {self.phi}\n')
                 f.write(f'align_criterion: {self.align_criterion_name}\n')
                 f.write(f'momentum_ema: {self.momentum_ema}\n')
                 f.write(f'use_aligner: {self.use_aligner}\n')

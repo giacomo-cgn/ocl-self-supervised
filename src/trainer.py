@@ -87,6 +87,7 @@ class Trainer():
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
+                f.write(f'psi (tanh for augs): {self.psi}\n')
 
 
                 # Write loss file column names
