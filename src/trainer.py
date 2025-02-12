@@ -139,13 +139,6 @@ class Trainer():
                     else:
                         x_views_list = self.transforms(mbatch, tanh_seen_count)
 
-                    x_views_list = self.strategy.after_transforms(x_views_list)
-
-                    # Forward pass of SSL model (z: projector features, e: encoder features)
-                    loss, z_list, e_list = self.ssl_model(x_views_list)
-
-                    # Strategy after forward pass
-                    loss_strategy = self.strategy.after_forward(x_views_list, loss, z_list, e_list)
 
                     x_views_list = self.strategy.after_transforms(x_views_list)
 
