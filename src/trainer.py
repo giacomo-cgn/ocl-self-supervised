@@ -145,8 +145,12 @@ class Trainer():
                     # Forward pass of SSL model (z: projector features, e: encoder features)
                     loss, z_list, e_list = self.ssl_model(x_views_list)
 
+                   
+                    show_matrix = mb_idx%100 == 0
+
                     # Strategy after forward pass
-                    loss_strategy = self.strategy.after_forward(x_views_list, loss, z_list, e_list)
+                    loss_strategy = self.strategy.after_forward(x_views_list, loss, z_list, e_list, show_matrix, exp_idx, mb_idx, k)
+
 
                     if loss_strategy is not None:
                         # Backward pass

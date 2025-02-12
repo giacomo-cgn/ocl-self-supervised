@@ -7,6 +7,10 @@ from ..utils import update_ema_params
 from ..ssl_models import AbstractSSLModel
 from .abstract_strategy import AbstractStrategy
 
+import os
+import matplotlib.pyplot as plt
+import torch.nn.functional as F
+
 class APREPhi(AbstractStrategy):
     """Continual SSL strategy that aligns current representations of buffer 
     samples to their "past" representations obtained via EMA of the current network."""
@@ -95,6 +99,15 @@ class APREPhi(AbstractStrategy):
                 f.write(f'aligner_dim: {self.aligner_dim}\n')
                 f.write(f'average seen count: {self.avg_seen_count}\n')
 
+        self.z_sim_folder = os.path.join(self.save_pth, 'z_similarity')
+        if not os.path.exists(self.z_sim_folder):
+            os.makedirs(self.z_sim_folder)
+
+        self.z_accuracy_file = os.path.join(self.z_sim_folder, 'z_acc.csv')
+        with open(self.z_accuracy_file, 'a') as f:
+            f.write('acc,repl_acc,stream_acc\n')
+        
+
 
 
     def get_params(self):
@@ -131,7 +144,7 @@ class APREPhi(AbstractStrategy):
 
         return combined_batch, combined_seen_count
     
-    def after_forward(self, x_views_list, loss, z_list, e_list):
+    def after_forward(self, x_views_list, loss, z_list, e_list, show_matrix, exp_idx, mb_idx, k_iter):
         """Calculate alignment loss and update replayed samples with new encoder features
             z_list: a list of minibatches, each minibatch corresponds to the one view of the samples
         """
@@ -140,6 +153,45 @@ class APREPhi(AbstractStrategy):
             z_list = e_list
 
         self.z_list = z_list
+
+        #  similarity matrix
+        z_sim1 = F.normalize(z_list[0], p=2, dim=1).detach()
+        z_sim2 = F.normalize(z_list[1], p=2, dim=1).detach()
+        similarity_matrix_z = torch.mm(z_sim1, z_sim2.T)
+        if show_matrix:
+            # show similarity matrix
+            plt.imshow(similarity_matrix_z.cpu().detach().numpy())
+            plt.colorbar()
+            plt.savefig(os.path.join(self.z_sim_folder, f"exp{exp_idx}_mb{mb_idx}_k{k_iter}.png"))
+
+        # ACCURACY
+        # Get index of most similar vector for each row
+        predicted_indices = similarity_matrix_z.argmax(dim=1)  # Index of max similarity along each row
+        # Ground truth indices (assume correct match is same index)
+        ground_truth_indices = torch.arange(z_sim1.shape[0], device=z_sim1.device)
+        # Compute accuracy
+        correct = (predicted_indices == ground_truth_indices).sum().item()
+        accuracy = correct / z_sim1.shape[0]  # Fraction of correct matches
+
+        if self.use_replay:
+            replay_sim_matrix = similarity_matrix_z[:self.replay_mb_size, :self.replay_mb_size]
+            stream_sim_matrix = similarity_matrix_z[self.replay_mb_size:, self.replay_mb_size:]
+
+            # Compute accuracy in replay and stream matrix
+            replay_correct = (replay_sim_matrix.argmax(dim=1) == torch.arange(replay_sim_matrix.shape[0], device=replay_sim_matrix.device)).sum().item()
+            stream_correct = (stream_sim_matrix.argmax(dim=1) == torch.arange(stream_sim_matrix.shape[0], device=stream_sim_matrix.device)).sum().item()
+            replay_accuracy = replay_correct / replay_sim_matrix.shape[0]
+            stream_accuracy = stream_correct / stream_sim_matrix.shape[0]
+             # Log accuracy
+            with open(self.z_accuracy_file, 'a') as f:
+                f.write(f'{accuracy:.2f},{replay_accuracy:.2f},{stream_accuracy:.2f}\n')
+        else:
+            # Log accuracy
+             with open(self.z_accuracy_file, 'a') as f:
+                f.write(f'{accuracy:.2f},{0},{accuracy:.2f}\n')
+
+       
+        
 
         if self.use_replay:
             # Take only the features from the replay batch (for each minibatch in z_list, take only the first replay_mb_size elements)
