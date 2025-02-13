@@ -190,8 +190,6 @@ class APREPhi(AbstractStrategy):
              with open(self.z_accuracy_file, 'a') as f:
                 f.write(f'{accuracy:.2f},{0},{accuracy:.2f}\n')
 
-       
-        
 
         if self.use_replay:
             # Take only the features from the replay batch (for each minibatch in z_list, take only the first replay_mb_size elements)

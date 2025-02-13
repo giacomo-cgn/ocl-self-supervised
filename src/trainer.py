@@ -10,6 +10,7 @@ from .ssl_models import AbstractSSLModel
 from .strategies import AbstractStrategy
 from .optims import init_optim
 from .probing import exec_probing
+from .transforms import get_transforms
 
 
 class Trainer():
@@ -61,7 +62,15 @@ class Trainer():
         self.model_and_strategy_name = self.strategy.get_name() + '_' + self.ssl_model.get_name()
 
         #  Set up transforms ONLY FOR CLA
-        self.transforms = get_cla_transforms(self.dataset_name, num_views)
+        if self.strategy.get_name() == 'apre_phi' or self.strategy.get_name() == 'apre_phi':
+            self.use_cla_transforms = True
+        else:
+            self.use_cla_transforms = False
+
+        if self.use_cla_transforms:
+            self.transforms = get_cla_transforms(self.dataset_name, num_views)
+        else:
+            self.transforms = get_transforms(dataset=self.dataset_name, model='common', n_crops=num_views)
 
         # List of params to optimize
         params_to_optimize = self.ssl_model.get_params() + self.strategy.get_params()
@@ -88,6 +97,7 @@ class Trainer():
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
                 f.write(f'psi (tanh for augs): {self.psi}\n')
+                f.write(f'use cla transforms: {self.use_cla_transforms}\n')
 
 
                 # Write loss file column names
@@ -137,7 +147,10 @@ class Trainer():
                     if self.transforms is None:
                         x_views_list = mbatch
                     else:
-                        x_views_list = self.transforms(mbatch, tanh_seen_count)
+                        if self.use_cla_transforms:
+                            x_views_list = self.transforms(mbatch, tanh_seen_count)
+                        else:
+                             x_views_list = self.transforms(mbatch)
 
 
                     x_views_list = self.strategy.after_transforms(x_views_list)
