@@ -17,7 +17,7 @@ def exec_probing(kwargs: Dict,
                  probing_tr_ratio_arr: List[float],
                  save_pth: str,
                  ):
-    
+        
     for probe in probes:
         probe_save_pth = probe_save_pth = os.path.join(save_pth, f'probe_{probe.get_name()}')
         print(f'==== Probe {probe.get_name()} ==== ')
@@ -47,10 +47,10 @@ def exec_probing(kwargs: Dict,
                         if kwargs['probing_val_ratio'] > 0:
                             probe.probe(encoder=encoder, tr_dataset=probe_upto_dataset_tr, test_dataset=probe_upto_dataset_test,
                                         val_dataset=probe_upto_dataset_val, tr_samples_ratio=probing_tr_ratio,
-                                        save_file=probe_save_file)
+                                        save_file=probe_save_file, dataset_name=probing_benchmark.dataset_name)
                         else:
                             probe.probe(encoder=encoder, tr_dataset=probe_upto_dataset_tr, test_dataset=probe_upto_dataset_test,
-                                        tr_samples_ratio=probing_tr_ratio, save_file=probe_save_file)
+                                        tr_samples_ratio=probing_tr_ratio, save_file=probe_save_file, dataset_name=probing_benchmark.dataset_name)
             else:
                 # Generate upto current exp (pretr_exp_idx) probing datasets
                 probe_upto_dataset_tr = ConcatDataset([probing_benchmark.train_stream[i] for i in range(pretr_exp_idx+1)])
@@ -70,10 +70,10 @@ def exec_probing(kwargs: Dict,
                     if kwargs['probing_val_ratio'] > 0:
                         probe.probe(encoder=encoder, tr_dataset=probe_upto_dataset_tr, test_dataset=probe_upto_dataset_test,
                                     val_dataset=probe_upto_dataset_val, tr_samples_ratio=probing_tr_ratio,
-                                    save_file=probe_save_file)
+                                    save_file=probe_save_file, dataset_name=probing_benchmark.dataset_name)
                     else:
                         probe.probe(encoder=encoder, tr_dataset=probe_upto_dataset_tr, test_dataset=probe_upto_dataset_test,
-                                    tr_samples_ratio=probing_tr_ratio, save_file=probe_save_file)
+                                    tr_samples_ratio=probing_tr_ratio, save_file=probe_save_file, dataset_name=probing_benchmark.dataset_name)
                 
 
 
@@ -96,10 +96,10 @@ def exec_probing(kwargs: Dict,
                     if kwargs['probing_val_ratio'] > 0:
                         probe.probe(encoder=encoder, tr_dataset=probe_tr_exp_dataset, test_dataset=probe_test_exp_dataset,
                                     val_dataset=probe_val_exp_dataset, tr_samples_ratio=probing_tr_ratio,
-                                    save_file=probe_save_file, exp_idx=probe_exp_idx)
+                                    save_file=probe_save_file, exp_idx=probe_exp_idx, dataset_name=probing_benchmark.dataset_name)
                     else:
                         probe.probe(encoder=encoder, tr_dataset=probe_tr_exp_dataset, test_dataset=probe_test_exp_dataset,
-                                    tr_samples_ratio=probing_tr_ratio, save_file=probe_save_file, exp_idx=probe_exp_idx)
+                                    tr_samples_ratio=probing_tr_ratio, save_file=probe_save_file, exp_idx=probe_exp_idx, dataset_name=probing_benchmark.dataset_name)
 
         # PROBING JOINT
         if kwargs["probing_joint"]:
@@ -120,7 +120,7 @@ def exec_probing(kwargs: Dict,
                 if kwargs['probing_val_ratio'] > 0:
                     probe.probe(encoder=encoder, tr_dataset=probe_joint_dataset_tr, test_dataset=probe_joint_dataset_test,
                                 val_dataset=probe_joint_dataset_val, tr_samples_ratio=probing_tr_ratio,
-                                save_file=probe_save_file)
+                                save_file=probe_save_file, dataset_name=probing_benchmark.dataset_name)
                 else:
                     probe.probe(encoder=encoder, tr_dataset=probe_joint_dataset_tr, test_dataset=probe_joint_dataset_test,
-                                tr_samples_ratio=probing_tr_ratio, save_file=probe_save_file)
+                                tr_samples_ratio=probing_tr_ratio, save_file=probe_save_file, dataset_name=probing_benchmark.dataset_name)

@@ -70,6 +70,7 @@ class ProbingMultipatch(AbstractProbe):
               exp_idx: int = None, # Task index on which probing is executed, if None, we are in joint or upto probing
               tr_samples_ratio: float = 1.0,
               save_file: str = None,
+              dataset_name: str = 'cifrar100'
               ):
         
         if val_dataset is None:
@@ -94,12 +95,12 @@ class ProbingMultipatch(AbstractProbe):
         used_ratio_samples = int(len(tr_dataset) * self.tr_samples_ratio)
         tr_dataset, _ = random_split(tr_dataset, [used_ratio_samples, len(tr_dataset) - used_ratio_samples],
                                      generator=torch.Generator().manual_seed(self.seed)) # Generator to ensure same splits
-        tr_dataset = SupervisedDataset(tr_dataset)
+        tr_dataset = SupervisedDataset(tr_dataset, dataset_name)
         train_loader = DataLoader(dataset=tr_dataset, batch_size=self.mb_size, shuffle=True, num_workers=8)
-        test_dataset = SupervisedDataset(test_dataset)
+        test_dataset = SupervisedDataset(test_dataset, dataset_name)
         test_loader = DataLoader(dataset=test_dataset, batch_size=self.mb_size, shuffle=False, num_workers=8)
         if val_dataset is not None:
-            val_dataset = SupervisedDataset(val_dataset)
+            val_dataset = SupervisedDataset(val_dataset, dataset_name)
             val_loader = DataLoader(dataset=val_dataset, batch_size=self.mb_size, shuffle=False, num_workers=8)
 
         with torch.no_grad():

@@ -4,10 +4,12 @@ import torch
 import random
 
 
-from .transforms import clamp_transform
+from .transforms import clamp_transform, get_dataset_normalize
 
 
 def get_cla_transforms(dataset: str = "cifar100", n_crops: int = 2):
+
+    normalize = get_dataset_normalize(dataset=dataset)
 
     if dataset in ['cifar10', 'cifar100']:
         blur_kernel = 5
@@ -19,7 +21,7 @@ def get_cla_transforms(dataset: str = "cifar100", n_crops: int = 2):
         raise ValueError(f"Dataset {dataset} not supported for blur kernel")
 
     augs = lambda tanh_val : transforms.Compose([
-        get_dataset_crop(dataset=dataset, scale=(1.0-(0.9*tanh_val) , 1.)), # tanh_val=0.0 -> 1.0, tanh_val=1.0 -> 0.1
+        get_dataset_crop_scale(dataset=dataset, scale=(1.0-(0.9*tanh_val) , 1.)), # tanh_val=0.0 -> 1.0, tanh_val=1.0 -> 0.1
         transforms.RandomHorizontalFlip(p=0.1 + (0.4*tanh_val)), # tanh_val=0.0 -> 0.1 , tanh_val=1.0 -> 0.8
         transforms.RandomApply(
             [transforms.Lambda(clamp_transform),
@@ -28,12 +30,15 @@ def get_cla_transforms(dataset: str = "cifar100", n_crops: int = 2):
                                     , p=0.1 + (0.8*tanh_val)), # tanh_val=0.0 -> 0.1 , tanh_val=1.0 -> 0.9
         transforms.RandomGrayscale(p=0.05 + (0.45*tanh_val)), # tanh_val=0.0 -> 0.05 , tanh_val=1.0 -> 0.
         transforms.RandomApply([transforms.GaussianBlur(blur_kernel)], p=0.1 + (0.4*tanh_val)), # tanh_val=0.0 -> 0.1 , tanh_val=1.0 -> 0.8
-        transforms.RandomSolarize(threshold=0.5, p=0.1 + (0.4*tanh_val)) # tanh_val=0.0 -> 0.1 , tanh_val=1.0 -> 0.8
+        transforms.RandomSolarize(threshold=128, p=0.1 + (0.4*tanh_val)), # tanh_val=0.0 -> 0.1 , tanh_val=1.0 -> 0.8
+
+        transforms.ConvertImageDtype(torch.float),
+        normalize
     ])
 
     return MultipleCropsTransform(augs, n_crops)
 
-def get_dataset_crop(dataset: str, scale= (0.2, 1.)):
+def get_dataset_crop_scale(dataset: str, scale= (0.2, 1.)):
     """Get corresponding crop transform for each dataset."""
 
     if dataset == 'cifar100':

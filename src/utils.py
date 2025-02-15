@@ -5,9 +5,11 @@ import argparse
 
 import torch
 from torch.utils.data import Dataset
-from torchvision import models
+from torchvision import transforms
 
 from avalanche.evaluation.metrics import Forgetting
+
+from .transforms import get_dataset_normalize
 
 # Convert Avalanche dataset with labels and task labels to Pytorch dataset with only input tensors
 class UnsupervisedDataset(Dataset):
@@ -22,8 +24,13 @@ class UnsupervisedDataset(Dataset):
         return input_tensor
     
 class SupervisedDataset(Dataset):
-    def __init__(self, data):
+    def __init__(self, data, dataset_name):
         self.data = data
+        normalize = get_dataset_normalize(dataset_name)
+        self.augs = transforms.Compose([
+            transforms.ConvertImageDtype(torch.float),
+            normalize
+        ])
 
     def __len__(self):
         return len(self.data)
@@ -34,7 +41,7 @@ class SupervisedDataset(Dataset):
         elif len(self.data[idx]) == 2:
             input_tensor, label = self.data[idx]
             
-        return input_tensor, label
+        return self.augs(input_tensor), label
 
 
 @torch.no_grad() 
@@ -284,6 +291,7 @@ def read_command_line_args():
     # Increasing difficult augmentations
     parser.add_argument('--psi', type=float, default=2.0)
     parser.add_argument('--phi', type=float, default=2.0)
+    parser.add_argument('--aug-type', type=str, default='cla')
 
 
     args = parser.parse_args()

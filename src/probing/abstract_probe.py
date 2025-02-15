@@ -12,7 +12,8 @@ class AbstractProbe():
               val_dataset: Dataset = None,
               exp_idx: int = None, # Task index on which probing is executed, if None, we are in joint or upto probing
               tr_samples_ratio: float = 1.0,
-              save_file: str = None
+              save_file: str = None,
+              dataset_name: str = None
               ):
         raise NotImplementedError
     

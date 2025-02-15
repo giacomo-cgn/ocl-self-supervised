@@ -420,7 +420,7 @@ def exec_experiment(**kwargs):
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                           save_model=kwargs["save_model_every_exp"], online_transforms_type=kwargs["online_transforms_type"], num_views=num_views,
-                          psi=kwargs["psi"], avg_seen_count=avg_seen_count)
+                          psi=kwargs["psi"], avg_seen_count=avg_seen_count, aug_type=kwargs["aug_type"])
         
     else:
         # Is a standalone strategy (already includes trainer and ssl model inside the strategy itself)

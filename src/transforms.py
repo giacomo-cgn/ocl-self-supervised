@@ -6,55 +6,25 @@ import random
 import numpy as np
 
 
-def get_dataset_transforms(dataset: str):
+def get_dataset_normalize(dataset: str):
     """Get corresponding normalization transform for each dataset."""
 
     if dataset == 'cifar100':
-        return transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(
-            (0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)
-        )])
+        return transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762))
     elif dataset == 'cifar10':
-        return transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(
-            (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
-        )])
+        return transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     elif dataset == 'tinyimagenet':
-        return transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(
-            (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
-    )])
+        return transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     elif dataset in ['imagenet100', 'imagenet']:
-        return transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Resize((224,224)),
-            transforms.Normalize(
-            (0.485, 0.456, 0.406), (0.228, 0.224, 0.225)
-    )])
+        return transforms.Normalize(
+            (0.485, 0.456, 0.406), (0.228, 0.224, 0.225))
     elif dataset in ['clear10', 'clear100']:
-        return transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Resize(224),
-            transforms.CenterCrop(224),
-            transforms.Normalize(
-            (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
-    )])
+        return transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     elif dataset == 'svhn':
-        return transforms.Compose([
-                    transforms.Resize(32),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        return transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     elif dataset == 'cars':
-        return transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-            (0.4707, 0.4602, 0.4550), (0.2638, 0.2629, 0.2678)
-    )]) 
-    
+        return transforms.Normalize(
+            (0.4707, 0.4602, 0.4550), (0.2638, 0.2629, 0.2678))    
 
     else:
         raise ValueError(f'Base Trandforms for dataset "{dataset}" not supported')
@@ -120,7 +90,7 @@ class Solarization:
         
 def clamp_transform(image):
     # Clamping operation here
-    return torch.clamp(image, min=0, max=1)
+    return torch.clamp(image, min=0, max=255)
 
 def get_transforms_simsiam(dataset: str = 'cifar100'):
     """Returns SimSiam augmentations with dataset specific crop."""
@@ -195,7 +165,7 @@ def get_transforms_emp(dataset: str = 'cifar100'):
         transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.2)], p=0.8),
         transforms.RandomGrayscale(p=0.2),
         transforms.RandomApply([transforms.GaussianBlur(blur_kernel)], p=0.1),
-        transforms.RandomSolarize(threshold=0.5 ,p=0.1), # threshold chosen from PIL solarize implementation
+        transforms.RandomSolarize(threshold=128 ,p=0.1), # threshold chosen from PIL solarize implementation
         normalize
     ]
     return all_transforms
@@ -203,6 +173,8 @@ def get_transforms_emp(dataset: str = 'cifar100'):
 
 def get_common_transforms(dataset: str = 'cifar100'):
     "Common transforms for self supervised models for better comparison"
+
+    normalize = get_dataset_normalize(dataset)
     all_transforms = [
             get_dataset_crop(dataset),
             transforms.RandomHorizontalFlip(p=0.5),
@@ -213,6 +185,8 @@ def get_common_transforms(dataset: str = 'cifar100'):
                 p=0.8
             ),
             transforms.RandomGrayscale(p=0.2),
+            transforms.ConvertImageDtype(torch.float),
+            normalize,
         ]
 
     return all_transforms

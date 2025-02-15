@@ -6,6 +6,8 @@ from torch.utils.data import DataLoader
 
 from .utils import UnsupervisedDataset
 from .CLA_transforms import get_cla_transforms
+from .transforms import get_transforms
+from .randaugment import get_randaug_transforms
 from .ssl_models import AbstractSSLModel
 from .strategies import AbstractStrategy
 from .optims import init_optim
@@ -32,7 +34,8 @@ class Trainer():
                  online_transforms_type: str = 'common',
                  num_views: int = 2,
                  psi: float = 2,
-                 avg_seen_count: float = 39
+                 avg_seen_count: float = 39,
+                 aug_type: str = 'cla'
                ):
         
         if ssl_model is None:
@@ -53,6 +56,7 @@ class Trainer():
         self.save_model = save_model
         self.online_transforms_type = online_transforms_type
         self.num_views = num_views # == 2 for most Instance Discrimination methods, but can vary e.g. EMP
+        self.aug_type = aug_type
 
         # For increasing difficulty augmentations
         self.psi = psi
@@ -60,8 +64,17 @@ class Trainer():
 
         self.model_and_strategy_name = self.strategy.get_name() + '_' + self.ssl_model.get_name()
 
-        #  Set up transforms ONLY FOR CLA
-        self.transforms = get_cla_transforms(self.dataset_name, num_views)
+        #  Set up transforms 
+
+        if aug_type == 'cla':
+            # ONLY FOR CLA
+            self.transforms = get_cla_transforms(self.dataset_name, num_views)
+        elif aug_type == 'randaug':
+            self.transforms = get_randaug_transforms(self.dataset_name, num_views)
+        elif aug_type ==  'common':
+            self.transforms = get_transforms(dataset=self.dataset_name, model='common', n_crops=num_views)
+        else:
+            raise Exception(f'Unknown augmentation type: {aug_type}')
 
         # List of params to optimize
         params_to_optimize = self.ssl_model.get_params() + self.strategy.get_params()
@@ -88,6 +101,7 @@ class Trainer():
                 f.write(f'train_epochs: {self.train_epochs}\n')
                 f.write(f'mb_passes: {self.mb_passes}\n')
                 f.write(f'psi (tanh for augs): {self.psi}\n')
+                f.write(f'augmentation type: {self.aug_type}\n')
 
 
                 # Write loss file column names
@@ -136,8 +150,10 @@ class Trainer():
                     # Apply transforms, obtains a list of tensors, each containing 1 view for every sample in the mbatch
                     if self.transforms is None:
                         x_views_list = mbatch
-                    else:
+                    elif self.aug_type in ['cla', 'randaug']:
                         x_views_list = self.transforms(mbatch, tanh_seen_count)
+                    else:
+                        x_views_list = self.transforms(mbatch)
 
 
                     x_views_list = self.strategy.after_transforms(x_views_list)
