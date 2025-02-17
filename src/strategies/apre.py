@@ -157,6 +157,7 @@ class APRE(AbstractStrategy):
             plt.imshow(similarity_matrix_z.cpu().detach().numpy())
             plt.colorbar()
             plt.savefig(os.path.join(self.z_sim_folder, f"exp{exp_idx}_mb{mb_idx}_k{k_iter}.png"))
+            plt.clf()
 
         # ACCURACY
         # Get index of most similar vector for each row
