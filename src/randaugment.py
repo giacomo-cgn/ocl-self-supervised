@@ -11,7 +11,7 @@ def get_randaug_transforms(dataset_name: str = 'cifar100', n_crops: int = 2):
 
 
     augs = lambda tanh_val : transforms.Compose([
-        transforms.RandAugment(num_ops=round(2 + (tanh_val*6)), magnitude=int(31*tanh_val), num_magnitude_bins=31),
+        transforms.RandAugment(num_ops=round(2 + (tanh_val*6)), magnitude=int(30*tanh_val), num_magnitude_bins=31),
         transforms.ConvertImageDtype(torch.float),
         normalize
     ])
