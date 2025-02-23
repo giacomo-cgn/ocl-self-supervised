@@ -21,6 +21,8 @@ from src.buffers import get_buffer
 
 from src.utils import write_final_scores, read_command_line_args, calculate_forgetting, save_avg_stream_acc
 
+import time
+
 def exec_experiment(**kwargs):
     standalone_strategies = ['scale']
     buffer_free_strategies = ['no_strategy', 'aep', 'cassle']
@@ -402,6 +404,7 @@ def exec_experiment(**kwargs):
     else:
         probing_benchmark = benchmark
 
+    training_time_tot = 0 
 
     if kwargs["iid"]:
         # IID training over the entire dataset
@@ -421,7 +424,9 @@ def exec_experiment(**kwargs):
                 'status': False,
             }
 
+        training_time_start = time.time()
         trained_ssl_model = trainer.train_experience(iid_tr_dataset, exp_idx=0, iid_intermediate_eval_dict=iid_intermediate_eval_dict)
+        training_time_tot += time.time() - training_time_start
 
         if not kwargs["probing_all_exp"]:
             exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=probing_benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
@@ -434,16 +439,23 @@ def exec_experiment(**kwargs):
 
     else:
         # Self supervised training over the experiences
+        training_time_start = time.time()
         for exp_idx, exp_dataset in enumerate(benchmark.train_stream):
             print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
             trained_ssl_model = trainer.train_experience(exp_dataset, exp_idx)
+            training_time_tot += time.time() - training_time_start
             if kwargs["probing_all_exp"]:
                 exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=probing_benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
                      pretr_exp_idx=exp_idx, probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
+        
         if not kwargs["probing_all_exp"]:
             # Probe only at the end of training
             exec_probing(kwargs=kwargs, probes=probes, probing_benchmark=probing_benchmark, encoder=trained_ssl_model.get_encoder_for_eval(), 
                      pretr_exp_idx=exp_idx, probing_tr_ratio_arr=probing_tr_ratio_arr, save_pth=save_pth)
+            
+    # Save training time
+            with open(os.path.join(save_pth, 'training_time.txt'), 'w') as f:
+                f.write(f'Total training time: {training_time_tot} seconds')
                 
         
     # Calculate and save final probing scores
