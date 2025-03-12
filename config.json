@@ -8,7 +8,7 @@
         "repl-mb-size": 10,
         "eval-mb-size": 256,
         "epochs": 1,
-        "save-folder": "./logs/clear_test",
+        "save-folder": "./logs",
         "probing-separate": false,
         "probing-torch": true,
         "probing-rr": false,
@@ -23,12 +23,9 @@
                 "seeds": [1,2]
             },
             "model": "simsiam",
-            "strategy" : "replay",
-            "downstream": true,
-            "downstream-dataset": "svhn",
-            "downstream-dataset-root": "/home/giacomo/Ai/StanfordCars",
-            "no-train": true,
-            "mb-passes": 1
+            "strategy" : "no_strategy",
+            "mb-passes": 1,
+            "online-transforms": true
         }
         
     ]

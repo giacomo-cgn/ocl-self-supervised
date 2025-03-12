@@ -29,7 +29,8 @@ class Trainer():
                  dataset_name: str = 'cifar100',
                  save_pth: str  = None,
                  save_model: bool = False,
-                 common_transforms: bool = True,
+                 transforms_type: str = 'common',
+                 online_transforms: bool = True,
                  num_views: int = 2
                ):
         
@@ -49,16 +50,17 @@ class Trainer():
         self.dataset_name = dataset_name
         self.save_pth = save_pth
         self.save_model = save_model
-        self.common_transforms = common_transforms
+        self.transforms_type = transforms_type
+        self.online_transforms = online_transforms
         self.num_views = num_views # == 2 for most Instance Discrimination methods, but can vary e.g. EMP
 
         self.model_and_strategy_name = self.strategy.get_name() + '_' + self.ssl_model.get_name()
 
-        # Set up transforms
-        if self.common_transforms:
-            self.transforms = get_transforms(dataset=self.dataset_name, model='common', n_crops=num_views)
+        # Set up transforms - TODO: ADD TRANSFORMS FOR EMP
+        if self.transforms_type == 'common':
+            self.transforms = get_transforms(dataset=self.dataset_name, n_crops=num_views, online_transforms=self.online_transforms)
         else:
-            self.transforms = get_transforms(dataset=self.dataset_name, model=self.ssl_model.get_name(), n_crops=num_views)
+            raise Exception(f'Transforms type {self.transforms_type} not supported')
 
         # List of params to optimize
         params_to_optimize = self.ssl_model.get_params() + self.strategy.get_params()
@@ -97,7 +99,10 @@ class Trainer():
                          iid_intermediate_eval_dict: dict = {"status": False}, # Set to True to evaluate model at intermediate steps, contains vars for intermediate eval
                          ):
         # Prepare data
-        exp_data = UnsupervisedDataset(dataset)  
+        if self.online_transforms:
+            exp_data = UnsupervisedDataset(dataset)
+        else:
+            exp_data = UnsupervisedDataset(dataset, transforms=self.transforms)
         data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True, drop_last=True, num_workers=8)
 
         if iid_intermediate_eval_dict["status"]:
@@ -114,7 +119,10 @@ class Trainer():
         
         for epoch in range(self.train_epochs):
             for mb_idx, stream_mbatch in enumerate(tqdm(data_loader)):
-                stream_mbatch = stream_mbatch.to(self.device)
+                if self.online_transforms:
+                    stream_mbatch = stream_mbatch.to(self.device)
+                else:
+                    stream_mbatch = [x.to(self.device) for x in stream_mbatch]
 
                 stream_mbatch = self.strategy.before_mb_passes(stream_mbatch)
 
@@ -123,7 +131,10 @@ class Trainer():
                     mbatch = self.strategy.before_forward(stream_mbatch)
 
                     # Apply transforms, obtains a list of tensors, each containing 1 view for every sample in the mbatch
-                    x_views_list = self.transforms(mbatch)
+                    if self.online_transforms:
+                        x_views_list = self.transforms(mbatch)
+                    else:
+                        x_views_list = mbatch
 
                     x_views_list = self.strategy.after_transforms(x_views_list)
 

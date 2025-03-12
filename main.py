@@ -27,6 +27,11 @@ def exec_experiment(**kwargs):
     standalone_strategies = ['scale']
     buffer_free_strategies = ['no_strategy', 'aep', 'cassle']
 
+    if not kwargs['strategy'] in buffer_free_strategies:
+        if not kwargs['online_transforms']:
+            print('WARNING: Offline transforms are not supported for replay strategies, resetting --online-transforms to True.')
+            kwargs['online_transforms'] = True
+
     # Checks for CLEAR
     if  kwargs["dataset"] == "clear100":
         if kwargs["num_exps"] != 11:
@@ -84,6 +89,8 @@ def exec_experiment(**kwargs):
         if kwargs["pretrain_init_type"] == 'encoder' or kwargs["pretrain_init_type"] == 'ssl':
             f.write(f'Pretrain init source: {kwargs["pretrain_init_source"]}\n')
             f.write(f'Pretrain init path: {kwargs["pretrain_init_pth"]}\n')
+        f.write(f'Online Transforms: {kwargs["online_transforms"]}\n')
+        f.write(f'Transforms Type: {kwargs["transforms_type"]}\n')
 
         f.write(f'-- Probing configs --\n')
         f.write(f'Probing after all experiences: {kwargs["probing_all_exp"]}\n')
@@ -365,10 +372,13 @@ def exec_experiment(**kwargs):
                           lars_eta= kwargs["lars_eta"],
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
-                          save_model=kwargs["save_model_every_exp"], common_transforms=kwargs["common_transforms"], num_views=num_views)
+                          save_model=kwargs["save_model_every_exp"], online_transforms=kwargs["online_transforms"],
+                          transforms_type=kwargs["transforms_type"], num_views=num_views)
         
     else:
         # Is a standalone strategy (already includes trainer and ssl model inside the strategy itself)
+        # TODO: REFACTOR SCALE
+        print('WARNING: SCALE IS NOT REFCTORED YET, COULD CASE ERRORS!')
         trainer = SCALE(encoder=encoder, optim=kwargs["optim"], lr=kwargs["lr"], dim_backbone_features=dim_encoder_features,
                         momentum=kwargs["optim_momentum"], weight_decay=kwargs["weight_decay"],
                         train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],

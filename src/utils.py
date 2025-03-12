@@ -5,25 +5,43 @@ import argparse
 
 import torch
 from torch.utils.data import Dataset
-from torchvision import models
+from torchvision import transforms
 
+
+from .transforms import get_dataset_normalize
 from avalanche.evaluation.metrics import Forgetting
 
 # Convert Avalanche dataset with labels and task labels to Pytorch dataset with only input tensors
 class UnsupervisedDataset(Dataset):
-    def __init__(self, data):
+    def __init__(self, data, transforms=None):
         self.data = data
+        self.transforms = transforms
 
     def __len__(self):
         return len(self.data)
+    
+    def get_classes(self):
+        # Extract the labels as Python numbers from each tuple
+        labels = [sample[1] for sample in self.data]
+        # Create a sorted list of unique labels
+        unique_labels = sorted(list(set(labels)))
+        return unique_labels
 
     def __getitem__(self, idx):
         input_tensor, _, _ = self.data[idx]
-        return input_tensor
+        if self.transforms is None:
+            return input_tensor
+        else:
+            return self.transforms(input_tensor)
     
 class SupervisedDataset(Dataset):
-    def __init__(self, data):
+    def __init__(self, data, dataset_name):
         self.data = data
+        normalize = get_dataset_normalize(dataset_name)
+        self.augs = transforms.Compose([
+            transforms.ConvertImageDtype(torch.float),
+            normalize
+        ])
 
     def __len__(self):
         return len(self.data)
@@ -34,7 +52,7 @@ class SupervisedDataset(Dataset):
         elif len(self.data[idx]) == 2:
             input_tensor, label = self.data[idx]
             
-        return input_tensor, label
+        return self.augs(input_tensor), label
 
 
 @torch.no_grad() 
@@ -174,7 +192,8 @@ def read_command_line_args():
     
     parser.add_argument('--mb-passes', type=int, default=3)
     parser.add_argument('--tr-mb-size', type=int, default=32)
-    parser.add_argument('--common-transforms', type=str_to_bool, default=True)
+    parser.add_argument('--online-transforms', type=str_to_bool, default=True)
+    parser.add_argument('--transforms-type', type=str, default='common')
     parser.add_argument('--iid', type=str_to_bool, default=False)
     parser.add_argument('--no-train', type=str_to_bool, default=False)
     parser.add_argument('--save-model-final', type=str_to_bool, default=True)

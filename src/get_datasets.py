@@ -1,10 +1,11 @@
-from .transforms import get_dataset_transforms
 import random
 import numpy as np
 from sklearn.model_selection import train_test_split
 
 import torch
 from torch.utils.data import ConcatDataset, Subset
+from torchvision import transforms
+
 
 from avalanche.benchmarks.classic import SplitCIFAR100, SplitCIFAR10, SplitImageNet
 from torchvision.datasets import SVHN, StanfordCars
@@ -23,8 +24,8 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
                 seed=seed, # Fixed seed for reproducibility
                 return_task_id=return_task_id,
                 shuffle=shuffle,
-                train_transform=get_dataset_transforms(dataset_name),
-                eval_transform=get_dataset_transforms(dataset_name),
+                train_transform=transforms.Compose([transforms.PILToTensor()]),
+                eval_transform=transforms.Compose([transforms.PILToTensor()]),
             )
         image_size = 32
         
@@ -34,8 +35,8 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
                 seed=seed, # Fixed seed for reproducibility
                 return_task_id=return_task_id,
                 shuffle=shuffle,
-                train_transform=get_dataset_transforms(dataset_name),
-                eval_transform=get_dataset_transforms(dataset_name),
+                train_transform=transforms.Compose([transforms.PILToTensor()]),
+                eval_transform=transforms.Compose([transforms.PILToTensor()]),
             )
         image_size = 32
         
@@ -46,8 +47,10 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
                 seed=seed, # Fixed seed for reproducibility
                 return_task_id=return_task_id,
                 shuffle=shuffle,
-                train_transform=get_dataset_transforms(dataset_name),
-                eval_transform=get_dataset_transforms(dataset_name),
+                train_transform=transforms.Compose([transforms.PILToTensor(),
+                                                transforms.Resize((224,224))]),
+                eval_transform=transforms.Compose([transforms.PILToTensor(),
+                                                transforms.Resize((224,224))]),
             )
         image_size = 224
         
@@ -61,8 +64,10 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
             fixed_class_order = classes,
             return_task_id=return_task_id,
             shuffle=shuffle,
-            train_transform=get_dataset_transforms(dataset_name),
-            eval_transform=get_dataset_transforms(dataset_name),
+            train_transform=transforms.Compose([transforms.PILToTensor(),
+                                                transforms.Resize((224,224))]),
+            eval_transform=transforms.Compose([transforms.PILToTensor(),
+                                                transforms.Resize((224,224))]),
             # class_ids_from_zero_from_first_exp=True ## not allowed for Avalanche < 0.4.0
         )
         image_size = 224
@@ -88,8 +93,12 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
             feature_type=None,
             seed=seed%5, # allowed seed in 0-4 range
             dataset_root=None,
-            train_transform=get_dataset_transforms(dataset_name),
-            eval_transform=get_dataset_transforms(dataset_name),
+            train_transform=transforms.Compose([transforms.PILToTensor(),
+                                                transforms.Resize((224,224)),
+                                                transforms.CenterCrop(224)]),
+            eval_transform=transforms.Compose([transforms.PILToTensor(),
+                                                transforms.Resize((224,224)),
+                                                transforms.CenterCrop(224)]),
         )
         image_size = 224
 
@@ -112,9 +121,9 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
         test_stream.append(experience.dataset)
     
     if val_ratio > 0:
-        benchmark = Benchmark(train_stream=tr_stream, test_stream=test_stream, valid_stream=valid_stream)
+        benchmark = Benchmark(train_stream=tr_stream, test_stream=test_stream, valid_stream=valid_stream, dataset_name=dataset_name)
     else:
-        benchmark = Benchmark(train_stream=tr_stream, test_stream=test_stream)
+        benchmark = Benchmark(train_stream=tr_stream, test_stream=test_stream, dataset_name=dataset_name)
 
     return benchmark, image_size
 
@@ -124,22 +133,26 @@ def get_iid_dataset(benchmark: Benchmark):
 
 def get_downstream_benchmark(downstream_name, dataset_root, seed=42, val_ratio=0.1):
     if downstream_name == 'svhn':
-        train_dataset = SVHN(root=dataset_root, split='train', download=True, transform=get_dataset_transforms(downstream_name))
-        test_dataset = SVHN(root=dataset_root, split='test', download=True, transform=get_dataset_transforms(downstream_name))
+        train_dataset = SVHN(root=dataset_root, split='train', download=True, transform=transforms.Compose([transforms.PILToTensor(),
+                                                                                        transforms.Resize(32)]))
+        test_dataset = SVHN(root=dataset_root, split='test', download=True, transform=transforms.Compose([transforms.PILToTensor(),
+                                                                                        transforms.Resize(32)]))
         if val_ratio > 0:
             train_dataset, val_dataset = torch_val_split(val_ratio, train_dataset)
-            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset], valid_stream=[val_dataset])
+            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset], valid_stream=[val_dataset], dataset_name=downstream_name)
         else:
-            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset])
+            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset], dataset_name=downstream_name)
         
     elif downstream_name == 'cars':
-        train_dataset = StanfordCars(root=dataset_root, split='train', download=False, transform=get_dataset_transforms(downstream_name))
-        test_dataset = StanfordCars(root=dataset_root, split='test', download=False, transform=get_dataset_transforms(downstream_name))
+        train_dataset = StanfordCars(root=dataset_root, split='train', download=False, transform=transforms.Compose([transforms.PILToTensor(),
+                                                                                                transforms.Resize((224,224))]))
+        test_dataset = StanfordCars(root=dataset_root, split='test', download=False, transform=transforms.Compose([transforms.PILToTensor(),
+                                                                                                transforms.Resize((224,224))]))
         if val_ratio > 0:
             train_dataset, val_dataset = torch_val_split(val_ratio, train_dataset)
-            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset], valid_stream=[val_dataset])
+            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset], valid_stream=[val_dataset], dataset_name=downstream_name)
         else:
-            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset])
+            return Benchmark(train_stream=[train_dataset], test_stream=[test_dataset], dataset_name=downstream_name)
         
 
 def torch_val_split(val_ratio, dataset):
