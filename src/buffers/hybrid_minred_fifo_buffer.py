@@ -30,11 +30,11 @@ class HybridMinRedFIFOBuffer:
             # Extend buffer to have same dim of batch_x
             buffer_shape = list(batch_x.size())
             buffer_shape[0] = 0
-            self.buffer_fifo = torch.empty(buffer_shape).to(self.device)
+            self.buffer_fifo = torch.empty(buffer_shape, dtype=batch_x.dtype).to(self.device)
             # Extend buffer_features to have same dim of batch_features
             buffer_shape = list(batch_features.size())
             buffer_shape[0] = 0
-            self.buffer_features_fifo = torch.empty(buffer_shape).to(self.device)
+            self.buffer_features_fifo = torch.empty(buffer_shape, dtype=batch_features.dtype).to(self.device)
 
         # Store new samples in the FIFO buffer
         self.buffer_fifo = torch.cat((batch_x, self.buffer_fifo), dim=0)

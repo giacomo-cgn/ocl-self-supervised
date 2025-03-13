@@ -26,12 +26,12 @@ class ReservoirBuffer:
             # Extend buffer to have same dim of batch_x
             buffer_shape = list(batch_x.size())
             buffer_shape[0] = 0
-            self.buffer = torch.empty(buffer_shape).to(self.device)
+            self.buffer = torch.empty(buffer_shape, dtype=batch_x.dtype).to(self.device)
 
             # Extend buffer_features to have same dim of batch_features
             buffer_shape = list(batch_features.size())
             buffer_shape[0] = 0
-            self.buffer_features = torch.empty(buffer_shape).to(self.device)
+            self.buffer_features = torch.empty(buffer_shape, dtype=batch_features.dtype).to(self.device)
 
         batch_size = batch_x.size(0)
 
