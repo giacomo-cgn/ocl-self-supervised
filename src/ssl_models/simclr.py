@@ -56,7 +56,7 @@ class SimCLR(nn.Module, AbstractSSLModel):
         pos_sim = torch.exp(torch.sum(z1_norm * z2_norm, dim=-1) / self.temperature)
         # [2*B]
         pos_sim = torch.cat([pos_sim, pos_sim], dim=0)
-        loss = (- torch.log(pos_sim / sim_matrix.sum(dim=-1))).mean()
+        loss = (- torch.log(pos_sim / sim_matrix.sum(dim=-1)))
         return loss
 
     def forward(self, x_views_list):

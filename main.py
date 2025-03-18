@@ -95,6 +95,10 @@ def exec_experiment(**kwargs):
         f.write(f'Memory Size: {kwargs["mem_size"]}\n')
         f.write(f'Buffer Type: {kwargs["buffer_type"]}\n')
         f.write(f'Features Buffer EMA param: {kwargs["features_buffer_ema"]}\n')
+        if kwargs["buffer_type"] == 'loss_aware':
+            f.write(f'Alpha EMA for loss: {kwargs["loss_buffer_ema"]}\n')
+            f.write(f'Insertion Policy: {kwargs["insertion_policy"]}\n')
+
 
         f.write(f'-- Probing configs --\n')
         f.write(f'Probing after all experiences: {kwargs["probing_all_exp"]}\n')

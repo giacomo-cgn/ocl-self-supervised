@@ -293,6 +293,10 @@ def read_command_line_args():
     # double_resnet params
     parser.add_argument('--return-buffer-encoder', type=str_to_bool, default=False)
 
+    # Loss Aware Buffer params
+    parser.add_argument('--loss-buffer-ema', type=float, default=0.5)
+    parser.add_argument('--insertion-policy', type=str, default='loss')
+
 
     args = parser.parse_args()
 

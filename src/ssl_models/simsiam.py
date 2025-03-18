@@ -59,7 +59,7 @@ class SimSiam(nn.Module, AbstractSSLModel):
         p1 = self.predictor(z1) # NxC
         p2 = self.predictor(z2) # NxC
 
-        loss = -(self.criterion(p1, z2.detach()).mean() + self.criterion(p2, z1.detach()).mean()) * 0.5
+        loss = -(self.criterion(p1, z2.detach()) + self.criterion(p2, z1.detach())) * 0.5
 
         return loss, [z1, z2], [e1, e2]
     

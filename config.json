@@ -23,9 +23,12 @@
                 "seeds": [1,2]
             },
             "model": "simsiam",
-            "strategy" : "no_strategy",
+            "strategy" : "replay",
             "mb-passes": 1,
-            "online-transforms": true
+            "online-transforms": true,
+            "memory-size": 200,
+            "buffer-type": "loss_aware",
+            "insertion-policy": "fifo"
         }
         
     ]
