@@ -77,7 +77,6 @@ def exec_experiment(**kwargs):
             f.write(f'Downstream: {kwargs["downstream"]}\n')
             f.write(f'Downstream Dataset: {kwargs["downstream_dataset"]}\n')
         f.write(f'Number of Experiences: {kwargs["num_exps"]}\n')
-        f.write(f'Memory Size: {kwargs["mem_size"]}\n')
         f.write(f'MB Passes: {kwargs["mb_passes"]}\n')
         f.write(f'Num Epochs: {kwargs["epochs"]}\n')
         f.write(f'Train MB Size: {kwargs["tr_mb_size"]}\n')
@@ -91,6 +90,11 @@ def exec_experiment(**kwargs):
             f.write(f'Pretrain init path: {kwargs["pretrain_init_pth"]}\n')
         f.write(f'Online Transforms: {kwargs["online_transforms"]}\n')
         f.write(f'Transforms Type: {kwargs["transforms_type"]}\n')
+
+        f.write(f'---- BUFFER CONFIGS ----\n')
+        f.write(f'Memory Size: {kwargs["mem_size"]}\n')
+        f.write(f'Buffer Type: {kwargs["buffer_type"]}\n')
+        f.write(f'Alpha EMA for buffer features: {kwargs["alpha_ema"]}\n')
 
         f.write(f'-- Probing configs --\n')
         f.write(f'Probing after all experiences: {kwargs["probing_all_exp"]}\n')
