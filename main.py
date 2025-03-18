@@ -94,7 +94,7 @@ def exec_experiment(**kwargs):
         f.write(f'---- BUFFER CONFIGS ----\n')
         f.write(f'Memory Size: {kwargs["mem_size"]}\n')
         f.write(f'Buffer Type: {kwargs["buffer_type"]}\n')
-        f.write(f'Alpha EMA for buffer features: {kwargs["alpha_ema"]}\n')
+        f.write(f'Features Buffer EMA param: {kwargs["features_buffer_ema"]}\n')
 
         f.write(f'-- Probing configs --\n')
         f.write(f'Probing after all experiences: {kwargs["probing_all_exp"]}\n')
