@@ -16,7 +16,7 @@ class ReservoirBuffer:
         self.seen_samples = 0 # Samples seen so far
 
     # Add a batch of samples and features to the buffer
-    def add(self, batch_x, batch_features):
+    def add(self, batch_x, batch_features, batch_loss):
         assert batch_x.size(0) == batch_features.size(0)
 
         batch_x, batch_features = batch_x.to(self.device), batch_features.to(self.device)
@@ -74,7 +74,7 @@ class ReservoirBuffer:
         return batch_x, batch_features, indices
     
     # Update features of buffer samples at given indices
-    def update_features(self, batch_features, indices):
+    def update_features(self, batch_features, batch_loss, indices):
         assert batch_features.size(0) == len(indices)
 
         batch_features = batch_features.to(self.device)
