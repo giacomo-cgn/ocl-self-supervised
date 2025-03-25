@@ -1,5 +1,6 @@
 import random
 import torch
+import numpy as np
 
 
 class ReservoirBuffer:
@@ -13,11 +14,19 @@ class ReservoirBuffer:
         self.alpha_ema = alpha_ema # 1.0 = do not update stored features, 0.0 = substitute with new features
         self.device = device
 
+        self.lifetimes = torch.empty(0, dtype=torch.int) # Buffer for the life of each sample
+        self.extractions = torch.empty(0, dtype=torch.int) # Buffer for the number of times each sample has been extracted
+        self.finished_lifetimes = []
+        self.finished_extractions = []
+
         self.seen_samples = 0 # Samples seen so far
 
     # Add a batch of samples and features to the buffer
     def add(self, batch_x, batch_features, batch_loss):
         assert batch_x.size(0) == batch_features.size(0)
+
+        # Add +1 to all lifetimes
+        self.lifetimes += 1
 
         batch_x, batch_features = batch_x.to(self.device), batch_features.to(self.device)
 
@@ -41,12 +50,16 @@ class ReservoirBuffer:
                 # If there is enough space in the buffer, add all the samples
                 self.buffer = torch.cat((self.buffer, batch_x), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features), dim=0)
+                self.lifetimes = torch.cat((self.lifetimes, torch.zeros(batch_size, dtype=torch.int)), dim=0)
+                self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 self.seen_samples += batch_size
             else:
                 # If there is not enough space, add only the remaining samples
                 remaining_space = self.buffer_size - self.seen_samples
                 self.buffer = torch.cat((self.buffer, batch_x[:remaining_space]), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features[:remaining_space]), dim=0)
+                self.lifetimes = torch.cat((self.lifetimes, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
+                self.extractions = torch.cat((self.extractions, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
                 self.seen_samples += remaining_space
         else:
             # Replace samples with probability buffer_size/seen_samples
@@ -56,6 +69,11 @@ class ReservoirBuffer:
                 if replace_index < self.buffer_size:
                     self.buffer[replace_index] = batch_x[i]
                     self.buffer_features[replace_index] = batch_features[i]
+
+                    self.finished_lifetimes.append(self.lifetimes[replace_index].item())
+                    self.lifetimes[replace_index] = 0
+                    self.finished_extractions.append(self.extractions[replace_index].item())
+                    self.extractions[replace_index] = 0
             
             self.seen_samples += batch_size
 
@@ -66,6 +84,8 @@ class ReservoirBuffer:
 
         # Sample batch_size indices
         indices = random.sample(range(len(self.buffer)), batch_size)
+
+        self.extractions[indices] += 1
 
         # Get sample batch from indices
         batch_x = self.buffer[indices]
@@ -87,3 +107,19 @@ class ReservoirBuffer:
             else:
                 # No features stored yet, store newly passed features
                 self.buffer_features[idx] = batch_features[i]
+
+    def end(self):
+        for lifetime in self.lifetimes:
+            self.finished_lifetimes.append(lifetime.item())
+        for extraction in self.extractions:
+            self.finished_extractions.append(extraction.item())
+
+        avg_lifetime = np.mean(self.finished_lifetimes)
+        avg_extraction = np.mean(self.finished_extractions)
+        metrics_buffer = f"Average lifetime: {avg_lifetime:.2f}\nAverage extraction: {avg_extraction:.2f}\n"
+
+        csv_buffer = "lifetime,extraction\n"
+        for i in range(len(self.finished_lifetimes)):
+            csv_buffer += str(self.finished_lifetimes[i]) + "," + str(self.finished_extractions[i]) + "\n"
+
+        return csv_buffer, metrics_buffer

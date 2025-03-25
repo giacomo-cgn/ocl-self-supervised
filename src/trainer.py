@@ -173,6 +173,18 @@ class Trainer():
 
                 self.strategy.after_mb_passes()
 
+            if self.strategy.buffer is not None:
+                csv_buffer, buffer_metrics = self.strategy.buffer.end()
+                if self.save_pth is not None:
+                    buff_pth = os.path.join(self.save_pth, 'buffer', f'exp{exp_idx}')
+                    if not os.path.exists(buff_pth):
+                        os.makedirs(buff_pth)
+                    with open(os.path.join(buff_pth, 'buffer.csv'), 'w') as f:
+                        f.write(csv_buffer)
+                    with open(os.path.join(buff_pth, 'buffer_metrics.txt'), 'w') as f:
+                        f.write(buffer_metrics)
+                    
+
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:
             chkpt_pth = os.path.join(self.save_pth, 'checkpoints')

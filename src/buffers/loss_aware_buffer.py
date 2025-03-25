@@ -1,6 +1,6 @@
 import random
 import torch
-
+import numpy as np
 
 class LossAwareBuffer:
     """
@@ -16,12 +16,19 @@ class LossAwareBuffer:
         self.insertion_policy = insertion_policy # 'random', 'loss' or 'fifo', which policy to use to insert new samples.
         # Samples to remove are always chosen based on their loss.
         self.device = device
+        self.lifetimes = torch.empty(0, dtype=torch.int) # Buffer for the life of each sample
+        self.extractions = torch.empty(0, dtype=torch.int) # Buffer for the number of times each sample has been extracted
+        self.finished_lifetimes = []
+        self.finished_extractions = []
 
         self.seen_samples = 0 # Samples seen so far
 
     # Add a batch of samples, features and losses to the buffer
     def add(self, batch_x, batch_features, batch_loss):
         assert batch_x.size(0) == batch_features.size(0) == batch_loss.size(0)
+
+        # Add +1 to all lifetimes
+        self.lifetimes += 1
 
         batch_x, batch_features, batch_loss = batch_x.to(self.device), batch_features.to(self.device), batch_loss.to(self.device)
 
@@ -51,6 +58,8 @@ class LossAwareBuffer:
                 self.buffer = torch.cat((self.buffer, batch_x), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features), dim=0)
                 self.buffer_loss = torch.cat((self.buffer_loss, batch_loss), dim=0)
+                self.lifetimes = torch.cat((self.lifetimes, torch.zeros(batch_size, dtype=torch.int)), dim=0)
+                self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 self.seen_samples += batch_size
             else:
                 # If there is not enough space, add only the remaining samples
@@ -58,6 +67,8 @@ class LossAwareBuffer:
                 self.buffer = torch.cat((self.buffer, batch_x[:remaining_space]), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features[:remaining_space]), dim=0)
                 self.buffer_loss = torch.cat((self.buffer_loss, batch_loss[:remaining_space]), dim=0)
+                self.lifetimes = torch.cat((self.lifetimes, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
+                self.extractions = torch.cat((self.extractions, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
                 self.seen_samples += remaining_space
         else:
             # Replace samples with probability buffer_size/seen_samples
@@ -69,29 +80,57 @@ class LossAwareBuffer:
                     if replace_index < self.buffer_size:
                         # Replace sample in buffer with the minimum loss
                         replace_index = self.buffer_loss.argmin().item()
+
+                        self.finished_lifetimes.append(self.lifetimes[replace_index].item())
+                        self.lifetimes[replace_index] = 0
+                        self.finished_extractions.append(self.extractions[replace_index].item())
+                        self.extractions[replace_index] = 0
+
                         self.buffer[replace_index] = batch_x[i]
                         self.buffer_features[replace_index] = batch_features[i]
                         self.buffer_loss[replace_index] = batch_loss[i]
+
                 elif self.insertion_policy == 'loss':
                     # Concat new batch to buffer
                     self.buffer = torch.cat((self.buffer, batch_x[i].unsqueeze(0)), dim=0)
                     self.buffer_features = torch.cat((self.buffer_features, batch_features[i].unsqueeze(0)), dim=0)
                     self.buffer_loss = torch.cat((self.buffer_loss, batch_loss[i].unsqueeze(0)), dim=0)
-                    # Find the batch_size samples with minimum loss and remove them
-                    self.buffer = self.buffer[self.buffer_loss.argsort()[batch_size:]]
-                    self.buffer_features = self.buffer_features[self.buffer_loss.argsort()[batch_size:]]
-                    self.buffer_loss = self.buffer_loss[self.buffer_loss.argsort()[batch_size:]]
 
+                    self.lifetimes = torch.cat((self.lifetimes, torch.zeros(batch_size, dtype=torch.int)), dim=0)
+                    self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
+                    # Find the batch_size samples with minimum loss and remove them
+                    indices_to_remove = self.buffer_loss.argsort()[:batch_size].cpu()
+                    self.finished_lifetimes += self.lifetimes[indices_to_remove].tolist()
+                    self.finished_extractions += self.extractions[indices_to_remove].tolist()
+
+                    indices_to_keep = self.buffer_loss.argsort()[batch_size:].cpu()
+                    self.buffer = self.buffer[indices_to_keep]
+                    self.buffer_features = self.buffer_features[indices_to_keep]
+                    self.buffer_loss = self.buffer_loss[indices_to_keep]
+                    self.lifetimes = self.lifetimes[indices_to_keep]
+                    self.extractions = self.extractions[indices_to_keep]
+
+                    
                 elif self.insertion_policy == 'fifo':
                     # remove batch_size samples from the buffer with the minimum loss
-                    self.buffer = self.buffer[self.buffer_loss.argsort()[batch_size:]]
-                    self.buffer_features = self.buffer_features[self.buffer_loss.argsort()[batch_size:]]
-                    self.buffer_loss = self.buffer_loss[self.buffer_loss.argsort()[batch_size:]]
+                    indices_to_remove = self.buffer_loss.argsort()[:batch_size].cpu()
+                    self.finished_lifetimes += self.lifetimes[indices_to_remove].tolist()
+                    self.finished_extractions += self.extractions[indices_to_remove].tolist()
+
+                    indices_to_keep = self.buffer_loss.argsort()[batch_size:].cpu()
+                    self.buffer = self.buffer[indices_to_keep]
+                    self.buffer_features = self.buffer_features[indices_to_keep]
+                    self.buffer_loss = self.buffer_loss[indices_to_keep]
+                    self.lifetimes = self.lifetimes[indices_to_keep]
+                    self.extractions = self.extractions[indices_to_keep]                    
 
                     # Concat new batch to buffer
                     self.buffer = torch.cat((self.buffer, batch_x[i].unsqueeze(0)), dim=0)
                     self.buffer_features = torch.cat((self.buffer_features, batch_features[i].unsqueeze(0)), dim=0)
                     self.buffer_loss = torch.cat((self.buffer_loss, batch_loss[i].unsqueeze(0)), dim=0)
+
+                    self.lifetimes = torch.cat((self.lifetimes, torch.zeros(batch_size, dtype=torch.int)), dim=0)
+                    self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
 
                 else:
                     raise Exception(f'Insertion policy {self.insertion_policy} is not supported for LossAwareBuffer')
@@ -105,6 +144,8 @@ class LossAwareBuffer:
 
         # Sample batch_size indices
         indices = random.sample(range(len(self.buffer)), batch_size)
+
+        self.extractions[indices] += 1
 
         # Get sample batch from indices
         batch_x = self.buffer[indices]
@@ -130,3 +171,19 @@ class LossAwareBuffer:
                 # No features stored yet, store newly passed features
                 self.buffer_features[idx] = batch_features[i]
                 self.buffer_loss[idx] = batch_loss[i]
+
+    def end(self):
+        for lifetime in self.lifetimes:
+            self.finished_lifetimes.append(lifetime)
+        for extraction in self.extractions:
+            self.finished_extractions.append(extraction)
+
+        avg_lifetime = np.mean(self.finished_lifetimes)
+        avg_extraction = np.mean(self.finished_extractions)
+        metrics_buffer = f"Average lifetime: {avg_lifetime:.2f}\nAverage extraction: {avg_extraction:.2f}\n"
+
+        csv_buffer = "lifetime,extraction\n"
+        for i in range(len(self.finished_lifetimes)):
+            csv_buffer += str(self.finished_lifetimes[i]) + "," + str(self.finished_extractions[i]) + "\n"
+
+        return csv_buffer, metrics_buffer
