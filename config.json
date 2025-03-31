@@ -26,7 +26,7 @@
             "strategy" : "replay",
             "mb-passes": 1,
             "online-transforms": true,
-            "memory-size": 200,
+            "mem-size": 200,
             "buffer-type": "loss_aware",
             "insertion-policy": "fifo"
         }
