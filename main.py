@@ -91,15 +91,6 @@ def exec_experiment(**kwargs):
         f.write(f'Online Transforms: {kwargs["online_transforms"]}\n')
         f.write(f'Transforms Type: {kwargs["transforms_type"]}\n')
 
-        f.write(f'---- BUFFER CONFIGS ----\n')
-        f.write(f'Memory Size: {kwargs["mem_size"]}\n')
-        f.write(f'Buffer Type: {kwargs["buffer_type"]}\n')
-        f.write(f'Features Buffer EMA param: {kwargs["features_buffer_ema"]}\n')
-        if kwargs["buffer_type"] == 'loss_aware':
-            f.write(f'Alpha EMA for loss: {kwargs["loss_buffer_ema"]}\n')
-            f.write(f'Insertion Policy: {kwargs["insertion_policy"]}\n')
-
-
         f.write(f'-- Probing configs --\n')
         f.write(f'Probing after all experiences: {kwargs["probing_all_exp"]}\n')
         f.write(f'Probing on Separated exps: {kwargs["probing_separate"]}\n')
@@ -185,16 +176,19 @@ def exec_experiment(**kwargs):
         buffer = get_buffer(buffer_type=kwargs["buffer_type"], mem_size=kwargs["mem_size"],
                             alpha_ema=kwargs["features_buffer_ema"], fifo_buffer_ratio=kwargs["fifo_buffer_ratio"],
                             alpha_ema_loss=kwargs["loss_buffer_ema"], insertion_policy=kwargs["insertion_policy"],
-                            device=device)
+                            gamma_extraction=kwargs["gamma_extraction"], device=device)
 
         # Save buffer configs
         with open(save_pth + '/config.txt', 'a') as f:
             f.write('\n')
             f.write(f'---- BUFFER CONFIGS ----\n')
+            f.write(f'Memory Size: {kwargs["mem_size"]}\n')
             f.write(f'Buffer Type: {kwargs["buffer_type"]}\n')
-            f.write(f'Buffer Size: {kwargs["mem_size"]}\n')
-            if kwargs["buffer_type"] in ["minred", "reservoir", "fifo"]:
-                f.write(f'Features update EMA param (MinRed): {kwargs["features_buffer_ema"]}\n')
+            f.write(f'Features Buffer EMA param (MinRed): {kwargs["features_buffer_ema"]}\n')
+            if kwargs["buffer_type"] == 'loss_aware':
+                f.write(f'Alpha EMA for loss: {kwargs["loss_buffer_ema"]}\n')
+                f.write(f'Insertion Policy: {kwargs["insertion_policy"]}\n')
+                f.write(f'Gamma Extraction: {kwargs["gamma_extraction"]}\n')
             if kwargs["buffer_type"] in ['hybrid_minred_fifo']:
                 f.write(f'FIFO Buffer Ratio: {kwargs["fifo_buffer_ratio"]}\n')
 

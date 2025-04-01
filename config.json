@@ -28,7 +28,8 @@
             "online-transforms": true,
             "mem-size": 200,
             "buffer-type": "loss_aware",
-            "insertion-policy": "fifo"
+            "insertion-policy": "loss",
+            "gamma-extraction": 0.5
         }
         
     ]

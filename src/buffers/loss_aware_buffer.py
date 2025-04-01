@@ -6,15 +6,16 @@ class LossAwareBuffer:
     """
     Custom buffer that removes elements based on their loss. Can store batches of samples without labels, but with encoder features.
     """
-    def __init__(self, buffer_size, alpha_ema=1.0, alpha_ema_loss=0.0, insertion_policy='random', device='cpu'):
+    def __init__(self, buffer_size, alpha_ema=1.0, alpha_ema_loss=0.0, insertion_policy='random', device='cpu', gamma_extraction=0.5):
         self.buffer_size = buffer_size # Maximum size of the buffer
         self.buffer = torch.empty(0,1).to(device) # Buffer for input samples only (e.g. images)
         self.buffer_features = torch.empty(0,1).to(device) # Buffer for corresponding sample features
         self.buffer_loss = torch.empty(0,1).to(device) # Buffer for corresponding sample losses
         self.alpha_ema = alpha_ema # 1.0 = do not update stored features, 0.0 = substitute with new features
         self.alpha_ema_loss = alpha_ema_loss # 1.0 = do not update stored losses, 0.0 = substitute with new losses
-        self.insertion_policy = insertion_policy # 'random', 'loss' or 'fifo', which policy to use to insert new samples.
-        # Samples to remove are always chosen based on their loss.
+        self.insertion_policy = insertion_policy # 'random', 'loss' or 'fifo', which policy to use to insert new samples. Samples to remove are always chosen based on their loss.
+        self.gamma_extraction = gamma_extraction # how much weight is given to the normalized num of extractions when selecting samples to remove
+
         self.device = device
         self.lifetimes = torch.empty(0, dtype=torch.int) # Buffer for the life of each sample
         self.extractions = torch.empty(0, dtype=torch.int) # Buffer for the number of times each sample has been extracted
@@ -79,7 +80,7 @@ class LossAwareBuffer:
 
                     if replace_index < self.buffer_size:
                         # Replace sample in buffer with the minimum loss
-                        replace_index = self.buffer_loss.argmin().item()
+                        replace_index = self.calculate_scores().argmin().item()
 
                         self.finished_lifetimes.append(self.lifetimes[replace_index].item())
                         self.lifetimes[replace_index] = 0
@@ -99,11 +100,11 @@ class LossAwareBuffer:
                 self.lifetimes = torch.cat((self.lifetimes, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 # Find the batch_size samples with minimum loss and remove them
-                indices_to_remove = self.buffer_loss.argsort()[:batch_size].cpu()
+                indices_to_remove = self.calculate_scores().argsort()[:batch_size].cpu()
                 self.finished_lifetimes += self.lifetimes[indices_to_remove].tolist()
                 self.finished_extractions += self.extractions[indices_to_remove].tolist()
 
-                indices_to_keep = self.buffer_loss.argsort()[batch_size:].cpu()
+                indices_to_keep = self.calculate_scores().argsort()[batch_size:].cpu()
                 self.buffer = self.buffer[indices_to_keep]
                 self.buffer_features = self.buffer_features[indices_to_keep]
                 self.buffer_loss = self.buffer_loss[indices_to_keep]
@@ -113,11 +114,11 @@ class LossAwareBuffer:
                 
             elif self.insertion_policy == 'fifo':
                 # remove batch_size samples from the buffer with the minimum loss
-                indices_to_remove = self.buffer_loss.argsort()[:batch_size].cpu()
+                indices_to_remove = self.calculate_scores().argsort()[:batch_size].cpu()
                 self.finished_lifetimes += self.lifetimes[indices_to_remove].tolist()
                 self.finished_extractions += self.extractions[indices_to_remove].tolist()
 
-                indices_to_keep = self.buffer_loss.argsort()[batch_size:].cpu()
+                indices_to_keep = self.calculate_scores().argsort()[batch_size:].cpu()
                 self.buffer = self.buffer[indices_to_keep]
                 self.buffer_features = self.buffer_features[indices_to_keep]
                 self.buffer_loss = self.buffer_loss[indices_to_keep]
@@ -137,7 +138,6 @@ class LossAwareBuffer:
 
             self.seen_samples += batch_size
 
-            print(f'Buffer size: {len(self.buffer)}')
 
     # Sample batch_size samples from the buffer, 
     # returns samples and indices of extracted samples (for feature update)
@@ -173,6 +173,15 @@ class LossAwareBuffer:
                 # No features stored yet, store newly passed features
                 self.buffer_features[idx] = batch_features[i]
                 self.buffer_loss[idx] = batch_loss[i]
+
+
+    def calculate_scores(self):
+        # Calculate loss + extraction score for all samples in the buffer
+        # Prefer selecting samples with high loss and low extraction count
+        norm_loss = (self.buffer_loss / self.buffer_loss.max()).cpu()
+        norm_extraction = (self.extractions / self.extractions.max()).cpu()
+        scores = norm_loss - self.gamma_extraction * norm_extraction
+        return scores
 
     def end(self):
         for lifetime in self.lifetimes:
