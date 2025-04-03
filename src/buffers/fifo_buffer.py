@@ -1,5 +1,6 @@
 import random
 import torch
+import numpy as np
 
 
 class FIFOBuffer:
@@ -13,19 +14,33 @@ class FIFOBuffer:
         self.buffer_features = [] # Buffer for corresponding sample features
         self.alpha_ema = alpha_ema # 1.0 = do not update stored features, 0.0 = substitute with new features
 
+        self.lifetimes = [] # Buffer for the life of each sample
+        self.extractions = [] # Buffer for the number of times each sample has been extracted
+        self.finished_lifetimes = []
+        self.finished_extractions = []
+
 
     # Add a batch of samples and features to the buffer
-    def add(self, batch_x, batch_features):
+    def add(self, batch_x, batch_features, batch_loss):
         assert batch_x.size(0) == batch_features.size(0)
         # Adds batch with a FIFO strategy
 
+        self.lifetimes = [lifetime + 1 for lifetime in self.lifetimes]
+
         self.buffer.extend(batch_x)
         self.buffer_features.extend(batch_features)
+        self.lifetimes.extend([0]*batch_x.size(0))
+        self.extractions.extend([0]*batch_x.size(0))
+
 
         if len(self.buffer) > self.buffer_size:
             # Remove oldest samples
             self.buffer = self.buffer[-self.buffer_size:]
             self.buffer_features = self.buffer_features[-self.buffer_size:]
+            self.finished_lifetimes += self.lifetimes[:-self.buffer_size]
+            self.finished_extractions += self.extractions[:-self.buffer_size]
+            self.lifetimes = self.lifetimes[-self.buffer_size:]
+            self.extractions = self.extractions[-self.buffer_size:]
 
     # Sample batch_size samples from the buffer, 
     # returns samples and indices of extracted samples (for feature update)
@@ -37,6 +52,9 @@ class FIFOBuffer:
         samples = [self.buffer[i] for i in indices]
         features = [self.buffer_features[i] for i in indices]
 
+        for i in indices:
+            self.extractions[i] += 1
+
         # Reconstruct batch from samples
         batch_x = torch.stack([sample for sample in samples])
         batch_features = torch.stack([feature for feature in features])
@@ -44,7 +62,7 @@ class FIFOBuffer:
         return batch_x, batch_features, indices
     
     # Update features of buffer samples at given indices
-    def update_features(self, batch_features, indices):
+    def update_features(self, batch_features, batch_loss, indices):
         assert batch_features.size(0) == len(indices)
 
         for i, idx in enumerate(indices):
@@ -55,3 +73,23 @@ class FIFOBuffer:
             else:
                 # No features stored yet, store newly passed features
                 self.buffer_features[idx] = batch_features[i]
+
+    def end(self):
+        results_lifetimes = []
+        results_extractions = []
+
+        results_lifetimes += [lifetime.item() if hasattr(lifetime, 'item') else lifetime for lifetime in self.lifetimes]
+        results_extractions += [extraction.item() if hasattr(extraction, 'item') else extraction for extraction in self.extractions]
+
+        results_lifetimes += [lifetime.item() if hasattr(lifetime, 'item') else lifetime for lifetime in self.finished_lifetimes]
+        results_extractions += [extraction.item() if hasattr(extraction, 'item') else extraction for extraction in self.finished_extractions]
+
+        avg_lifetime = np.mean(results_lifetimes)
+        avg_extraction = np.mean(results_extractions)
+        metrics_buffer = f"Average lifetime: {avg_lifetime:.2f}\nAverage extraction: {avg_extraction:.2f}\n"
+
+        csv_buffer = "lifetime,extraction\n"
+        for i in range(len(results_lifetimes)):
+            csv_buffer += str(results_lifetimes[i]) + "," + str(results_extractions[i]) + "\n"
+
+        return csv_buffer, metrics_buffer

@@ -184,17 +184,21 @@ class LossAwareBuffer:
         return scores
 
     def end(self):
-        for lifetime in self.lifetimes:
-            self.finished_lifetimes.append(lifetime)
-        for extraction in self.extractions:
-            self.finished_extractions.append(extraction)
+        results_lifetimes = []
+        results_extractions = []
 
-        avg_lifetime = np.mean(self.finished_lifetimes)
-        avg_extraction = np.mean(self.finished_extractions)
+        results_lifetimes += [lifetime.item() if hasattr(lifetime, 'item') else lifetime for lifetime in self.lifetimes]
+        results_extractions += [extraction.item() if hasattr(extraction, 'item') else extraction for extraction in self.extractions]
+
+        results_lifetimes += [lifetime.item() if hasattr(lifetime, 'item') else lifetime for lifetime in self.finished_lifetimes]
+        results_extractions += [extraction.item() if hasattr(extraction, 'item') else extraction for extraction in self.finished_extractions]
+
+        avg_lifetime = np.mean(results_lifetimes)
+        avg_extraction = np.mean(results_extractions)
         metrics_buffer = f"Average lifetime: {avg_lifetime:.2f}\nAverage extraction: {avg_extraction:.2f}\n"
 
         csv_buffer = "lifetime,extraction\n"
-        for i in range(len(self.finished_lifetimes)):
-            csv_buffer += str(self.finished_lifetimes[i]) + "," + str(self.finished_extractions[i]) + "\n"
+        for i in range(len(results_lifetimes)):
+            csv_buffer += str(results_lifetimes[i]) + "," + str(results_extractions[i]) + "\n"
 
         return csv_buffer, metrics_buffer
