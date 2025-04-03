@@ -14,6 +14,7 @@ def get_buffer(buffer_type: str,
                fifo_buffer_ratio: float = 0.25, # only for hybrid buffer
                alpha_ema_loss: float = 0.5, # only for loss aware buffer
                insertion_policy: str = 'loss', # only for loss aware buffer,
+               extraction_policy: str = 'loss', # only for loss aware buffer,
                gamma_extraction: float = 0.5, # only for loss aware buffer
                ):
     
@@ -37,8 +38,8 @@ def get_buffer(buffer_type: str,
         return HybridMinRedFIFOBuffer(fifo_buffer_size=fifo_buffer_size, minred_buffer_size=minred_buffer_size,
                                       alpha_ema=alpha_ema, device=device)
     elif buffer_type == 'loss_aware':
-        return LossAwareBuffer(mem_size, alpha_ema, alpha_ema_loss=alpha_ema_loss, insertion_policy=insertion_policy, device=device,
-                               gamma_extraction=gamma_extraction)
+        return LossAwareBuffer(mem_size, alpha_ema, alpha_ema_loss=alpha_ema_loss, insertion_policy=insertion_policy, 
+                               extraction_policy=extraction_policy, device=device, gamma_extraction=gamma_extraction)
     
     else:
         raise Exception(f'Buffer type {buffer_type} is not supported')

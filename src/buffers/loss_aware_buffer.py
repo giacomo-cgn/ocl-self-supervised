@@ -6,7 +6,7 @@ class LossAwareBuffer:
     """
     Custom buffer that removes elements based on their loss. Can store batches of samples without labels, but with encoder features.
     """
-    def __init__(self, buffer_size, alpha_ema=1.0, alpha_ema_loss=0.0, insertion_policy='random', device='cpu', gamma_extraction=0.5):
+    def __init__(self, buffer_size, alpha_ema=1.0, alpha_ema_loss=0.0, insertion_policy='random', extraction_policy='random', device='cpu', gamma_extraction=0.5):
         self.buffer_size = buffer_size # Maximum size of the buffer
         self.buffer = torch.empty(0,1).to(device) # Buffer for input samples only (e.g. images)
         self.buffer_features = torch.empty(0,1).to(device) # Buffer for corresponding sample features
@@ -14,6 +14,7 @@ class LossAwareBuffer:
         self.alpha_ema = alpha_ema # 1.0 = do not update stored features, 0.0 = substitute with new features
         self.alpha_ema_loss = alpha_ema_loss # 1.0 = do not update stored losses, 0.0 = substitute with new losses
         self.insertion_policy = insertion_policy # 'random', 'loss' or 'fifo', which policy to use to insert new samples. Samples to remove are always chosen based on their loss.
+        self.extraction_policy = extraction_policy # 'random' or 'loss', which policy to use to extract samples from the buffer
         self.gamma_extraction = gamma_extraction # how much weight is given to the normalized num of extractions when selecting samples to remove
 
         self.device = device
@@ -145,7 +146,17 @@ class LossAwareBuffer:
         assert batch_size <= len(self.buffer)
 
         # Sample batch_size indices
-        indices = random.sample(range(len(self.buffer)), batch_size)
+        if self.extraction_policy == 'random':
+            indices = random.sample(range(len(self.buffer)), batch_size)
+        elif self.extraction_policy == 'loss':
+            indices = self.calculate_scores().argsort(descending=True)[:batch_size]
+        elif self.extraction_policy == 'loss_stochastic':
+            scores = self.calculate_scores()
+            probabilities = scores.softmax(dim=0)
+            indices = torch.multinomial(probabilities, batch_size, replacement=False)            
+        else:
+            raise Exception(f'Extraction policy {self.extraction_policy} is not supported for LossAwareBuffer')
+
 
         self.extractions[indices] += 1
 
@@ -176,10 +187,10 @@ class LossAwareBuffer:
 
 
     def calculate_scores(self):
-        # Calculate loss + extraction score for all samples in the buffer
+        # Calculate loss - extraction score for all samples in the buffer
         # Prefer selecting samples with high loss and low extraction count
-        norm_loss = (self.buffer_loss / self.buffer_loss.max()).cpu()
-        norm_extraction = (self.extractions / self.extractions.max()).cpu()
+        norm_loss = (self.buffer_loss / (self.buffer_loss.max().item() or 1)).cpu()
+        norm_extraction = (self.extractions / (self.extractions.max().item() or 1)).cpu()
         scores = norm_loss - self.gamma_extraction * norm_extraction
         return scores
 

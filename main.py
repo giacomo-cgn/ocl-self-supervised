@@ -176,7 +176,7 @@ def exec_experiment(**kwargs):
         buffer = get_buffer(buffer_type=kwargs["buffer_type"], mem_size=kwargs["mem_size"],
                             alpha_ema=kwargs["features_buffer_ema"], fifo_buffer_ratio=kwargs["fifo_buffer_ratio"],
                             alpha_ema_loss=kwargs["loss_buffer_ema"], insertion_policy=kwargs["insertion_policy"],
-                            gamma_extraction=kwargs["gamma_extraction"], device=device)
+                            extraction_policy=kwargs["extraction_policy"], gamma_extraction=kwargs["gamma_extraction"], device=device)
 
         # Save buffer configs
         with open(save_pth + '/config.txt', 'a') as f:

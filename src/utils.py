@@ -295,7 +295,8 @@ def read_command_line_args():
 
     # Loss Aware Buffer params
     parser.add_argument('--loss-buffer-ema', type=float, default=0.5)
-    parser.add_argument('--insertion-policy', type=str, default='loss')
+    parser.add_argument('--insertion-policy', type=str, default='loss')   # random, loss, fifo
+    parser.add_argument('--extraction-policy', type=str, default='loss')   # random, loss, loss_stochastic
     parser.add_argument('--gamma-extraction', type=float, default=0.5)
 
 

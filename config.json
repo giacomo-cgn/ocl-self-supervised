@@ -29,6 +29,7 @@
             "mem-size": 200,
             "buffer-type": "loss_aware",
             "insertion-policy": "loss",
+            "extraction-policy": "loss",
             "gamma-extraction": 0.5
         }
         
