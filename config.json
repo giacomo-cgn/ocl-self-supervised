@@ -23,7 +23,7 @@
                 "seeds": [1,2]
             },
             "model": "simsiam",
-            "strategy" : "replay",
+            "strategy" : "replay_buffer_priority",
             "mb-passes": 1,
             "online-transforms": true,
             "mem-size": 200,

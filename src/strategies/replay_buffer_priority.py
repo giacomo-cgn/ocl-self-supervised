@@ -4,6 +4,10 @@ from ..ssl_models import AbstractSSLModel
 from .abstract_strategy import AbstractStrategy
 
 class ReplayBufferPriority(AbstractStrategy):
+    """
+    Replay strategy, only that it concatenates the replay buffer with the current batch for the first minibatch pass (mb_pass),
+    and then only uses the replay buffer for the rest of the mb_passes.
+    """
 
     def __init__(self,
                  ssl_model: AbstractSSLModel = None,
