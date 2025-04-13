@@ -5,7 +5,7 @@ from .abstract_ssl_model import AbstractSSLModel
 
 class BarlowTwins(nn.Module, AbstractSSLModel):
 
-    def __init__(self, encoder, dim_backbone_features, dim_features=2048, lambd=5e-3, save_pth=None):
+    def __init__(self, encoder, dim_backbone_features, dim_features=2048, lambd=5e-3, loss_scaling=0.1, save_pth=None):
         super(BarlowTwins, self).__init__()
         self.encoder = encoder
         self.save_pth = save_pth
@@ -13,6 +13,7 @@ class BarlowTwins(nn.Module, AbstractSSLModel):
         self.dim_features = dim_features
 
         self.lambd = lambd
+        self.loss_scaling = loss_scaling
 
         # Create 3-layer projector
         self.projector = nn.Sequential(nn.Linear(dim_backbone_features, dim_backbone_features, bias=False),
@@ -28,26 +29,22 @@ class BarlowTwins(nn.Module, AbstractSSLModel):
 
         # self.bn_loss = nn.BatchNorm1d(dim_features, affine=False)
 
-        def barlow_twins_loss(z1, z2):
-            bn = torch.nn.BatchNorm1d(self.dim_features, affine=False).to(z1.device)
+        def barlow_twins_loss(z1, z2):      
+            N, D = z1.size()
+
+            # to match the original code
+            bn = torch.nn.BatchNorm1d(D, affine=False).to(z1.device)
             z1 = bn(z1)
             z2 = bn(z2)
 
-            batch_size = z1.shape[0]
-            # print("z1 shape:", z1.shape)
-            # print("z1:", z1)
-            # print("z2 shape:", z2.shape)
-            # print("z2:", z2)
+            corr = torch.einsum("bi, bj -> ij", z1, z2) / N
 
-            # empirical cross-correlation matrix
-            c = z1.T @ z2
-            c.div_(batch_size)
-            # print("c shape:", c.shape)
-            # print("c:", c)
-
-            on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
-            off_diag = off_diagonal(c).pow_(2).sum()
-            return on_diag + self.lambd * off_diag
+            diag = torch.eye(D, device=corr.device)
+            cdif = (corr - diag).pow(2)
+            cdif[~diag.bool()] *= self.lambd
+            loss = self.loss_scaling * cdif.sum()
+            return loss
+        
         self.criterion = barlow_twins_loss
 
         if self.save_pth is not None:
@@ -58,6 +55,7 @@ class BarlowTwins(nn.Module, AbstractSSLModel):
                 f.write('---- SSL MODEL CONFIG ----\n')
                 f.write(f'MODEL: {self.model_name}\n')
                 f.write(f'Lambda: {self.lambd}\n')
+                f.write(f'Loss scaling: {self.loss_scaling}\n')
                 f.write(f'dim_features: {dim_features}\n')
 
     def forward(self, x_views_list):

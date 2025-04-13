@@ -217,7 +217,7 @@ def exec_experiment(**kwargs):
         elif kwargs["model"] == 'barlow_twins':
             ssl_model = BarlowTwins(encoder=encoder, dim_backbone_features=dim_encoder_features,
                                     dim_features=kwargs["dim_proj"],
-                                    lambd=kwargs["lambd"], save_pth=save_pth)
+                                    lambd=kwargs["lambd"], loss_scaling=kwargs["barlow_loss_scaling"], save_pth=save_pth)
             num_views = 2
 
         elif kwargs["model"] == 'moco':

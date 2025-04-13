@@ -236,7 +236,8 @@ def read_command_line_args():
 
     # SSL models specific params
     parser.add_argument('--num-views', type=int, default=2) # Most Instance Discrimination SSL methods use 2, but can vary (e.g EMP)
-    parser.add_argument('--lambd', type=float, default=5e-3) # For Barlow Twins
+    parser.add_argument('--lambd', type=float, default=5e-3) # For Barlow 
+    parser.add_argument('--barlow-loss-scaling', type=float, default=0.1)
     parser.add_argument('--byol-momentum', type=float, default=0.99)
     parser.add_argument('--return-momentum-encoder', type=str_to_bool, default=True)
     parser.add_argument('--emp-tcr-param', type=float, default=1)
