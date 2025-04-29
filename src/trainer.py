@@ -10,6 +10,7 @@ from .ssl_models import AbstractSSLModel
 from .strategies import AbstractStrategy
 from .optims import init_optim
 from .probing import exec_probing
+from .analyze_features_deviation import FeatureDeviationAnalyzer
 
 
 class Trainer():
@@ -31,7 +32,8 @@ class Trainer():
                  save_model: bool = False,
                  transforms_type: str = 'common',
                  online_transforms: bool = True,
-                 num_views: int = 2
+                 num_views: int = 2,
+                 feature_deviation_analyzer: FeatureDeviationAnalyzer = None
                ):
         
         if ssl_model is None:
@@ -53,6 +55,7 @@ class Trainer():
         self.transforms_type = transforms_type
         self.online_transforms = online_transforms
         self.num_views = num_views # == 2 for most Instance Discrimination methods, but can vary e.g. EMP
+        self.feature_deviation_analyzer = feature_deviation_analyzer
 
         self.model_and_strategy_name = self.strategy.get_name() + '_' + self.ssl_model.get_name()
 
@@ -170,8 +173,22 @@ class Trainer():
                                          save_pth=self.save_pth)
                             eval_idx += 1
                     self.ssl_model.train()
+                    self.strategy.train()
 
                 self.strategy.after_mb_passes()
+
+                if self.feature_deviation_analyzer is not None:
+                    if self.feature_deviation_analyzer.get_when_to_analyze(tr_step=mb_idx, total_steps=len(data_loader)):
+                        # If strategy has buffer, then analyze features deviation
+                        if self.strategy.buffer is not None:
+                            self.feature_deviation_analyzer.analyze_features_deviation(encoder=self.ssl_model.get_encoder_for_eval(),
+                                                                                    buffer_data=self.strategy.buffer.buffer,
+                                                                                    current_data=exp_data, exp_idx=exp_idx, tr_step=mb_idx,
+                                                                                    projector=self.ssl_model.get_projector())
+                        else:
+                            print('>>> No buffer to analyze features deviation')    
+
+
 
             if self.strategy.buffer is not None:
                 csv_buffer, buffer_metrics = self.strategy.buffer.end()

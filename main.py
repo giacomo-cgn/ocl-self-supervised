@@ -17,6 +17,8 @@ from src.standalone_strategies import SCALE, DoubleResnet, OsirisR
 
 from src.trainer import Trainer
 
+from src.analyze_features_deviation import FeatureDeviationAnalyzer
+
 from src.buffers import get_buffer
 
 from src.utils import write_final_scores, read_command_line_args, calculate_forgetting, save_avg_stream_acc
@@ -288,6 +290,21 @@ def exec_experiment(**kwargs):
                 raise Exception(f'Invalid pretrain_init_source for ssl type pretrain initialization: {kwargs["pretrain_init_source"]}')
             
         ssl_model = ssl_model.to(device)
+
+        
+    # Init featured deviation analyzer
+    if kwargs["analyze_features_deviation"]:
+        feature_deviation_analyzer = FeatureDeviationAnalyzer(
+            when_features_deviation=kwargs["when_features_deviation"],
+            dataset_name=kwargs["dataset"],
+            transforms_type=kwargs["transforms_type"],
+            num_views=kwargs["num_views_feat_dev"],
+            num_current_samples=kwargs["num_curr_feat_dev"],
+            mb_size=kwargs["mb_size_feat_dev"],
+            device=device,
+            save_pth=save_pth)                                                   
+    else:
+        feature_deviation_analyzer = None
             
     
     # ---- Strategy ----
@@ -380,7 +397,7 @@ def exec_experiment(**kwargs):
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                           save_model=kwargs["save_model_every_exp"], online_transforms=kwargs["online_transforms"],
-                          transforms_type=kwargs["transforms_type"], num_views=num_views)
+                          transforms_type=kwargs["transforms_type"], num_views=num_views, feature_deviation_analyzer=feature_deviation_analyzer)
         
     else:
         # Is a standalone strategy (already includes trainer and ssl model inside the strategy itself)

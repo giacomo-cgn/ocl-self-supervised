@@ -299,6 +299,14 @@ def read_command_line_args():
     parser.add_argument('--extraction-policy', type=str, default='loss')   # random, loss, loss_stochastic
     parser.add_argument('--gamma-extraction', type=float, default=0.5)
 
+    # Feature deviation analysis
+    parser.add_argument('--analyze-features-deviation', type=str_to_bool, default=False)
+    parser.add_argument('--when-features-deviation', type=str, default='50_end')
+    parser.add_argument('--num-views-feat-dev', type=int, default=50)
+    parser.add_argument('--num-curr-feat-dev', type=int, default=500)
+    parser.add_argument('--mb-size-feat-dev', type=int, default=10)
+
+
 
     args = parser.parse_args()
 
