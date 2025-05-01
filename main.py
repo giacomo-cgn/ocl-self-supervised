@@ -190,6 +190,7 @@ def exec_experiment(**kwargs):
             if kwargs["buffer_type"] == 'loss_aware':
                 f.write(f'Alpha EMA for loss: {kwargs["loss_buffer_ema"]}\n')
                 f.write(f'Insertion Policy: {kwargs["insertion_policy"]}\n')
+                f.write(f'Extraction Policy: {kwargs["extraction_policy"]}')
                 f.write(f'Gamma Extraction: {kwargs["gamma_extraction"]}\n')
             if kwargs["buffer_type"] in ['hybrid_minred_fifo']:
                 f.write(f'FIFO Buffer Ratio: {kwargs["fifo_buffer_ratio"]}\n')
