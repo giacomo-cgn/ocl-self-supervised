@@ -302,6 +302,8 @@ def exec_experiment(**kwargs):
             num_views=kwargs["num_views_feat_dev"],
             num_current_samples=kwargs["num_curr_feat_dev"],
             mb_size=kwargs["mb_size_feat_dev"],
+            overlap_thresh_multipliers_euclidean=kwargs["overlap_thresh_multipliers_euc"],
+            overlap_thresh_multipliers_cosine=kwargs["overlap_thresh_multipliers_cosine"],
             device=device,
             save_pth=save_pth)                                                   
     else:

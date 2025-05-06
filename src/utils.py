@@ -305,6 +305,9 @@ def read_command_line_args():
     parser.add_argument('--num-views-feat-dev', type=int, default=50)
     parser.add_argument('--num-curr-feat-dev', type=int, default=500)
     parser.add_argument('--mb-size-feat-dev', type=int, default=10)
+    parser.add_argument('--overlap-thresh-multipliers-euc', type=float, nargs='+', default=[1, 2, 3, 5])
+    parser.add_argument('--overlap-thresh-multipliers-cosine', type=float, nargs='+', default=[0.1, 0.3, 1])
+
 
 
 

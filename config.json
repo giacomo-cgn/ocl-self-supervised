@@ -23,14 +23,19 @@
                 "seeds": [1,2]
             },
             "model": "simsiam",
-            "strategy" : "replay_buffer_priority",
+            "strategy" : "replay",
             "mb-passes": 1,
             "online-transforms": true,
             "mem-size": 200,
             "buffer-type": "loss_aware",
             "insertion-policy": "loss",
             "extraction-policy": "loss",
-            "gamma-extraction": 0.5
+            "gamma-extraction": 0.5,
+            "analyze-features-deviation": true,
+            "when-features-deviation": "10_end",
+            "overlap-thresh-multipliers-euc": [1, 2, 3, 5],
+            "overlap-thresh-multipliers-cosine": [0.1, 0.3, 1]
+
         }
         
     ]
