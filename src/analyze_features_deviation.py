@@ -41,6 +41,7 @@ class FeatureDeviationAnalyzer():
             raise Exception(f'Transforms type {self.transforms_type} not supported')
         
         if save_pth is not None:
+            # Feature std
             feat_analyze_pth = os.path.join(save_pth, 'feature_deviation')
             os.makedirs(feat_analyze_pth, exist_ok=True)
             self.e_save_pth = os.path.join(feat_analyze_pth, 'e_features.csv')
@@ -67,6 +68,13 @@ class FeatureDeviationAnalyzer():
                 with open(file, 'a') as f:
                     f.write('exp_idx,tr_step,std_mult,avg_overlap_curr,avg_overlap_buff,avg_overlap_c2b,avg_overlap_b2c,'
                             'std_overlap_curr,std_overlap_buff,std_overlap_c2b,std_overlap_b2c\n')
+                    
+            # Uniformity loss
+            uniformity_folder = os.path.join(feat_analyze_pth, 'uniformity')
+            os.makedirs(uniformity_folder, exist_ok=True)
+            self.uniformity_file = os.path.join(uniformity_folder, 'uniformity.csv')
+            with open(self.uniformity_file, 'a') as f:
+                f.write('exp_idx,tr_step,uniformity_e_curr,uniformity_z_curr,uniformity_e_buff,uniformity_z_buff\n')
 
         
             # Save configuration
@@ -177,7 +185,7 @@ class FeatureDeviationAnalyzer():
                         z_std_cosine_buff_list.append(z_cosine_std)
                         z_mean_angle_buff_list.append(z_mean_angle)
 
-            # ---- OVERLAPS ----
+            
             # convert lists to tensors
             torch_e_mean_curr_list = torch.stack(e_mean_curr_list)
             torch_e_mean_buff_list = torch.stack(e_mean_buff_list)
@@ -191,7 +199,20 @@ class FeatureDeviationAnalyzer():
             torch_e_mean_angle_buff_list = torch.stack(e_mean_angle_buff_list)
             torch_z_mean_angle_curr_list = torch.stack(z_mean_angle_curr_list)
             torch_z_mean_angle_buff_list = torch.stack(z_mean_angle_buff_list)
+            
+            # ---- UNIFORMITY LOSS ----
+            lunif_e_curr = lunif(torch_e_mean_curr_list)
+            lunif_e_buff = lunif(torch_e_mean_buff_list)
+            if len(torch_z_mean_curr_list) > 0 and len(torch_z_mean_buff_list) > 0:
+                lunif_z_curr = lunif(torch_z_mean_curr_list)
+                lunif_z_buff = lunif(torch_z_mean_buff_list)
+            else:
+                lunif_z_curr = 0
+                lunif_z_buff = 0
+            with open(self.uniformity_file, 'a') as f:
+                f.write(f'{exp_idx},{tr_step},{lunif_e_curr},{lunif_z_curr},{lunif_e_buff},{lunif_z_buff}\n')
 
+            # ---- OVERLAPS ----
             # ---- Save and calculate overlaps
             # overlaps for encoder features (e) with cosine distance
             self.get_save_overlaps(torch_e_mean_curr_list, torch_e_mean_buff_list, torch_e_mean_angle_curr_list, torch_e_mean_angle_buff_list,
@@ -439,7 +460,7 @@ class FeatureDeviationAnalyzer():
         b = mean_features_2.unsqueeze(0).expand(N1, N2, D)  # [N1, N2, D]
 
         # Pairwise cosine‐similarity (already in [-1,1])
-        sim = F.cosine_similarity(a, b, dim=2, eps=1e-8)    # [N1, N2]
+        sim = cosine_similarity_chunked(a, b, dim=2, eps=1e-8)    # [N1, N2]
 
         # Angular distances between centroids
         theta12 = torch.acos(sim)                           # [N1, N2]
@@ -465,3 +486,45 @@ class FeatureDeviationAnalyzer():
 
         return means1, means2, stds1, stds2
 
+def cosine_similarity_chunked(a: torch.Tensor,
+                              b: torch.Tensor,
+                              dim: int = 2,
+                              eps: float = 1e-8,
+                              chunk_size: int = 100) -> torch.Tensor:
+    """
+    Compute F.cosine_similarity(a, b, dim, eps) in chunks along dim-1 (i.e. N2).
+
+    Args:
+        a, b: [N1, N2, D] tensors (must be same shape).
+        dim:   dimension to do similarity over (default 2, the D dimension).
+        eps:   numerical stability constant.
+        chunk_size: number of columns (in N2) to process at once.
+
+    Returns:
+        Tensor of shape [N1, N2] with the cosine similarities.
+    """
+    N1, N2, D = a.shape
+    outputs = []
+    # loop over slices of size chunk_size in N2
+    for start in range(0, N2, chunk_size):
+        end = min(start + chunk_size, N2)
+        ai = a[:, start:end, :]      # [N1, chunk, D]
+        bi = b[:, start:end, :]      # [N1, chunk, D]
+        ci = F.cosine_similarity(ai, bi, dim=dim, eps=eps)  # [N1, chunk]
+        outputs.append(ci)
+    return torch.cat(outputs, dim=1)  # [N1, N2]
+
+
+def lunif(x, t=2):
+    """
+    Computes the uniformity loss as described in "Understanding Contrastive Representation Learning through
+    Alignment and Uniformity on the Hypersphere" (Wang & Isola, 2020).
+    Args:
+       x (torch.Tensor): Tensor of shape [N, D] with the features.
+       t (float): Temperature parameter.
+    Returns:
+       torch.Tensor: Uniformity loss.
+
+    """
+    sq_pdist = torch.pdist(x, p=2).pow(2)
+    return sq_pdist.mul(-t).exp().mean().log()
