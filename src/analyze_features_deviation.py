@@ -50,7 +50,7 @@ class FeatureDeviationAnalyzer():
                 f.write('exp_idx,tr_step,avg_e_curr_std,avg_e_buff_std,'
                         'avg_e_std_cosine_curr,avg_e_std_cosine_buff,avg_e_mean_cosine_curr,avg_e_mean_cosine_buff\n')
             with open(self.z_save_pth, 'a') as f:
-                f.write('exp_idx,tr_step,avg_z_curr_std,avg_z_buff_std'
+                f.write('exp_idx,tr_step,avg_z_curr_std,avg_z_buff_std,'
                         'avg_z_std_cosine_curr,avg_z_std_cosine_buff,avg_z_mean_cosine_curr,avg_z_mean_cosine_buff\n')
                 
             # Overlap
