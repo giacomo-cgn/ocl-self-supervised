@@ -82,6 +82,8 @@ class LossAwareBuffer:
                     if replace_index < self.buffer_size:
                         # Replace sample in buffer with the minimum loss
                         replace_index = self.calculate_scores().argmin().item()
+                        print(f'removed lifetimes {self.lifetimes[replace_index]}')
+
 
                         self.finished_lifetimes.append(self.lifetimes[replace_index].item())
                         self.lifetimes[replace_index] = 0
@@ -104,6 +106,8 @@ class LossAwareBuffer:
                 indices_to_remove = self.calculate_scores().argsort()[:batch_size].cpu()
                 self.finished_lifetimes += self.lifetimes[indices_to_remove].tolist()
                 self.finished_extractions += self.extractions[indices_to_remove].tolist()
+                print(f'removed lifetimes {self.lifetimes[indices_to_remove]}')
+
 
                 indices_to_keep = self.calculate_scores().argsort()[batch_size:].cpu()
                 self.buffer = self.buffer[indices_to_keep]
@@ -118,6 +122,7 @@ class LossAwareBuffer:
                 indices_to_remove = self.calculate_scores().argsort()[:batch_size].cpu()
                 self.finished_lifetimes += self.lifetimes[indices_to_remove].tolist()
                 self.finished_extractions += self.extractions[indices_to_remove].tolist()
+                print(f'removed lifetimes {self.lifetimes[indices_to_remove]}')
 
                 indices_to_keep = self.calculate_scores().argsort()[batch_size:].cpu()
                 self.buffer = self.buffer[indices_to_keep]
@@ -189,7 +194,9 @@ class LossAwareBuffer:
     def calculate_scores(self):
         # Calculate loss - extraction score for all samples in the buffer
         # Prefer selecting samples with high loss and low extraction count
-        norm_loss = (self.buffer_loss / (self.buffer_loss.max().item() or 1)).cpu()
+        
+        # 0-1 normalization of loss
+        norm_loss = ((self.buffer_loss - self.buffer_loss.min()) / (self.buffer_loss.max() - self.buffer_loss.min()).clamp(min=1e-6)).cpu()
         norm_extraction = (self.extractions / (self.extractions.max().item() or 1)).cpu()
         scores = norm_loss - self.gamma_extraction * norm_extraction
         return scores
