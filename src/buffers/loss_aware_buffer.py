@@ -82,8 +82,6 @@ class LossAwareBuffer:
                     if replace_index < self.buffer_size:
                         # Replace sample in buffer with the minimum loss
                         replace_index = self.calculate_scores().argmin().item()
-                        print(f'removed lifetimes {self.lifetimes[replace_index]}')
-
 
                         self.finished_lifetimes.append(self.lifetimes[replace_index].item())
                         self.lifetimes[replace_index] = 0
@@ -106,8 +104,6 @@ class LossAwareBuffer:
                 indices_to_remove = self.calculate_scores().argsort()[:batch_size].cpu()
                 self.finished_lifetimes += self.lifetimes[indices_to_remove].tolist()
                 self.finished_extractions += self.extractions[indices_to_remove].tolist()
-                print(f'removed lifetimes {self.lifetimes[indices_to_remove]}')
-
 
                 indices_to_keep = self.calculate_scores().argsort()[batch_size:].cpu()
                 self.buffer = self.buffer[indices_to_keep]
@@ -122,7 +118,6 @@ class LossAwareBuffer:
                 indices_to_remove = self.calculate_scores().argsort()[:batch_size].cpu()
                 self.finished_lifetimes += self.lifetimes[indices_to_remove].tolist()
                 self.finished_extractions += self.extractions[indices_to_remove].tolist()
-                print(f'removed lifetimes {self.lifetimes[indices_to_remove]}')
 
                 indices_to_keep = self.calculate_scores().argsort()[batch_size:].cpu()
                 self.buffer = self.buffer[indices_to_keep]
