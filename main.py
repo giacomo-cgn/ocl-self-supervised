@@ -17,7 +17,7 @@ from src.standalone_strategies import SCALE, DoubleResnet, OsirisR
 
 from src.trainer import Trainer
 
-from src.analyze_features_deviation import FeatureDeviationAnalyzer
+from src.analyze_features import FeatureAnalyzer
 
 from src.buffers import get_buffer
 
@@ -293,21 +293,21 @@ def exec_experiment(**kwargs):
         ssl_model = ssl_model.to(device)
 
         
-    # Init featured deviation analyzer
-    if kwargs["analyze_features_deviation"]:
-        feature_deviation_analyzer = FeatureDeviationAnalyzer(
-            when_features_deviation=kwargs["when_features_deviation"],
+    # Init featured analyzer
+    if kwargs["analyze_features"]:
+        feature_analyzer = FeatureAnalyzer(
+            train_stream=benchmark.train_stream,
+            when_features_analysis=kwargs["when_features_analysis"],
             dataset_name=kwargs["dataset"],
             transforms_type=kwargs["transforms_type"],
-            num_views=kwargs["num_views_feat_dev"],
-            num_current_samples=kwargs["num_curr_feat_dev"],
-            mb_size=kwargs["mb_size_feat_dev"],
-            overlap_thresh_multipliers_euclidean=kwargs["overlap_thresh_multipliers_euc"],
+            num_views=kwargs["num_views_feat_analysis"],
+            num_exp_samples=kwargs["num_exp_samples_feat_analysis"],
+            mb_size=kwargs["mb_size_feat_analysis"],
             overlap_thresh_multipliers_cosine=kwargs["overlap_thresh_multipliers_cosine"],
             device=device,
             save_pth=save_pth)                                                   
     else:
-        feature_deviation_analyzer = None
+        feature_analyzer = None
             
     
     # ---- Strategy ----
@@ -400,7 +400,7 @@ def exec_experiment(**kwargs):
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                           save_model=kwargs["save_model_every_exp"], online_transforms=kwargs["online_transforms"],
-                          transforms_type=kwargs["transforms_type"], num_views=num_views, feature_deviation_analyzer=feature_deviation_analyzer)
+                          transforms_type=kwargs["transforms_type"], num_views=num_views, feature_analyzer=feature_analyzer)
         
     else:
         # Is a standalone strategy (already includes trainer and ssl model inside the strategy itself)

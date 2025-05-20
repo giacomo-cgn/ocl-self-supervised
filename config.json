@@ -4,6 +4,7 @@
         "gpu-idx": 0,
         "dataset": "cifar100",
         "dataset-root": "/data/cossu/imagenet/imagenet",
+        "num-exps": 10,
         "tr-mb-size": 10,
         "repl-mb-size": 10,
         "eval-mb-size": 256,
@@ -20,7 +21,7 @@
     [
         {
             "multiple_runs": {
-                "seeds": [1,2]
+                "seeds": [1]
             },
             "model": "simsiam",
             "strategy" : "replay",
@@ -28,12 +29,12 @@
             "online-transforms": true,
             "mem-size": 200,
             "buffer-type": "loss_aware",
-            "insertion-policy": "loss",
-            "extraction-policy": "loss",
-            "gamma-extraction": 0.5,
-            "analyze-features-deviation": true,
-            "when-features-deviation": "10_end",
-            "overlap-thresh-multipliers-euc": [1, 2, 3, 5],
+            "insertion-policy": "fifo",
+            "extraction-policy": "random",
+            "gamma-extraction": 0.0,
+            "analyze-features": true,
+            "when-features-analysis": ["10","end"],
+            "num-views-feat-analysis": 3,
             "overlap-thresh-multipliers-cosine": [0.1, 0.3, 1]
 
         }

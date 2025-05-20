@@ -299,13 +299,12 @@ def read_command_line_args():
     parser.add_argument('--extraction-policy', type=str, default='random')   # random, loss, loss_stochastic
     parser.add_argument('--gamma-extraction', type=float, default=0.5)
 
-    # Feature deviation analysis
-    parser.add_argument('--analyze-features-deviation', type=str_to_bool, default=False)
-    parser.add_argument('--when-features-deviation', type=str, default='50_end')
-    parser.add_argument('--num-views-feat-dev', type=int, default=50)
-    parser.add_argument('--num-curr-feat-dev', type=int, default=500)
-    parser.add_argument('--mb-size-feat-dev', type=int, default=10)
-    parser.add_argument('--overlap-thresh-multipliers-euc', type=float, nargs='+', default=[1, 2, 3, 5])
+    # Feature analysis
+    parser.add_argument('--analyze-features', type=str_to_bool, default=False)
+    parser.add_argument('--when-features-analysis', type=str, nargs='+', default=['50', 'end']) 
+    parser.add_argument('--num-views-feat-analysis', type=int, default=20)
+    parser.add_argument('--num-exp-samples-feat-analysis', type=int, default=500)
+    parser.add_argument('--mb-size-feat-analysis', type=int, default=10)
     parser.add_argument('--overlap-thresh-multipliers-cosine', type=float, nargs='+', default=[0.1, 0.3, 1])
 
 
