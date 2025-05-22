@@ -55,9 +55,9 @@ class FeatureAnalyzer():
 
             # Write uniformity loss analysis headers
             with open(os.path.join(self.e_save_pth, 'uniformity_loss.csv'), 'a') as f:
-                f.write('{xp_idx,tr_step,loss_unif_buffer,loss_unif_current,loss_unif_past,loss_unif_future\n')
+                f.write('exp_idx,tr_step,loss_unif_buffer,loss_unif_current,loss_unif_past,loss_unif_future\n')
             with open(os.path.join(self.z_save_pth, 'uniformity_loss.csv'), 'a') as f:
-                f.write('{xp_idx,tr_step,loss_unif_buffer,loss_unif_current,loss_unif_past,loss_unif_future\n')
+                f.write('exp_idx,tr_step,loss_unif_buffer,loss_unif_current,loss_unif_past,loss_unif_future\n')
 
             # Write overlap analysis headers
             with open(os.path.join(self.e_save_pth, 'overlap.csv'), 'a') as f:
