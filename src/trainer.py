@@ -11,6 +11,7 @@ from .strategies import AbstractStrategy
 from .optims import init_optim
 from .probing import exec_probing
 from .analyze_features import FeatureAnalyzer
+from .analyze_gradients import GradientAnalyzer
 
 
 class Trainer():
@@ -33,7 +34,8 @@ class Trainer():
                  transforms_type: str = 'common',
                  online_transforms: bool = True,
                  num_views: int = 2,
-                 feature_analyzer: FeatureAnalyzer = None
+                 feature_analyzer: FeatureAnalyzer = None,
+                 gradient_analyzer: GradientAnalyzer = None,
                ):
         
         if ssl_model is None:
@@ -56,6 +58,7 @@ class Trainer():
         self.online_transforms = online_transforms
         self.num_views = num_views # == 2 for most Instance Discrimination methods, but can vary e.g. EMP
         self.feature_analyzer = feature_analyzer
+        self.gradient_analyzer = gradient_analyzer
 
         self.model_and_strategy_name = self.strategy.get_name() + '_' + self.ssl_model.get_name()
 
@@ -66,10 +69,10 @@ class Trainer():
             raise Exception(f'Transforms type {self.transforms_type} not supported')
 
         # List of params to optimize
-        params_to_optimize = self.ssl_model.get_params() + self.strategy.get_params()
+        self.params_to_optimize = self.ssl_model.get_params() + self.strategy.get_params()
 
         # Set up optimizer
-        self.optimizer = init_optim(optim, params_to_optimize, lr=self.lr, momentum=self.momentum,
+        self.optimizer = init_optim(optim, self.params_to_optimize, lr=self.lr, momentum=self.momentum,
                                     weight_decay=self.weight_decay, lars_eta=self.lars_eta)
 
 
@@ -146,6 +149,13 @@ class Trainer():
 
                     # Strategy after forward pass
                     loss_strategy = self.strategy.after_forward(x_views_list, loss_batch, z_list, e_list)
+
+                    # Analyze gradients using per-sample loss
+                    if self.gradient_analyzer is not None:
+                        buffer_losses = loss_strategy[:-len(stream_mbatch)]
+                        stream_losses = loss_strategy[-len(stream_mbatch):]
+                        self.gradient_analyzer.analyze_gradients(buffer_losses=buffer_losses, stream_losses=stream_losses,
+                                                                 params=self.params_to_optimize, exp_idx=exp_idx, tr_step=mb_idx)
 
                     loss_strategy = loss_strategy.mean()
 

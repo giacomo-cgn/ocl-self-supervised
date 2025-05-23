@@ -32,7 +32,8 @@
             "insertion-policy": "fifo",
             "extraction-policy": "random",
             "gamma-extraction": 0.0,
-            "analyze-features": true,
+            "analyze-features": false,
+            "analyze-gradients": true,
             "when-features-analysis": ["10","end"],
             "num-views-feat-analysis": 3,
             "overlap-thresh-multipliers-cosine": [0.1, 0.3, 1]

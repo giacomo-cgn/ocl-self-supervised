@@ -18,6 +18,7 @@ from src.standalone_strategies import SCALE, DoubleResnet, OsirisR
 from src.trainer import Trainer
 
 from src.analyze_features import FeatureAnalyzer
+from src.analyze_gradients import GradientAnalyzer
 
 from src.buffers import get_buffer
 
@@ -308,6 +309,13 @@ def exec_experiment(**kwargs):
             save_pth=save_pth)                                                   
     else:
         feature_analyzer = None
+
+    # Init gradient analyzer
+    if kwargs["analyze_gradients"]:
+        gradient_analyzer = GradientAnalyzer(save_pth=save_pth)
+    else:
+        gradient_analyzer = None
+        
             
     
     # ---- Strategy ----
@@ -400,7 +408,8 @@ def exec_experiment(**kwargs):
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                           save_model=kwargs["save_model_every_exp"], online_transforms=kwargs["online_transforms"],
-                          transforms_type=kwargs["transforms_type"], num_views=num_views, feature_analyzer=feature_analyzer)
+                          transforms_type=kwargs["transforms_type"], num_views=num_views,
+                          feature_analyzer=feature_analyzer, gradient_analyzer=gradient_analyzer)
         
     else:
         # Is a standalone strategy (already includes trainer and ssl model inside the strategy itself)
