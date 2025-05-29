@@ -145,17 +145,17 @@ class ProbingPytorch(AbstractProbe):
 
 
         # Set up Linear Probe
-        linear_probe_clf = SSLEvaluator(self.dim_encoder_features, num_classes, 0, 0.0)
-        linear_probe_clf.to(self.device)
+        self.linear_probe_clf = SSLEvaluator(self.dim_encoder_features, num_classes, 0, 0.0)
+        self.linear_probe_clf.to(self.device)
         _lr = self.lr 
-        linear_probe_clf_optimizer = torch.optim.Adam(linear_probe_clf.parameters(), lr=_lr)
+        linear_probe_clf_optimizer = torch.optim.Adam(self.linear_probe_clf.parameters(), lr=_lr)
 
         classifier_train_step = 0
         val_step = 0
         best_val_loss = 1e10
         best_val_acc = 0.0
         patience = self.lr_patience
-        linear_probe_clf.train()
+        self.linear_probe_clf.train()
         best_model = None
         
         # Training loop of the probe
@@ -169,7 +169,7 @@ class ProbingPytorch(AbstractProbe):
 
                 _x = _x.detach()
                 # forward pass
-                mlp_preds = linear_probe_clf(_x.to(self.device))
+                mlp_preds = self.linear_probe_clf(_x.to(self.device))
                 mlp_loss = self.criterion(mlp_preds, y)
                 # update finetune weights
                 mlp_loss.backward()
@@ -183,7 +183,7 @@ class ProbingPytorch(AbstractProbe):
                 index += self.mb_size
 
             # Eval on validation sets
-            linear_probe_clf.eval()
+            self.linear_probe_clf.eval()
             val_loss = 0.0
             acc_correct = 0
             acc_all = 0
@@ -195,7 +195,7 @@ class ProbingPytorch(AbstractProbe):
                     y = val_labels[index:index + self.mb_size]
                     _x = _x.detach();
                     # forward pass
-                    mlp_preds = linear_probe_clf(_x.to(self.device))
+                    mlp_preds = self.linear_probe_clf(_x.to(self.device))
                     mlp_loss = F.cross_entropy(mlp_preds, y)
                     val_loss += mlp_loss.item()
                     n_corr = (mlp_preds.argmax(1) == y).sum().cpu().item()
@@ -219,7 +219,7 @@ class ProbingPytorch(AbstractProbe):
             if val_acc > best_val_acc or best_model is None:
                 best_val_acc = val_acc
                 best_val_loss = val_loss
-                best_model = copy.deepcopy(linear_probe_clf.model.state_dict())
+                best_model = copy.deepcopy(self.linear_probe_clf.model.state_dict())
                 patience = self.lr_patience
                 print('*', end='', flush=True)
             else:
@@ -232,10 +232,10 @@ class ProbingPytorch(AbstractProbe):
                         break
                     patience = self.lr_patience
                     linear_probe_clf_optimizer.param_groups[0]['lr'] = _lr
-                    linear_probe_clf.model.load_state_dict(best_model)
+                    self.linear_probe_clf.model.load_state_dict(best_model)
 
-        linear_probe_clf.model.load_state_dict(best_model)
-        linear_probe_clf.eval()
+        self.linear_probe_clf.model.load_state_dict(best_model)
+        self.linear_probe_clf.eval()
 
         # Eval on test set
         with torch.no_grad():
@@ -249,7 +249,7 @@ class ProbingPytorch(AbstractProbe):
                 y = test_labels[index:index + self.mb_size]
                 _x = _x.detach();
                 # forward pass
-                mlp_preds = linear_probe_clf(_x.to(self.device))
+                mlp_preds = self.linear_probe_clf(_x.to(self.device))
                 mlp_loss = F.cross_entropy(mlp_preds, y)
                 test_loss += mlp_loss.item()
                 n_corr = (mlp_preds.argmax(1) == y).sum().cpu().item()
