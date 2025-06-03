@@ -116,3 +116,7 @@ class HybridFIFOLossBuffer():
     
     def get_curr_len(self):
         return self.fifo_buffer.get_curr_len() + self.loss_aware_buffer.get_curr_len()
+    
+    def get_buffer_data(self):
+        print(f'shape cat buffers {torch.cat((self.fifo_buffer.get_buffer_data(), self.loss_aware_buffer.get_buffer_data())).shape}')
+        return torch.cat((self.fifo_buffer.get_buffer_data(), self.loss_aware_buffer.get_buffer_data()))

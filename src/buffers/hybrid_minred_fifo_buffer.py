@@ -155,3 +155,6 @@ class HybridMinRedFIFOBuffer:
 
     def get_curr_len(self):
         return len(self.buffer_fifo) + len(self.buffer_minred)
+    
+    def get_buffer_data(self):
+        return torch.cat((self.buffer_fifo, self.buffer_minred))

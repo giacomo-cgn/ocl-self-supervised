@@ -192,7 +192,7 @@ class Trainer():
                         # If strategy has buffer, then analyze features
                         if self.strategy.buffer is not None:
                             self.feature_analyzer.analyze_features(encoder=self.ssl_model.get_encoder_for_eval(),
-                                                                                    buffer_data=self.strategy.buffer.buffer,
+                                                                                    buffer_data=self.strategy.buffer.get_buffer_data(),
                                                                                     exp_idx=exp_idx, tr_step=mb_idx,
                                                                                     projector=self.ssl_model.get_projector())
                         else:

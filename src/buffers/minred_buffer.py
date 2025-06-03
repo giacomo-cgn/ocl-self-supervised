@@ -91,4 +91,7 @@ class MinRedBuffer:
 
     def get_curr_len(self):
         return len(self.buffer)
+    
+    def get_buffer_data(self):
+        return self.buffer
 
