@@ -152,3 +152,6 @@ class HybridMinRedFIFOBuffer:
             else:
                 # No features stored yet, store newly passed features
                 self.buffer_features_minred[idx] = batch_features_minred[i]
+
+    def get_curr_len(self):
+        return len(self.buffer_fifo) + len(self.buffer_minred)

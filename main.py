@@ -179,7 +179,9 @@ def exec_experiment(**kwargs):
         buffer = get_buffer(buffer_type=kwargs["buffer_type"], mem_size=kwargs["mem_size"],
                             alpha_ema=kwargs["features_buffer_ema"], fifo_buffer_ratio=kwargs["fifo_buffer_ratio"],
                             alpha_ema_loss=kwargs["loss_buffer_ema"], insertion_policy=kwargs["insertion_policy"],
-                            extraction_policy=kwargs["extraction_policy"], gamma_extraction=kwargs["gamma_extraction"], device=device)
+                            extraction_policy=kwargs["extraction_policy"], gamma_extraction=kwargs["gamma_extraction"],
+                            fifo_buffer_size=kwargs["fifo_buffer_size"], loss_aware_batch_size=kwargs["loss_aware_batch_size"],
+                            device=device)
 
         # Save buffer configs
         with open(save_pth + '/config.txt', 'a') as f:
@@ -195,6 +197,9 @@ def exec_experiment(**kwargs):
                 f.write(f'Gamma Extraction: {kwargs["gamma_extraction"]}\n')
             if kwargs["buffer_type"] in ['hybrid_minred_fifo']:
                 f.write(f'FIFO Buffer Ratio: {kwargs["fifo_buffer_ratio"]}\n')
+            if kwargs["buffer_type"] in ['hybrid_fifo_loss']:
+                f.write(f'FIFO Buffer Size: {kwargs["fifo_buffer_size"]}\n')
+                f.write(f'Loss Aware Batch Size: {kwargs["loss_aware_batch_size"]}\n')
 
 
     if kwargs["aligner_dim"] <= 0:

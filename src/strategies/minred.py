@@ -52,7 +52,7 @@ class MinRed(AbstractStrategy):
         """Sample from buffer, disregard stream mbatch"""
 
         # Sample from buffer (indices needed for buffer features update)
-        replay_batch_size = min(self.replay_mb_size, len(self.buffer.buffer))
+        replay_batch_size = min(self.replay_mb_size, self.buffer.get_curr_len())
         replay_batch, _, replay_indices = self.buffer.sample(replay_batch_size)
         replay_batch = replay_batch.to(self.device)
         self.replay_indices = replay_indices

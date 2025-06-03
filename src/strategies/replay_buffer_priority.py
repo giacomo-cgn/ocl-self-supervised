@@ -49,9 +49,9 @@ class ReplayBufferPriority(AbstractStrategy):
         else:
             # Concat buffer and stream samples
             self.curr_replay_size = self.replay_mb_size
-        self.curr_replay_size = min(self.curr_replay_size, len(self.buffer.buffer))
+        self.curr_replay_size = min(self.curr_replay_size, self.buffer.get_curr_len())
 
-        if len(self.buffer.buffer) > 0:
+        if self.buffer.get_curr_len() > 0:
             self.use_replay = True
             # Sample from buffer and concat
             replay_batch, _, replay_indices = self.buffer.sample(self.curr_replay_size)

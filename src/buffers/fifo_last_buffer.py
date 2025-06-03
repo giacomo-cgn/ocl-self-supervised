@@ -56,3 +56,6 @@ class FIFOLastBuffer:
             else:
                 # No features stored yet, store newly passed features
                 self.buffer_features[idx] = batch_features[i]
+
+    def get_curr_len(self):
+        return len(self.buffer)

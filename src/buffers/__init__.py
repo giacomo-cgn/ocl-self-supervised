@@ -6,6 +6,7 @@ from .fifo_last_buffer import FIFOLastBuffer
 from .augmented_representations_buffer import AugmentedRepresentationsBuffer
 from .hybrid_minred_fifo_buffer import HybridMinRedFIFOBuffer
 from .loss_aware_buffer import LossAwareBuffer
+from .hybrid_fifo_loss_buffer import HybridFIFOLossBuffer
 
 def get_buffer(buffer_type: str,
                mem_size: int = 2000,
@@ -16,6 +17,8 @@ def get_buffer(buffer_type: str,
                insertion_policy: str = 'loss', # only for loss aware buffer,
                extraction_policy: str = 'loss', # only for loss aware buffer,
                gamma_extraction: float = 0.5, # only for loss aware buffer
+               fifo_buffer_size: int = 200, # only for hybrid fifo loss-aware buffer
+               loss_aware_batch_size: int = 128, # only for hybrid fifo loss-aware buffer
                ):
     
     if buffer_type == 'reservoir':
@@ -39,6 +42,11 @@ def get_buffer(buffer_type: str,
                                       alpha_ema=alpha_ema, device=device)
     elif buffer_type == 'loss_aware':
         return LossAwareBuffer(mem_size, alpha_ema, alpha_ema_loss=alpha_ema_loss, insertion_policy=insertion_policy, 
+                               extraction_policy=extraction_policy, device=device, gamma_extraction=gamma_extraction)
+    
+    elif buffer_type == 'hybrid_fifo_loss':
+        return HybridFIFOLossBuffer(fifo_buffer_size=fifo_buffer_size, total_buffer_size=mem_size, loss_aware_batch_size=loss_aware_batch_size,
+                                     alpha_ema=alpha_ema, alpha_ema_loss=alpha_ema_loss, insertion_policy=insertion_policy, 
                                extraction_policy=extraction_policy, device=device, gamma_extraction=gamma_extraction)
     
     else:

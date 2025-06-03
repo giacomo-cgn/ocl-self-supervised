@@ -42,7 +42,7 @@ class LUMP(AbstractStrategy):
         self.stream_mbatch = stream_mbatch
         self.stream_mbatch_size = stream_mbatch.shape[0]
 
-        if len(self.buffer.buffer) > self.stream_mbatch_size:
+        if self.buffer.get_curr_len() > self.stream_mbatch_size:
             self.use_replay = True
             # Sample from buffer and concat
             replay_batch, _, replay_indices = self.buffer.sample(self.stream_mbatch_size)

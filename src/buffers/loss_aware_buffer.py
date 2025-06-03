@@ -215,3 +215,6 @@ class LossAwareBuffer:
             csv_buffer += str(results_lifetimes[i]) + "," + str(results_extractions[i]) + "\n"
 
         return csv_buffer, metrics_buffer
+    
+    def get_curr_len(self):
+        return len(self.buffer)

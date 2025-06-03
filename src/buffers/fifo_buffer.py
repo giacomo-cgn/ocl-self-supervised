@@ -8,11 +8,13 @@ class FIFOBuffer:
     Custom FIFO buffer class for batches of samples without labels, but with encoder features.
     FIFO means that oldest samples are replaced with new ones on each add call, sampling remains random.
     """
-    def __init__(self, buffer_size, alpha_ema=1.0):
+    def __init__(self, buffer_size, alpha_ema=1.0, alpha_ema_loss=0.0):
         self.buffer_size = buffer_size # Maximum size of the buffer
         self.buffer = [] # Buffer for input samples only (e.g. images)
         self.buffer_features = [] # Buffer for corresponding sample features
+        self.buffer_loss = [] # Buffer for corresponding sample losses
         self.alpha_ema = alpha_ema # 1.0 = do not update stored features, 0.0 = substitute with new features
+        self.alpha_ema_loss = alpha_ema_loss # 1.0 = do not update stored losses, 0.0 = substitute with new losses
 
         self.lifetimes = [] # Buffer for the life of each sample
         self.extractions = [] # Buffer for the number of times each sample has been extracted
@@ -29,6 +31,7 @@ class FIFOBuffer:
 
         self.buffer.extend(batch_x)
         self.buffer_features.extend(batch_features)
+        self.buffer_loss.extend(batch_loss)
         self.lifetimes.extend([0]*batch_x.size(0))
         self.extractions.extend([0]*batch_x.size(0))
 
@@ -37,6 +40,7 @@ class FIFOBuffer:
             # Remove oldest samples
             self.buffer = self.buffer[-self.buffer_size:]
             self.buffer_features = self.buffer_features[-self.buffer_size:]
+            self.buffer_loss = self.buffer_loss[-self.buffer_size:]
             self.finished_lifetimes += self.lifetimes[:-self.buffer_size]
             self.finished_extractions += self.extractions[:-self.buffer_size]
             self.lifetimes = self.lifetimes[-self.buffer_size:]
@@ -70,9 +74,13 @@ class FIFOBuffer:
                 # There are already features stored for that sample
                 # EMA update of features
                 self.buffer_features[idx] = self.alpha_ema * self.buffer_features[idx] + (1 - self.alpha_ema) * batch_features[i]
+                # EMA update of loss
+                self.buffer_loss[idx] = self.alpha_ema_loss * self.buffer_loss[idx] + (1 - self.alpha_ema_loss) * batch_loss[i]
             else:
-                # No features stored yet, store newly passed features
+                # No features stored yet, store newly passed features and loss
                 self.buffer_features[idx] = batch_features[i]
+                self.buffer_loss[idx] = batch_loss[i]
+
 
     def end(self):
         results_lifetimes = []
@@ -93,3 +101,6 @@ class FIFOBuffer:
             csv_buffer += str(results_lifetimes[i]) + "," + str(results_extractions[i]) + "\n"
 
         return csv_buffer, metrics_buffer
+    
+    def get_curr_len(self):
+        return len(self.buffer)

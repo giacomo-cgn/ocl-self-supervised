@@ -100,3 +100,6 @@ class AugmentedRepresentationsBuffer:
         print('batch_features len:', len(batch_features))
 
         return batch_x, batch_features, indices
+    
+    def get_curr_len(self):
+        return len(self.buffer)

@@ -299,6 +299,10 @@ def read_command_line_args():
     parser.add_argument('--extraction-policy', type=str, default='random')   # random, loss, loss_stochastic
     parser.add_argument('--gamma-extraction', type=float, default=0.5)
 
+    # Hybrid fifo loss-aware Buffer params
+    parser.add_argument('--fifo-buffer-size', type=int, default=200)
+    parser.add_argument('--loss-aware-batch-size', type=int, default=128)
+
     # Feature analysis
     parser.add_argument('--analyze-features', type=str_to_bool, default=False)
     parser.add_argument('--when-features-analysis', type=str, nargs='+', default=['50', 'end']) 
