@@ -69,17 +69,25 @@ class HybridFIFOLossBuffer():
         self.loss_aware_curr_batch_size = min(self.loss_aware_batch_size, len(self.loss_aware_buffer.buffer))
         # How many samples to take from FIFO buffer
         fifo_curr_batch_size = min(batch_size - self.loss_aware_curr_batch_size, len(self.fifo_buffer.buffer))
-        # Sample from FIFO buffer
-        fifo_x, fifo_features, fifo_indices = self.fifo_buffer.sample(fifo_curr_batch_size)
-
+       
         if len(self.loss_aware_buffer.buffer) > 0:
             # Sample from Loss Aware buffer if it is not empty
             loss_aware_x, loss_aware_features, loss_aware_indices = self.loss_aware_buffer.sample(self.loss_aware_curr_batch_size)
-            # Concatenate samples from both buffers
-            batch_x = torch.cat((loss_aware_x, fifo_x), dim=0)
-            batch_features = torch.cat((loss_aware_features, fifo_features), dim=0)
-            indices = loss_aware_indices + fifo_indices
+            if fifo_curr_batch_size > 0:
+                # Sample from FIFO buffer
+                fifo_x, fifo_features, fifo_indices = self.fifo_buffer.sample(fifo_curr_batch_size)
+                # Concatenate samples from both buffers
+                batch_x = torch.cat((loss_aware_x, fifo_x), dim=0)
+                batch_features = torch.cat((loss_aware_features, fifo_features), dim=0)
+                indices = loss_aware_indices + fifo_indices
+            else:
+                # Only sample from Loss Aware buffer
+                batch_x = loss_aware_x
+                batch_features = loss_aware_features
+                indices = loss_aware_indices
         else:
+            # Only sample from FIFO buffer
+            fifo_x, fifo_features, fifo_indices = self.fifo_buffer.sample(fifo_curr_batch_size)
             batch_x = fifo_x
             batch_features = fifo_features
             indices = fifo_indices
@@ -118,5 +126,6 @@ class HybridFIFOLossBuffer():
         return self.fifo_buffer.get_curr_len() + self.loss_aware_buffer.get_curr_len()
     
     def get_buffer_data(self):
-        print(f'shape cat buffers {torch.cat((self.fifo_buffer.get_buffer_data(), self.loss_aware_buffer.get_buffer_data())).shape}')
+        if self.loss_aware_buffer.get_curr_len() == 0:
+            return self.fifo_buffer.get_buffer_data()
         return torch.cat((self.fifo_buffer.get_buffer_data(), self.loss_aware_buffer.get_buffer_data()))
