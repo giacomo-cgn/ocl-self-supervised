@@ -132,9 +132,9 @@ class FeatureAnalyzer():
 
             loss_unif_buffer = lunif(mean_buffer)
             loss_unif_current = lunif(mean_current)
-            overlap_b2b_list, _, _, _ = self.calculate_overlap_cosine(mean_buffer, mean_buffer, angle_buffer, angle_buffer, self.overlap_thresh_multipliers_cosine)
-            overlap_c2c_list, _, _, _ = self.calculate_overlap_cosine(mean_current, mean_current, angle_current, angle_current, self.overlap_thresh_multipliers_cosine)
-            overlap_b2c_list, overlap_c2b_list, _, _ = self.calculate_overlap_cosine(mean_buffer, mean_current, angle_buffer, angle_current, self.overlap_thresh_multipliers_cosine)
+            overlap_b2b_list, _, _, _ = calculate_overlap_cosine(mean_buffer, mean_buffer, angle_buffer, angle_buffer, self.overlap_thresh_multipliers_cosine)
+            overlap_c2c_list, _, _, _ = calculate_overlap_cosine(mean_current, mean_current, angle_current, angle_current, self.overlap_thresh_multipliers_cosine)
+            overlap_b2c_list, overlap_c2b_list, _, _ = calculate_overlap_cosine(mean_buffer, mean_current, angle_buffer, angle_current, self.overlap_thresh_multipliers_cosine)
 
             if exp_idx > 0:
                 # If not the first experience, aggregate past experiences
@@ -143,9 +143,9 @@ class FeatureAnalyzer():
                 cosine_deviation_past = np.mean([exp_metrics_dict['mean_cosine'] for exp_metrics_dict in exp_metrics_dict_list[:exp_idx]])
                 std_deviation_past = np.mean([exp_metrics_dict['std'] for exp_metrics_dict in exp_metrics_dict_list[:exp_idx]])
                 loss_unif_past = lunif(mean_past)
-                overlap_p2p_list, _, _, _ = self.calculate_overlap_cosine(mean_past, mean_past, angle_past, angle_past, self.overlap_thresh_multipliers_cosine)
-                overlap_p2c_list, overlap_c2p_list, _, _ = self.calculate_overlap_cosine(mean_past, mean_current, angle_past, angle_current, self.overlap_thresh_multipliers_cosine)
-                overlap_p2b_list, overlap_b2p_list, _, _ = self.calculate_overlap_cosine(mean_past, mean_buffer, angle_past, angle_buffer, self.overlap_thresh_multipliers_cosine)
+                overlap_p2p_list, _, _, _ = calculate_overlap_cosine(mean_past, mean_past, angle_past, angle_past, self.overlap_thresh_multipliers_cosine)
+                overlap_p2c_list, overlap_c2p_list, _, _ = calculate_overlap_cosine(mean_past, mean_current, angle_past, angle_current, self.overlap_thresh_multipliers_cosine)
+                overlap_p2b_list, overlap_b2p_list, _, _ = calculate_overlap_cosine(mean_past, mean_buffer, angle_past, angle_buffer, self.overlap_thresh_multipliers_cosine)
             else:
                 loss_unif_past = 0
                 cosine_deviation_past = 0
@@ -163,9 +163,9 @@ class FeatureAnalyzer():
                 cosine_deviation_future = np.mean([exp_metrics_dict['mean_cosine'] for exp_metrics_dict in exp_metrics_dict_list[exp_idx+1:]])
                 std_deviation_future = np.mean([exp_metrics_dict['std'] for exp_metrics_dict in exp_metrics_dict_list[exp_idx+1:]])
                 loss_unif_future = lunif(mean_future)
-                overlap_f2f_list, _, _, _ = self.calculate_overlap_cosine(mean_future, mean_future, angle_future, angle_future, self.overlap_thresh_multipliers_cosine)
-                overlap_f2c_list, overlap_c2f_list, _, _ = self.calculate_overlap_cosine(mean_future, mean_current, angle_future, angle_current, self.overlap_thresh_multipliers_cosine)
-                overlap_f2b_list, overlap_b2f_list, _, _ = self.calculate_overlap_cosine(mean_future, mean_buffer, angle_future, angle_buffer, self.overlap_thresh_multipliers_cosine)
+                overlap_f2f_list, _, _, _ = calculate_overlap_cosine(mean_future, mean_future, angle_future, angle_future, self.overlap_thresh_multipliers_cosine)
+                overlap_f2c_list, overlap_c2f_list, _, _ = calculate_overlap_cosine(mean_future, mean_current, angle_future, angle_current, self.overlap_thresh_multipliers_cosine)
+                overlap_f2b_list, overlap_b2f_list, _, _ = calculate_overlap_cosine(mean_future, mean_buffer, angle_future, angle_buffer, self.overlap_thresh_multipliers_cosine)
             else:
                 loss_unif_future = 0
                 cosine_deviation_future = 0
@@ -179,7 +179,7 @@ class FeatureAnalyzer():
 
             if exp_idx > 0 and exp_idx < len(exp_metrics_dict_list) - 1:
                 # If there are past and future experiments, calculate the overlap between past and future
-                overlap_p2f_list, overlap_f2p_list, _, _ = self.calculate_overlap_cosine(mean_past, mean_future, angle_past, angle_future, self.overlap_thresh_multipliers_cosine)
+                overlap_p2f_list, overlap_f2p_list, _, _ = calculate_overlap_cosine(mean_past, mean_future, angle_past, angle_future, self.overlap_thresh_multipliers_cosine)
             else:
                 overlap_p2f_list = [0] * len(self.overlap_thresh_multipliers_cosine)
                 overlap_f2p_list = [0] * len(self.overlap_thresh_multipliers_cosine)
@@ -256,7 +256,7 @@ class FeatureAnalyzer():
                     e_mean_list.append(torch.mean(e_views, dim=0))
 
                     # Calculate pairwise cosine distance between e_views (obtains mean, std and mean angle of cosine dist)
-                    e_cosine_mean, e_cosine_std, e_mean_angle = self.pairwise_cosine_dist_stats(e_views)
+                    e_cosine_mean, e_cosine_std, e_mean_angle = pairwise_cosine_dist_stats(e_views)
                     e_mean_cosine_list.append(e_cosine_mean)
                     e_std_cosine_list.append(e_cosine_std)
                     e_mean_angle_list.append(e_mean_angle)
@@ -268,7 +268,7 @@ class FeatureAnalyzer():
                         z_mean_list.append(torch.mean(z_views, dim=0))
 
                         # Calculate pairwise cosine distance between z_views (obtains mean, std and mean angle of cosine dist)
-                        z_cosine_mean, z_cosine_std, z_mean_angle = self.pairwise_cosine_dist_stats(z_views)
+                        z_cosine_mean, z_cosine_std, z_mean_angle = pairwise_cosine_dist_stats(z_views)
                         z_mean_cosine_list.append(z_cosine_mean)
                         z_std_cosine_list.append(z_cosine_std)
                         z_mean_angle_list.append(z_mean_angle)
@@ -330,108 +330,107 @@ class FeatureAnalyzer():
             return True
         return False
     
-    def pairwise_cosine_dist_stats(self, X: torch.Tensor):
-        """
-        Args:
-            X: Tensor of shape (N, d)
-        Returns:
-            mean_dist: scalar tensor, average cosine distance over all pairs (i<j)
-            std_dist:  scalar tensor, standard deviation of those distances
-            mean_angle: average angle of pairwise cosine similarity
-        """
-        N = X.size(0)
-        # Get all (i,j) index pairs with i < j
-        idx_i, idx_j = torch.triu_indices(N, N, offset=1)
+def pairwise_cosine_dist_stats(X: torch.Tensor):
+    """
+    Args:
+        X: Tensor of shape (N, d)
+    Returns:
+        mean_dist: scalar tensor, average cosine distance over all pairs (i<j)
+        std_dist:  scalar tensor, standard deviation of those distances
+        mean_angle: average angle of pairwise cosine similarity
+    """
+    N = X.size(0)
+    # Get all (i,j) index pairs with i < j
+    idx_i, idx_j = torch.triu_indices(N, N, offset=1)
 
-        # Gather the corresponding vectors
-        Xi = X[idx_i]   # shape (M, d) where M = N*(N-1)/2
-        Xj = X[idx_j]   # same shape
+    # Gather the corresponding vectors
+    Xi = X[idx_i]   # shape (M, d) where M = N*(N-1)/2
+    Xj = X[idx_j]   # same shape
 
-        # Compute pairwise cosine similarity along the feature dimension
-        cos_sim = F.cosine_similarity(Xi, Xj, dim=1)  # shape (M,)
+    # Compute pairwise cosine similarity along the feature dimension
+    cos_sim = F.cosine_similarity(Xi, Xj, dim=1)  # shape (M,)
 
-        # Convert to cosine distance
-        dists = 1.0 - cos_sim                         # shape (M,)
+    # Convert to cosine distance
+    dists = 1.0 - cos_sim                         # shape (M,)
 
-        # Calculate mean angle
-        mean_angle = torch.acos(cos_sim).mean()
+    # Calculate mean angle
+    mean_angle = torch.acos(cos_sim).mean()
 
-        # Statistics
-        mean_dist = dists.mean()
-        std_dist  = dists.std(correction=0) 
-        
-        return mean_dist, std_dist, mean_angle
+    # Statistics
+    mean_dist = dists.mean()
+    std_dist  = dists.std(correction=0) 
     
+    return mean_dist, std_dist, mean_angle
 
-    def calculate_overlap_cosine(
-        self,
-        mean_features_1: torch.Tensor,  # [N1, D]
-        mean_features_2: torch.Tensor,  # [N2, D]
-        mean_angle_cosim_1: torch.Tensor,   # [N1] (mean angle of cosine similarity)
-        mean_angle_cosim_2: torch.Tensor,   # [N2]
-        thresh_multipliers: Sequence[float] = (1, 2, 3, 5),
-        ) -> Tuple[List[float], List[float], List[float], List[float]]:
 
-        """
-        Calculate the overlap between two sets of features, given the mean and per-sample mean cosine dist.
+def calculate_overlap_cosine(
+    mean_features_1: torch.Tensor,  # [N1, D]
+    mean_features_2: torch.Tensor,  # [N2, D]
+    mean_angle_cosim_1: torch.Tensor,   # [N1] (mean angle of cosine similarity)
+    mean_angle_cosim_2: torch.Tensor,   # [N2]
+    thresh_multipliers: Sequence[float] = (1, 2, 3, 5),
+    ) -> Tuple[List[float], List[float], List[float], List[float]]:
 
-        - Convert centroid cosine-sims -> angles θ_ij = arccos(sim_ij).
-        - Convert each mean cosine-distance r -> angular radius φ = arccos(clamp(1 - r, -1,1)).
-        - For each k in thresh_multipliers, count overlaps where
-            θ_ij <= k * (φ1_i + φ2_j)
-        Args:
-            mean_features_1 (torch.Tensor[N1, D]): Feature centroids of set 1.
-            mean_features_2 (torch.Tensor[N2, D]): Feature centroids of set 2.
-            mean_angle_cosim_1 (torch.Tensor[N1]): Per-sample mean angle of cosine-similarity for set 1.
-            mean_angle_cosim_2 (torch.Tensor[N2]): Per-sample mean angle of cosine-similarity for set 2.
-            thresh_multipliers (Sequence[float], optional):
-                Multiples of the sum of angular radii to use as overlap thresholds.
-                Defaults to (1, 2, 3, 5).
+    """
+    Calculate the overlap between two sets of features, given the mean and per-sample mean cosine dist.
 
-        Returns:
-            mean_num_overlap_1 (List[float]):
-                Mean number of overlaps per sample in set 1, for each threshold multiplier.
-            mean_num_overlap_2 (List[float]):
-                Mean number of overlaps per sample in set 2, for each threshold multiplier.
-            std_num_overlap_1 (List[float]):
-                Standard deviation of overlaps per sample in set 1, for each threshold multiplier.
-            std_num_overlap_2 (List[float]):
-                Standard deviation of overlaps per sample in set 2, for each threshold multiplier.
-        """
+    - Convert centroid cosine-sims -> angles θ_ij = arccos(sim_ij).
+    - Convert each mean cosine-distance r -> angular radius φ = arccos(clamp(1 - r, -1,1)).
+    - For each k in thresh_multipliers, count overlaps where
+        θ_ij <= k * (φ1_i + φ2_j)
+    Args:
+        mean_features_1 (torch.Tensor[N1, D]): Feature centroids of set 1.
+        mean_features_2 (torch.Tensor[N2, D]): Feature centroids of set 2.
+        mean_angle_cosim_1 (torch.Tensor[N1]): Per-sample mean angle of cosine-similarity for set 1.
+        mean_angle_cosim_2 (torch.Tensor[N2]): Per-sample mean angle of cosine-similarity for set 2.
+        thresh_multipliers (Sequence[float], optional):
+            Multiples of the sum of angular radii to use as overlap thresholds.
+            Defaults to (1, 2, 3, 5).
 
-        N1, D = mean_features_1.shape
-        N2, _ = mean_features_2.shape
+    Returns:
+        mean_num_overlap_1 (List[float]):
+            Mean number of overlaps per sample in set 1, for each threshold multiplier.
+        mean_num_overlap_2 (List[float]):
+            Mean number of overlaps per sample in set 2, for each threshold multiplier.
+        std_num_overlap_1 (List[float]):
+            Standard deviation of overlaps per sample in set 1, for each threshold multiplier.
+        std_num_overlap_2 (List[float]):
+            Standard deviation of overlaps per sample in set 2, for each threshold multiplier.
+    """
 
-        # Build [N1, N2, D] tensors for pairwise comparison
-        a = mean_features_1.unsqueeze(1).expand(N1, N2, D)  # [N1, N2, D]
-        b = mean_features_2.unsqueeze(0).expand(N1, N2, D)  # [N1, N2, D]
+    N1, D = mean_features_1.shape
+    N2, _ = mean_features_2.shape
 
-        # Pairwise cosine‐similarity (already in [-1,1])
-        sim = cosine_similarity_chunked(a, b, dim=2, eps=1e-8)    # [N1, N2]
+    # Build [N1, N2, D] tensors for pairwise comparison
+    a = mean_features_1.unsqueeze(1).expand(N1, N2, D)  # [N1, N2, D]
+    b = mean_features_2.unsqueeze(0).expand(N1, N2, D)  # [N1, N2, D]
 
-        # Angular distances between centroids
-        theta12 = torch.acos(sim)                           # [N1, N2]
+    # Pairwise cosine‐similarity (already in [-1,1])
+    sim = cosine_similarity_chunked(a, b, dim=2, eps=1e-8)    # [N1, N2]
 
-        phi1 = mean_angle_cosim_1.view(-1, 1)                # [N1, 1]
-        phi2 = mean_angle_cosim_2.view(1, -1)                # [1, N2]
+    # Angular distances between centroids
+    theta12 = torch.acos(sim)                           # [N1, N2]
 
-        phi_sum = phi1 + phi2                                # [N1, N2]
+    phi1 = mean_angle_cosim_1.view(-1, 1)                # [N1, 1]
+    phi2 = mean_angle_cosim_2.view(1, -1)                # [1, N2]
 
-        means1, means2, stds1, stds2 = [], [], [], []
+    phi_sum = phi1 + phi2                                # [N1, N2]
 
-        for k in thresh_multipliers:
-            thresh   = k * phi_sum
-            overlaps = theta12 <= thresh                   # [N1, N2] mask
+    means1, means2, stds1, stds2 = [], [], [], []
 
-            cnt1 = overlaps.sum(dim=0).float()             # [N1]
-            cnt2 = overlaps.sum(dim=1).float()             # [N2]
+    for k in thresh_multipliers:
+        thresh   = k * phi_sum
+        overlaps = theta12 <= thresh                   # [N1, N2] mask
 
-            means1.append(cnt1.mean().item())
-            stds1.append(cnt1.std(correction=0).item())
-            means2.append(cnt2.mean().item())
-            stds2.append(cnt2.std(correction=0).item())
+        cnt1 = overlaps.sum(dim=0).float()             # [N1]
+        cnt2 = overlaps.sum(dim=1).float()             # [N2]
 
-        return means1, means2, stds1, stds2
+        means1.append(cnt1.mean().item())
+        stds1.append(cnt1.std(correction=0).item())
+        means2.append(cnt2.mean().item())
+        stds2.append(cnt2.std(correction=0).item())
+
+    return means1, means2, stds1, stds2
 
 def cosine_similarity_chunked(a: torch.Tensor,
                               b: torch.Tensor,
@@ -475,3 +474,81 @@ def lunif(x, t=2):
     """
     sq_pdist = torch.pdist(x, p=2).pow(2)
     return sq_pdist.mul(-t).exp().mean().log()
+
+class OnlineFeatureMetrics:
+    def __init__(self, save_pth):
+        # Init save files
+        save_folder = os.path.join(save_pth, 'online_feature_metrics')
+        os.makedirs(save_folder, exist_ok=True)
+        self.save_file_deviation_e = os.path.join(save_folder, 'e_online_deviation.csv')
+        with open(self.save_file_deviation_e, 'a') as f:
+            f.write('std_deviation_mean,cosine_deviation_mean\n')
+        self.save_file_overlap_e = os.path.join(save_folder, 'e_online_overlap.csv')
+        with open(self.save_file_overlap_e, 'a') as f:
+            f.write('overlap_thresh_mult,ratio_mean_buff_overlaps\n')
+
+        self.save_file_deviation_z = os.path.join(save_folder, 'z_online_deviation.csv')
+        with open(self.save_file_deviation_z, 'a') as f:
+            f.write('std_deviation_mean,cosine_deviation_mean\n')
+        self.save_file_overlap_z = os.path.join(save_folder, 'z_online_overlap.csv')
+        with open(self.save_file_overlap_z, 'a') as f:
+            f.write('overlap_thresh_mult,ratio_mean_buff_overlaps\n')
+
+    def calculate_stats_online(self, feature_list):
+        std_list, mean_list =  [], []
+        mean_cos_dist_list, mean_angle_list = [], []
+
+        V = torch.stack(feature_list, dim=0).detach() # first stack current_mbatch_views → (v, b, d)
+        per_sample_views_list = list(rearrange(V, 'v b ... -> b v ...').unbind(dim=0)) # then rearrange to (b, v, d) and unbind
+
+        for feature_views in per_sample_views_list:
+            # Compute mean and std of e_views
+            std_list.append(torch.std(feature_views, correction=0))
+            mean_list.append(torch.mean(feature_views, dim=0))
+
+            # Calculate pairwise cosine distance between e_views (obtains mean, std and mean angle of cosine dist)
+            cos_dist_mean, _, mean_angle = pairwise_cosine_dist_stats(feature_views)
+            mean_cos_dist_list.append(cos_dist_mean)
+            mean_angle_list.append(mean_angle)
+
+        return torch.stack(std_list, dim=0), torch.stack(mean_list, dim=0), torch.stack(mean_cos_dist_list, dim=0), torch.stack(mean_angle_list, dim=0)
+
+
+    def calculate_metrics_online(self, e_stats, z_stats):
+        THRESH_MULTIPLIERS = [0.5, 0.7, 0.9, 1]
+
+        # ENCODER FEATURE METRICS
+        # Calculate buffer overlap
+        e_num_mean_buff_overlaps_list, _, _, _ = calculate_overlap_cosine(torch.stack(e_stats['mean']), torch.stack(e_stats['mean']),
+                                                                        torch.stack(e_stats['angle']), torch.stack(e_stats['angle']),
+                                                                        thresh_multipliers=THRESH_MULTIPLIERS)
+        e_ratio_mean_buff_overlaps_list = [x/len(e_stats['mean']) for x in e_num_mean_buff_overlaps_list]
+        
+        # Deviation
+        e_std_deviation_mean = torch.mean(torch.stack(e_stats['std']))
+        e_cosine_deviation_mean = torch.mean(torch.stack(e_stats['cos_dist']))
+
+        with open(self.save_file_deviation_e, 'a') as f:
+            f.write(f'{e_std_deviation_mean},{e_cosine_deviation_mean}\n')
+
+        with open(self.save_file_overlap_e, 'a') as f:
+            for i, mult in enumerate(THRESH_MULTIPLIERS):
+                f.write(f'{mult},{e_ratio_mean_buff_overlaps_list[i]}\n')
+
+           
+        # PROJECTOR FEATURE METRICS
+        z_num_mean_buff_overlaps_list, _, _, _ = calculate_overlap_cosine(torch.stack(z_stats['mean']), torch.stack(z_stats['mean']),
+                                                                        torch.stack(z_stats['angle']), torch.stack(z_stats['angle']),
+                                                                        thresh_multipliers=THRESH_MULTIPLIERS)
+        z_ratio_mean_buff_overlaps_list  = [x/len(z_stats['mean']) for x in z_num_mean_buff_overlaps_list]
+        # Deviation
+        z_std_deviation_mean = torch.mean(torch.stack(z_stats['std']))
+        z_cosine_deviation_mean = torch.mean(torch.stack(z_stats['cos_dist']))
+
+        with open(self.save_file_deviation_z, 'a') as f:
+            f.write(f'{z_std_deviation_mean},{z_cosine_deviation_mean}\n')
+
+        with open(self.save_file_overlap_z, 'a') as f:
+            for i, mult in enumerate(THRESH_MULTIPLIERS):
+                f.write(f'{mult},{z_ratio_mean_buff_overlaps_list[i]}\n')
+

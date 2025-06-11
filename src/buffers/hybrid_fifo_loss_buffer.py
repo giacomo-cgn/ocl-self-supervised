@@ -27,13 +27,13 @@ class HybridFIFOLossBuffer():
 
 
     # Add a batch of samples, features and losses to the buffer
-    def add(self, batch_x, batch_features, batch_loss):
+    def add(self, batch_x, batch_features, batch_loss, e_stats=None, z_stats=None):
         assert batch_x.size(0) == batch_features.size(0) == batch_loss.size(0)
 
         # Add to FIFO buffer if there is space
         fifo_remaining_space = self.fifo_buffer.buffer_size - len(self.fifo_buffer.buffer)
         if batch_x.size(0) <= fifo_remaining_space:
-            self.fifo_buffer.add(batch_x, batch_features, batch_loss)
+            self.fifo_buffer.add(batch_x, batch_features, batch_loss, e_stats, z_stats)
 
         else:
             # Extract the oldest samples from the FIFO buffer
@@ -41,10 +41,16 @@ class HybridFIFOLossBuffer():
             fifo_oldest_samples = self.fifo_buffer.buffer[:needed_space]
             fifo_oldest_features = self.fifo_buffer.buffer_features[:needed_space]
             fifo_oldest_losses = self.fifo_buffer.buffer_loss[:needed_space]
+            fifo_oldest_e_stats = {key: self.fifo_buffer.buffer_e_stats[key][:needed_space] for key in self.fifo_buffer.buffer_e_stats.keys()}
+            fifo_oldest_z_stats = {key: self.fifo_buffer.buffer_z_stats[key][:needed_space] for key in self.fifo_buffer.buffer_z_stats.keys()}
             # Delete the oldest samples from the FIFO buffer
             self.fifo_buffer.buffer = self.fifo_buffer.buffer[needed_space:]
             self.fifo_buffer.buffer_features = self.fifo_buffer.buffer_features[needed_space:]
             self.fifo_buffer.buffer_loss = self.fifo_buffer.buffer_loss[needed_space:]
+            for key in self.fifo_buffer.buffer_e_stats.keys():
+                self.fifo_buffer.buffer_e_stats[key] = self.fifo_buffer.buffer_e_stats[key][needed_space:]
+            for key in self.fifo_buffer.buffer_z_stats.keys():
+                self.fifo_buffer.buffer_z_stats[key] = self.fifo_buffer.buffer_z_stats[key][needed_space:]
             # Save the lifetimes and extractions of the oldest samples
             self.fifo_buffer.finished_lifetimes = self.fifo_buffer.finished_lifetimes[:needed_space]
             self.fifo_buffer.finished_extractions = self.fifo_buffer.finished_extractions[:needed_space]
@@ -58,10 +64,10 @@ class HybridFIFOLossBuffer():
             fifo_oldest_losses   = torch.stack(fifo_oldest_losses,   dim=0)
 
             # Add the oldest samples to the Loss Aware buffer
-            self.loss_aware_buffer.add(fifo_oldest_samples, fifo_oldest_features, fifo_oldest_losses)
+            self.loss_aware_buffer.add(fifo_oldest_samples, fifo_oldest_features, fifo_oldest_losses, e_stats=fifo_oldest_e_stats, z_stats=fifo_oldest_z_stats)
 
             # Add the new samples to the FIFO buffer
-            self.fifo_buffer.add(batch_x, batch_features, batch_loss)
+            self.fifo_buffer.add(batch_x, batch_features, batch_loss, e_stats=e_stats, z_stats=z_stats)
 
 
     def sample(self, batch_size):
@@ -95,17 +101,30 @@ class HybridFIFOLossBuffer():
         return batch_x, batch_features, indices
     
      # Update features of buffer samples at given indices
-    def update_features(self, batch_features, batch_loss, indices):
+    def update_features(self, batch_features, batch_loss, indices, e_stats=None, z_stats=None):
         assert batch_features.size(0) == len(indices)
 
         loss_aware_features = batch_features[:self.loss_aware_curr_batch_size]
         loss_aware_loss = batch_loss[:self.loss_aware_curr_batch_size]
         loss_aware_indices = indices[:self.loss_aware_curr_batch_size]
+        if e_stats is not None:
+            loss_aware_e_stats = {key: e_stats[key][:self.loss_aware_curr_batch_size] for key in e_stats.keys()}
+            fifo_e_stats = {key: e_stats[key][self.loss_aware_curr_batch_size:] for key in e_stats.keys()}
+        else:
+            loss_aware_e_stats = None
+            fifo_e_stats = None
+        if z_stats is not None:
+            loss_aware_z_stats = {key: z_stats[key][:self.loss_aware_curr_batch_size] for key in z_stats.keys()}
+            fifo_z_stats = {key: z_stats[key][self.loss_aware_curr_batch_size:] for key in z_stats.keys()}
+        else:
+            loss_aware_z_stats = None
+            fifo_z_stats = None
+
         fifo_features = batch_features[self.loss_aware_curr_batch_size:]
         fifo_loss = batch_loss[self.loss_aware_curr_batch_size:]
         fifo_indices = indices[self.loss_aware_curr_batch_size:]
-        self.loss_aware_buffer.update_features(loss_aware_features, loss_aware_loss, loss_aware_indices)
-        self.fifo_buffer.update_features(fifo_features, fifo_loss, fifo_indices)
+        self.loss_aware_buffer.update_features(loss_aware_features, loss_aware_loss, loss_aware_indices, e_stats=loss_aware_e_stats, z_stats=loss_aware_z_stats)
+        self.fifo_buffer.update_features(fifo_features, fifo_loss, fifo_indices, e_stats=fifo_e_stats, z_stats=fifo_z_stats)
 
 
     def end(self):

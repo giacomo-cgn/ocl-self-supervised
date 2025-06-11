@@ -16,6 +16,9 @@ class FIFOBuffer:
         self.alpha_ema = alpha_ema # 1.0 = do not update stored features, 0.0 = substitute with new features
         self.alpha_ema_loss = alpha_ema_loss # 1.0 = do not update stored losses, 0.0 = substitute with new losses
 
+        self.buffer_e_stats = {} # dict containing encoder (e) stats, each is a list
+        self.buffer_z_stats = {} # dict containing projector (z) stats, each is a list
+
         self.lifetimes = [] # Buffer for the life of each sample
         self.extractions = [] # Buffer for the number of times each sample has been extracted
         self.finished_lifetimes = []
@@ -23,7 +26,7 @@ class FIFOBuffer:
 
 
     # Add a batch of samples and features to the buffer
-    def add(self, batch_x, batch_features, batch_loss):
+    def add(self, batch_x, batch_features, batch_loss, e_stats=None, z_stats=None):
         assert batch_x.size(0) == batch_features.size(0)
         # Adds batch with a FIFO strategy
 
@@ -36,6 +39,18 @@ class FIFOBuffer:
         self.extractions.extend([0]*batch_x.size(0))
 
 
+        # Add e_stats and z_stats to the buffer
+        if e_stats is not None:
+            for key in e_stats.keys():
+                if key not in self.buffer_e_stats:
+                    self.buffer_e_stats[key] = []
+                self.buffer_e_stats[key].extend(e_stats[key])
+        if z_stats is not None:
+            for key in z_stats.keys():
+                if key not in self.buffer_z_stats:
+                    self.buffer_z_stats[key] = []
+                self.buffer_z_stats[key].extend(z_stats[key])
+
         if len(self.buffer) > self.buffer_size:
             # Remove oldest samples
             self.buffer = self.buffer[-self.buffer_size:]
@@ -45,6 +60,14 @@ class FIFOBuffer:
             self.finished_extractions += self.extractions[:-self.buffer_size]
             self.lifetimes = self.lifetimes[-self.buffer_size:]
             self.extractions = self.extractions[-self.buffer_size:]
+
+            # Remove oldest e_stats and z_stats
+            if e_stats is not None:
+                for key in e_stats.keys():
+                    self.buffer_e_stats[key] = self.buffer_e_stats[key][-self.buffer_size:]
+            if z_stats is not None:
+                for key in z_stats.keys():
+                    self.buffer_z_stats[key] = self.buffer_z_stats[key][-self.buffer_size:]
 
     # Sample batch_size samples from the buffer, 
     # returns samples and indices of extracted samples (for feature update)
@@ -66,7 +89,7 @@ class FIFOBuffer:
         return batch_x, batch_features, indices
     
     # Update features of buffer samples at given indices
-    def update_features(self, batch_features, batch_loss, indices):
+    def update_features(self, batch_features, batch_loss, indices, e_stats=None, z_stats=None):
         assert batch_features.size(0) == len(indices)
 
         for i, idx in enumerate(indices):
@@ -80,6 +103,13 @@ class FIFOBuffer:
                 # No features stored yet, store newly passed features and loss
                 self.buffer_features[idx] = batch_features[i]
                 self.buffer_loss[idx] = batch_loss[i]
+
+            if e_stats is not None:
+                for key in e_stats.keys():
+                    self.buffer_e_stats[key][idx] = self.alpha_ema * self.buffer_e_stats[key][idx] + (1 - self.alpha_ema) * e_stats[key][i]
+            if z_stats is not None:
+                for key in z_stats.keys():
+                    self.buffer_z_stats[key][idx] = self.alpha_ema * self.buffer_z_stats[key][idx] + (1 - self.alpha_ema) * z_stats[key][i]
 
 
     def end(self):

@@ -19,10 +19,13 @@ class ReservoirBuffer:
         self.finished_lifetimes = []
         self.finished_extractions = []
 
+        self.buffer_e_stats = {} # dict containing encoder (e) stats, each is a list
+        self.buffer_z_stats = {} # dict containing projector (z) stats, each is a list
+
         self.seen_samples = 0 # Samples seen so far
 
     # Add a batch of samples and features to the buffer
-    def add(self, batch_x, batch_features, batch_loss):
+    def add(self, batch_x, batch_features, batch_loss, e_stats=None, z_stats=None):
         assert batch_x.size(0) == batch_features.size(0)
 
         # Add +1 to all lifetimes
@@ -42,6 +45,14 @@ class ReservoirBuffer:
             buffer_shape[0] = 0
             self.buffer_features = torch.empty(buffer_shape, dtype=batch_features.dtype).to(self.device)
 
+            # Initialize empty lists for e_stats and z_stats
+            if e_stats is not None:
+                for key in e_stats.keys():
+                    self.buffer_e_stats[key] = []
+            if z_stats is not None:
+                for key in z_stats.keys():
+                    self.buffer_z_stats[key] = []
+
         batch_size = batch_x.size(0)
 
         if self.seen_samples < self.buffer_size:
@@ -52,6 +63,12 @@ class ReservoirBuffer:
                 self.buffer_features = torch.cat((self.buffer_features, batch_features), dim=0)
                 self.lifetimes = torch.cat((self.lifetimes, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
+                if e_stats is not None:
+                    for key in e_stats.keys():
+                        self.buffer_e_stats[key] += e_stats[key]
+                if z_stats is not None:
+                    for key in z_stats.keys():
+                        self.buffer_z_stats[key] += z_stats[key]
                 self.seen_samples += batch_size
             else:
                 # If there is not enough space, add only the remaining samples
@@ -60,6 +77,12 @@ class ReservoirBuffer:
                 self.buffer_features = torch.cat((self.buffer_features, batch_features[:remaining_space]), dim=0)
                 self.lifetimes = torch.cat((self.lifetimes, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
                 self.extractions = torch.cat((self.extractions, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
+                if e_stats is not None:
+                    for key in e_stats.keys():
+                        self.buffer_e_stats[key] += e_stats[key][:remaining_space]
+                if z_stats is not None:
+                    for key in z_stats.keys():
+                        self.buffer_z_stats[key] += z_stats[key][:remaining_space]
                 self.seen_samples += remaining_space
         else:
             # Replace samples with probability buffer_size/seen_samples
@@ -69,6 +92,12 @@ class ReservoirBuffer:
                 if replace_index < self.buffer_size:
                     self.buffer[replace_index] = batch_x[i]
                     self.buffer_features[replace_index] = batch_features[i]
+                    if e_stats is not None:
+                        for key in e_stats.keys():
+                            self.buffer_e_stats[key][replace_index] = e_stats[key][i]
+                    if z_stats is not None:
+                        for key in z_stats.keys():
+                            self.buffer_z_stats[key][replace_index] = z_stats[key][i]
 
                     self.finished_lifetimes.append(self.lifetimes[replace_index].item())
                     self.lifetimes[replace_index] = 0
@@ -94,7 +123,7 @@ class ReservoirBuffer:
         return batch_x, batch_features, indices
     
     # Update features of buffer samples at given indices
-    def update_features(self, batch_features, batch_loss, indices):
+    def update_features(self, batch_features, batch_loss, indices, e_stats=None, z_stats=None):
         assert batch_features.size(0) == len(indices)
 
         batch_features = batch_features.to(self.device)
@@ -108,6 +137,13 @@ class ReservoirBuffer:
                 # No features stored yet, store newly passed features
                 self.buffer_features[idx] = batch_features[i]
 
+            if e_stats is not None:
+                for key in e_stats.keys():
+                    self.buffer_e_stats[key][idx] = self.alpha_ema * self.buffer_e_stats[key][idx] + (1 - self.alpha_ema) * e_stats[key][i]
+            if z_stats is not None:
+                for key in z_stats.keys():
+                    self.buffer_z_stats[key][idx] = self.alpha_ema * self.buffer_z_stats[key][idx] + (1 - self.alpha_ema) * z_stats[key][i]
+                    
     def end(self):
         results_lifetimes = []
         results_extractions = []

@@ -17,6 +17,9 @@ class LossAwareBuffer:
         self.extraction_policy = extraction_policy # 'random' or 'loss', which policy to use to extract samples from the buffer
         self.gamma_extraction = gamma_extraction # how much weight is given to the normalized num of extractions when selecting samples to remove
 
+        self.buffer_e_stats = {} # dict containing encoder (e) stats, each is a list
+        self.buffer_z_stats = {} # dict containing projector (z) stats, each is a list
+
         self.device = device
         self.lifetimes = torch.empty(0, dtype=torch.int) # Buffer for the life of each sample
         self.extractions = torch.empty(0, dtype=torch.int) # Buffer for the number of times each sample has been extracted
@@ -26,7 +29,7 @@ class LossAwareBuffer:
         self.seen_samples = 0 # Samples seen so far
 
     # Add a batch of samples, features and losses to the buffer
-    def add(self, batch_x, batch_features, batch_loss):
+    def add(self, batch_x, batch_features, batch_loss, e_stats=None, z_stats=None):
         assert batch_x.size(0) == batch_features.size(0) == batch_loss.size(0)
 
         # Add +1 to all lifetimes
@@ -51,6 +54,14 @@ class LossAwareBuffer:
             buffer_shape[0] = 0
             self.buffer_loss = torch.empty(buffer_shape, dtype=batch_loss.dtype).to(self.device)
 
+            # Initialize buffer_e_stats and buffer_z_stats
+            if e_stats is not None:
+                for key in e_stats.keys():
+                    self.buffer_e_stats[key] = []
+            if z_stats is not None:
+                for key in z_stats.keys():
+                    self.buffer_z_stats[key] = []
+
         batch_size = batch_x.size(0)
 
         if self.seen_samples < self.buffer_size:
@@ -63,6 +74,12 @@ class LossAwareBuffer:
                 self.lifetimes = torch.cat((self.lifetimes, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 self.seen_samples += batch_size
+                if e_stats is not None:
+                    for key in e_stats.keys():
+                        self.buffer_e_stats[key].extend(e_stats[key])
+                if z_stats is not None:
+                    for key in z_stats.keys():
+                        self.buffer_z_stats[key].extend(z_stats[key])
             else:
                 # If there is not enough space, add only the remaining samples
                 remaining_space = self.buffer_size - self.seen_samples
@@ -72,6 +89,12 @@ class LossAwareBuffer:
                 self.lifetimes = torch.cat((self.lifetimes, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
                 self.extractions = torch.cat((self.extractions, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
                 self.seen_samples += remaining_space
+                if e_stats is not None:
+                    for key in e_stats.keys():
+                        self.buffer_e_stats[key].extend(e_stats[key][:remaining_space])
+                if z_stats is not None:
+                    for key in z_stats.keys():
+                        self.buffer_z_stats[key].extend(z_stats[key][:remaining_space])
         else:
             if self.insertion_policy == 'random':
                 # Replace samples with probability buffer_size/seen_samples
@@ -92,11 +115,24 @@ class LossAwareBuffer:
                         self.buffer_features[replace_index] = batch_features[i]
                         self.buffer_loss[replace_index] = batch_loss[i]
 
+                        if e_stats is not None:
+                            for key in e_stats.keys():
+                                self.buffer_e_stats[key][replace_index] = e_stats[key][i]
+                        if z_stats is not None:
+                            for key in z_stats.keys():
+                                self.buffer_z_stats[key][replace_index] = z_stats[key][i]
+
             elif self.insertion_policy == 'loss':
                 # Concat new batch to buffer
                 self.buffer = torch.cat((self.buffer, batch_x), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features), dim=0)
                 self.buffer_loss = torch.cat((self.buffer_loss, batch_loss), dim=0)
+                if e_stats is not None:
+                    for key in e_stats.keys():
+                        self.buffer_e_stats[key] += e_stats[key]
+                if z_stats is not None:
+                    for key in z_stats.keys():
+                        self.buffer_z_stats[key] += z_stats[key]
 
                 self.lifetimes = torch.cat((self.lifetimes, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
@@ -112,6 +148,13 @@ class LossAwareBuffer:
                 self.lifetimes = self.lifetimes[indices_to_keep]
                 self.extractions = self.extractions[indices_to_keep]
 
+                if e_stats is not None:
+                    for key in e_stats.keys():
+                        self.buffer_e_stats[key] = [self.buffer_e_stats[key][j] for j in indices_to_keep]
+                if z_stats is not None:
+                    for key in z_stats.keys():
+                        self.buffer_z_stats[key] = [self.buffer_z_stats[key][j] for j in indices_to_keep]
+
                 
             elif self.insertion_policy == 'fifo':
                 # remove batch_size samples from the buffer with the minimum loss
@@ -124,12 +167,24 @@ class LossAwareBuffer:
                 self.buffer_features = self.buffer_features[indices_to_keep]
                 self.buffer_loss = self.buffer_loss[indices_to_keep]
                 self.lifetimes = self.lifetimes[indices_to_keep]
-                self.extractions = self.extractions[indices_to_keep]                    
+                self.extractions = self.extractions[indices_to_keep]
+                if e_stats is not None:
+                    for key in e_stats.keys():
+                        self.buffer_e_stats[key] = [self.buffer_e_stats[key][j] for j in indices_to_keep]
+                if z_stats is not None:
+                    for key in z_stats.keys():
+                        self.buffer_z_stats[key] = [self.buffer_z_stats[key][j] for j in indices_to_keep]
 
                 # Concat new batch to buffer
                 self.buffer = torch.cat((self.buffer, batch_x), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features), dim=0)
                 self.buffer_loss = torch.cat((self.buffer_loss, batch_loss), dim=0)
+                if e_stats is not None:
+                    for key in e_stats.keys():
+                        self.buffer_e_stats[key] += e_stats[key]
+                if z_stats is not None:
+                    for key in z_stats.keys():
+                        self.buffer_z_stats[key] += z_stats[key]
 
                 self.lifetimes = torch.cat((self.lifetimes, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
@@ -167,7 +222,7 @@ class LossAwareBuffer:
         return batch_x, batch_features, indices
     
     # Update features of buffer samples at given indices
-    def update_features(self, batch_features, batch_loss, indices):
+    def update_features(self, batch_features, batch_loss, indices, e_stats=None, z_stats=None):
         assert batch_features.size(0) == len(indices) == batch_loss.size(0)
 
         batch_features = batch_features.to(self.device)
@@ -184,6 +239,13 @@ class LossAwareBuffer:
                 # No features stored yet, store newly passed features
                 self.buffer_features[idx] = batch_features[i]
                 self.buffer_loss[idx] = batch_loss[i]
+
+            if e_stats is not None:
+                for key in e_stats.keys():
+                    self.buffer_e_stats[key][idx] = self.alpha_ema * self.buffer_e_stats[key][idx] + (1 - self.alpha_ema) * e_stats[key][i]
+            if z_stats is not None:
+                for key in z_stats.keys():
+                    self.buffer_z_stats[key][idx] = self.alpha_ema * self.buffer_z_stats[key][idx] + (1 - self.alpha_ema) * z_stats[key][i]
 
 
     def calculate_scores(self):
