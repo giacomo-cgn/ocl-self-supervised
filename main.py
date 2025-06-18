@@ -180,6 +180,8 @@ def exec_experiment(**kwargs):
                             alpha_ema=kwargs["features_buffer_ema"], fifo_buffer_ratio=kwargs["fifo_buffer_ratio"],
                             alpha_ema_loss=kwargs["loss_buffer_ema"], insertion_policy=kwargs["insertion_policy"],
                             extraction_policy=kwargs["extraction_policy"], gamma_extraction=kwargs["gamma_extraction"],
+                            gamma_loss=kwargs["gamma_loss"], gamma_overlap=kwargs["gamma_overlap"],
+                            gamma_std_deviation=kwargs["gamma_std_deviation"], gamma_cosine_deviation=kwargs["gamma_cosine_deviation"],
                             fifo_buffer_size=kwargs["fifo_buffer_size"], loss_aware_batch_size=kwargs["loss_aware_batch_size"],
                             device=device)
 

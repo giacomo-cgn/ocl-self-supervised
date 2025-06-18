@@ -432,6 +432,61 @@ def calculate_overlap_cosine(
 
     return means1, means2, stds1, stds2
 
+def calculate_per_sample_overlap_cosine(
+    mean_features_1: torch.Tensor,  # [N1, D]
+    mean_features_2: torch.Tensor,  # [N2, D]
+    mean_angle_cosim_1: torch.Tensor,   # [N1] (mean angle of cosine similarity)
+    mean_angle_cosim_2: torch.Tensor,   # [N2]
+    ) -> Tuple[List[float], List[float], List[float], List[float]]:
+
+    """
+    Calculate the per-sampleoverlap between two sets of features, given the mean and per-sample mean cosine dist.
+
+    - Convert centroid cosine-sims -> angles θ_ij = arccos(sim_ij).
+    - Convert each mean cosine-distance r -> angular radius φ = arccos(clamp(1 - r, -1,1)).
+    - For each k in thresh_multipliers, count overlaps where
+        θ_ij <= k * (φ1_i + φ2_j)
+    Args:
+        mean_features_1 (torch.Tensor[N1, D]): Feature centroids of set 1.
+        mean_features_2 (torch.Tensor[N2, D]): Feature centroids of set 2.
+        mean_angle_cosim_1 (torch.Tensor[N1]): Per-sample mean angle of cosine-similarity for set 1.
+        mean_angle_cosim_2 (torch.Tensor[N2]): Per-sample mean angle of cosine-similarity for set 2.
+            Multiples of the sum of angular radii to use as overlap thresholds.
+            Defaults to (1, 2, 3, 5).
+
+    Returns:
+        overlap_counts_1 torch.Tensor[N1]: Number of overlaps for each sample of set 1.
+        overlap_counts_2 torch.Tensor[N2]: Number of overlaps for each sample of set 2.
+
+    """
+
+    N1, D = mean_features_1.shape
+    N2, _ = mean_features_2.shape
+
+    # Build [N1, N2, D] tensors for pairwise comparison
+    a = mean_features_1.unsqueeze(1).expand(N1, N2, D)  # [N1, N2, D]
+    b = mean_features_2.unsqueeze(0).expand(N1, N2, D)  # [N1, N2, D]
+
+    # Pairwise cosine‐similarity (already in [-1,1])
+    sim = cosine_similarity_chunked(a, b, dim=2, eps=1e-8)    # [N1, N2]
+
+    # Angular distances between centroids
+    theta12 = torch.acos(sim)                           # [N1, N2]
+
+    phi1 = mean_angle_cosim_1.view(-1, 1)                # [N1, 1]
+    phi2 = mean_angle_cosim_2.view(1, -1)                # [1, N2]
+
+    phi_sum = phi1 + phi2                                # [N1, N2]
+
+    overlaps = theta12 <= phi_sum                   # [N1, N2] mask
+
+    cnt1 = overlaps.sum(dim=0).float()             # [N1]
+    cnt2 = overlaps.sum(dim=1).float()             # [N2]
+
+    return cnt1, cnt2
+
+    
+
 def cosine_similarity_chunked(a: torch.Tensor,
                               b: torch.Tensor,
                               dim: int = 2,

@@ -299,6 +299,12 @@ def read_command_line_args():
     parser.add_argument('--extraction-policy', type=str, default='random')   # random, loss, loss_stochastic
     parser.add_argument('--gamma-extraction', type=float, default=0.5)
 
+    # Metrics Aware Buffer params
+    parser.add_argument('--gamma-loss', type=float, default=0.5)
+    parser.add_argument('--gamma-overlap', type=float, default=0.5)
+    parser.add_argument('--gamma-std-deviation', type=float, default=0.5)
+    parser.add_argument('--gamma-cosine-deviation', type=float, default=0.5)
+
     # Hybrid fifo loss-aware Buffer params
     parser.add_argument('--fifo-buffer-size', type=int, default=200)
     parser.add_argument('--loss-aware-batch-size', type=int, default=128)
