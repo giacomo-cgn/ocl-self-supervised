@@ -275,14 +275,14 @@ class MetricsAwareBuffer:
         z_std_deviation = torch.stack(self.buffer_z_stats['std'])
         z_cosine_deviation = torch.stack(self.buffer_z_stats['cos_dist'])
     
-        # 0-1 normalization of loss
+        # 0-1 normalization of metrics
         norm_loss = ((self.buffer_loss - self.buffer_loss.min()) / (self.buffer_loss.max() - self.buffer_loss.min()).clamp(min=1e-6)).cpu()
-        norm_extraction = (self.extractions / (self.extractions.max().item() or 1)).cpu()
-        norm_e_overlap = (e_num_overlap / (e_num_overlap.max().item() or 1)).cpu()
-        norm_z_std_deviation = (z_std_deviation / (z_std_deviation.max().item() or 1)).cpu()
-        norm_z_cosine_deviation = (z_cosine_deviation / (z_cosine_deviation.max().item() or 1)).cpu()
+        norm_extraction = 1 - ((self.extractions - self.extractions.min())  / (self.extractions.max() - self.extractions.min()).clamp(min=1e-6)).cpu()
+        norm_e_overlap = ((e_num_overlap - e_num_overlap.min()) / (e_num_overlap.max() - e_num_overlap.min()).clamp(min=1e-6)).cpu()
+        norm_z_std_deviation = ((z_std_deviation - z_std_deviation.min()) / (z_std_deviation.max() - z_std_deviation.min()).clamp(min=1e-6)).cpu()
+        norm_z_cosine_deviation = ((z_cosine_deviation - z_cosine_deviation.min()) / (z_cosine_deviation.max() - z_cosine_deviation.min()).clamp(min=1e-6)).cpu()
 
-        scores = self.gamma_loss * norm_loss - self.gamma_extraction * norm_extraction + self.gamma_overlap * norm_e_overlap \
+        scores = self.gamma_loss * norm_loss + self.gamma_extraction * norm_extraction + self.gamma_overlap * norm_e_overlap \
                 + self.gamma_std_deviation * norm_z_std_deviation + self.gamma_cosine_deviation * norm_z_cosine_deviation
         return scores
     
@@ -295,14 +295,14 @@ class MetricsAwareBuffer:
         z_std_deviation = torch.stack(self.buffer_z_stats['std'])
         z_cosine_deviation = torch.stack(self.buffer_z_stats['cos_dist'])
     
-        # 0-1 normalization of loss
+        # 0-1 normalization of metrics
         norm_loss = ((self.buffer_loss - self.buffer_loss.min()) / (self.buffer_loss.max() - self.buffer_loss.min()).clamp(min=1e-6)).cpu()
-        norm_extraction = (self.extractions / (self.extractions.max().item() or 1)).cpu()
-        norm_e_overlap = (e_num_overlap / (e_num_overlap.max().item() or 1)).cpu()
-        norm_z_std_deviation = (z_std_deviation / (z_std_deviation.max().item() or 1)).cpu()
-        norm_z_cosine_deviation = (z_cosine_deviation / (z_cosine_deviation.max().item() or 1)).cpu()
+        norm_extraction = 1 - ((self.extractions - self.extractions.min())  / (self.extractions.max() - self.extractions.min()).clamp(min=1e-6)).cpu()
+        norm_e_overlap = ((e_num_overlap - e_num_overlap.min()) / (e_num_overlap.max() - e_num_overlap.min()).clamp(min=1e-6)).cpu()
+        norm_z_std_deviation = ((z_std_deviation - z_std_deviation.min()) / (z_std_deviation.max() - z_std_deviation.min()).clamp(min=1e-6)).cpu()
+        norm_z_cosine_deviation = ((z_cosine_deviation - z_cosine_deviation.min()) / (z_cosine_deviation.max() - z_cosine_deviation.min()).clamp(min=1e-6)).cpu()
 
-        scores = self.gamma_loss_out * norm_loss - self.gamma_extraction_out * norm_extraction + self.gamma_overlap_out * norm_e_overlap \
+        scores = self.gamma_loss_out * norm_loss + self.gamma_extraction_out * norm_extraction + self.gamma_overlap_out * norm_e_overlap \
                 + self.gamma_std_deviation_out * norm_z_std_deviation + self.gamma_cosine_deviation_out * norm_z_cosine_deviation
         return scores
 
