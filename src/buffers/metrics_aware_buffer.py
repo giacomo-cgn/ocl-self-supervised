@@ -10,7 +10,9 @@ class MetricsAwareBuffer:
     """
     def __init__(self, buffer_size, alpha_ema=1.0, alpha_ema_loss=0.0, 
                  insertion_policy='random', extraction_policy='random', device='cpu',
-                 gamma_loss=0.5, gamma_extraction=0.5, gamma_overlap=0.5, gamma_std_deviation=0.5, gamma_cosine_deviation=0.5):
+                 gamma_loss=0.5, gamma_extraction=0.5, gamma_overlap=0.5, gamma_std_deviation=0.5, gamma_cosine_deviation=0.5,
+                 gamma_loss_out=0.5, gamma_extraction_out=0.5, gamma_overlap_out=0.5, gamma_std_deviation_out=0.5, gamma_cosine_deviation_out=0.5
+                 ):
         
         self.buffer_size = buffer_size # Maximum size of the buffer
         self.buffer = torch.empty(0,1).to(device) # Buffer for input samples only (e.g. images)
@@ -20,11 +22,18 @@ class MetricsAwareBuffer:
         self.alpha_ema_loss = alpha_ema_loss # 1.0 = do not update stored losses, 0.0 = substitute with new losses
         self.insertion_policy = insertion_policy # 'random', 'loss' or 'fifo', which policy to use to insert new samples. Samples to remove are always chosen based on their loss.
         self.extraction_policy = extraction_policy # 'random' or 'loss', which policy to use to extract samples from the buffer
+
         self.gamma_loss = gamma_loss # how much weight is given to the normalized loss when selecting samples to remove
         self.gamma_extraction = gamma_extraction # how much weight is given to the normalized num of extractions when selecting samples to remove
         self.gamma_overlap = gamma_overlap # how much weight is given to the normalized overlap when selecting samples to remove
         self.gamma_std_deviation = gamma_std_deviation # how much weight is given to the normalized std deviation when selecting samples to remove
         self.gamma_cosine_deviation = gamma_cosine_deviation # how much weight is given to the normalized cosine deviation when selecting samples to remove
+
+        self.gamma_loss_out = gamma_loss_out # how much weight is given to the normalized loss when selecting samples to extract
+        self.gamma_extraction_out = gamma_extraction_out # how much weight is given to the normalized num of extractions when selecting samples to extract
+        self.gamma_overlap_out = gamma_overlap_out # how much weight is given to the normalized overlap when selecting samples to extract
+        self.gamma_std_deviation_out = gamma_std_deviation_out # how much weight is given to the normalized std deviation when selecting samples to extract
+        self.gamma_cosine_deviation_out = gamma_cosine_deviation_out # how much weight is given to the normalized cosine deviation when selecting samples to extract
 
         self.buffer_e_stats = {} # dict containing encoder (e) stats, each is a list
         self.buffer_z_stats = {} # dict containing projector (z) stats, each is a list
@@ -213,11 +222,11 @@ class MetricsAwareBuffer:
         if self.extraction_policy == 'random':
             indices = random.sample(range(len(self.buffer)), batch_size)
         elif self.extraction_policy == 'loss':
-            indices = self.calculate_scores().argsort(descending=True)[:batch_size]
+            indices = self.calculate_scores_out().argsort(descending=True)[:batch_size]
         elif self.extraction_policy == 'loss_stochastic':
-            scores = self.calculate_scores()
+            scores = self.calculate_scores_out()
             probabilities = scores.softmax(dim=0)
-            indices = torch.multinomial(probabilities, batch_size, replacement=False)            
+            indices = torch.multinomial(probabilities, batch_size, replacement=False)
         else:
             raise Exception(f'Extraction policy {self.extraction_policy} is not supported for LossAwareBuffer')
 
@@ -258,8 +267,8 @@ class MetricsAwareBuffer:
 
 
     def calculate_scores(self):
-        # Calculate loss - extraction score for all samples in the buffer
-        # Prefer selecting samples with high loss and low extraction count
+        # Calculate elimination scores for all samples in the buffer
+        # Prefer maintaining samples with high loss and low extraction count, high overlap, and high deviations
 
         # Get metrics
         e_num_overlap, z_num_overlap = self.calculate_overlaps()
@@ -276,6 +285,28 @@ class MetricsAwareBuffer:
         scores = self.gamma_loss * norm_loss - self.gamma_extraction * norm_extraction + self.gamma_overlap * norm_e_overlap \
                 + self.gamma_std_deviation * norm_z_std_deviation + self.gamma_cosine_deviation * norm_z_cosine_deviation
         return scores
+    
+    def calculate_scores_out(self):
+        # Calculate scores to select which sample to extract from the buffer
+        # Prefer samples with high loss, low extraction, high overlap, high std deviation, and high cosine deviation
+
+        # Get metrics
+        e_num_overlap, z_num_overlap = self.calculate_overlaps()
+        z_std_deviation = torch.stack(self.buffer_z_stats['std'])
+        z_cosine_deviation = torch.stack(self.buffer_z_stats['cos_dist'])
+    
+        # 0-1 normalization of loss
+        norm_loss = ((self.buffer_loss - self.buffer_loss.min()) / (self.buffer_loss.max() - self.buffer_loss.min()).clamp(min=1e-6)).cpu()
+        norm_extraction = (self.extractions / (self.extractions.max().item() or 1)).cpu()
+        norm_e_overlap = (e_num_overlap / (e_num_overlap.max().item() or 1)).cpu()
+        norm_z_std_deviation = (z_std_deviation / (z_std_deviation.max().item() or 1)).cpu()
+        norm_z_cosine_deviation = (z_cosine_deviation / (z_cosine_deviation.max().item() or 1)).cpu()
+
+        scores = self.gamma_loss_out * norm_loss - self.gamma_extraction_out * norm_extraction + self.gamma_overlap_out * norm_e_overlap \
+                + self.gamma_std_deviation_out * norm_z_std_deviation + self.gamma_cosine_deviation_out * norm_z_cosine_deviation
+        return scores
+
+        
 
     def end(self):
         results_lifetimes = []

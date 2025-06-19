@@ -182,6 +182,9 @@ def exec_experiment(**kwargs):
                             extraction_policy=kwargs["extraction_policy"], gamma_extraction=kwargs["gamma_extraction"],
                             gamma_loss=kwargs["gamma_loss"], gamma_overlap=kwargs["gamma_overlap"],
                             gamma_std_deviation=kwargs["gamma_std_deviation"], gamma_cosine_deviation=kwargs["gamma_cosine_deviation"],
+                            gamma_loss_out=kwargs["gamma_loss_out"], gamma_extraction_out=kwargs["gamma_extraction_out"],
+                            gamma_overlap_out=kwargs["gamma_overlap_out"], gamma_std_deviation_out=kwargs["gamma_std_deviation_out"],
+                            gamma_cosine_deviation_out=kwargs["gamma_cosine_deviation_out"],
                             fifo_buffer_size=kwargs["fifo_buffer_size"], loss_aware_batch_size=kwargs["loss_aware_batch_size"],
                             device=device)
 

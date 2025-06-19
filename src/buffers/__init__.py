@@ -22,6 +22,11 @@ def get_buffer(buffer_type: str,
                gamma_overlap: float = 0.5, # only for metrics aware buffer
                gamma_std_deviation: float = 0.5, # only for metrics aware buffer
                gamma_cosine_deviation: float = 0.5, # only for metrics aware buffer
+               gamma_loss_out=0.5, # only for metrics aware buffer
+               gamma_extraction_out=0.5, # only for metrics aware buffer
+               gamma_overlap_out=0.5, # only for metrics aware buffer
+               gamma_std_deviation_out=0.5, # only for metrics aware buffer
+               gamma_cosine_deviation_out=0.5, # only for metrics aware buffer
                fifo_buffer_size: int = 200, # only for hybrid fifo loss-aware buffer
                loss_aware_batch_size: int = 128, # only for hybrid fifo loss-aware buffer
                ):
@@ -52,7 +57,10 @@ def get_buffer(buffer_type: str,
         return MetricsAwareBuffer(mem_size, alpha_ema, alpha_ema_loss=alpha_ema_loss, insertion_policy=insertion_policy, 
                                extraction_policy=extraction_policy, device=device, gamma_extraction=gamma_extraction,
                                gamma_loss=gamma_loss, gamma_overlap=gamma_overlap, gamma_std_deviation=gamma_std_deviation,
-                               gamma_cosine_deviation=gamma_cosine_deviation)
+                               gamma_cosine_deviation=gamma_cosine_deviation,
+                               gamma_loss_out=gamma_loss_out, gamma_extraction_out=gamma_extraction_out,
+                               gamma_overlap_out=gamma_overlap_out, gamma_std_deviation_out=gamma_std_deviation_out,
+                               gamma_cosine_deviation_out=gamma_cosine_deviation_out)
     
     elif buffer_type == 'hybrid_fifo_loss':
         return HybridFIFOLossBuffer(fifo_buffer_size=fifo_buffer_size, total_buffer_size=mem_size, loss_aware_batch_size=loss_aware_batch_size,

@@ -304,6 +304,11 @@ def read_command_line_args():
     parser.add_argument('--gamma-overlap', type=float, default=0.5)
     parser.add_argument('--gamma-std-deviation', type=float, default=0.5)
     parser.add_argument('--gamma-cosine-deviation', type=float, default=0.5)
+    parser.add_argument('--gamma-loss-out', type=float, default=0.5)
+    parser.add_argument('--gamma-overlap-out', type=float, default=0.5)
+    parser.add_argument('--gamma-std-deviation-out', type=float, default=0.5)
+    parser.add_argument('--gamma-cosine-deviation-out', type=float, default=0.5)
+    parser.add_argument('--gamma-extraction-out', type=float, default=0.5)
 
     # Hybrid fifo loss-aware Buffer params
     parser.add_argument('--fifo-buffer-size', type=int, default=200)
