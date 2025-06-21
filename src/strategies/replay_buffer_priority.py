@@ -83,7 +83,7 @@ class ReplayBufferPriority(AbstractStrategy):
             # Take only the features from the replay batch (for each view minibatch in z_list,
             #  take only the first self.curr_replay_size elements)
             z_list_replay = [z[:self.curr_replay_size] for z in z_list]
-            e_list_replay = [e[:self.replay_mb_size] for e in e_list]
+            e_list_replay = [e[:self.curr_replay_size] for e in e_list]
             # Update replayed samples with avg of last extracted features
             avg_replayed_z = sum(z_list_replay)/len(z_list_replay)
             replay_loss = loss[:self.curr_replay_size]
