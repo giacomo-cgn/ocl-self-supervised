@@ -21,6 +21,7 @@ class FeatureAnalyzer():
                  num_exp_samples: int = 500,
                  overlap_thresh_multipliers_cosine: list = [0.1, 0.3, 1],
                  mb_size: int=10,
+                 analyze_overlap_all: bool = False,
                  device: str ='cpu',
                  save_pth: str = None,
                  ):
@@ -29,6 +30,7 @@ class FeatureAnalyzer():
         self.overlap_thresh_multipliers_cosine = overlap_thresh_multipliers_cosine
         self.mb_size = mb_size
         self.num_exp_samples = num_exp_samples
+        self.analyze_overlap_all = analyze_overlap_all
         self.device = device
 
         # Select a subset for each experience and prepared dataloaders
@@ -47,30 +49,34 @@ class FeatureAnalyzer():
 
             # Write deviation analysis headers
             with open(os.path.join(self.e_save_pth, 'deviation.csv'), 'a') as f:
-                f.write('exp_idx,tr_step,std_deviation_buffer,std_deviation_current,std_deviation_past,std_deviation_future,'
-                        'cosine_deviation_buffer,cosine_deviation_current,cosine_deviation_past,cosine_deviation_future\n')
+                f.write('exp_idx,tr_step,std_deviation_buffer,std_deviation_current,std_deviation_past,std_deviation_future,std_deviation_all,'
+                        'cosine_deviation_buffer,cosine_deviation_current,cosine_deviation_past,cosine_deviation_future,cosine_deviation_all\n')
             with open(os.path.join(self.z_save_pth, 'deviation.csv'), 'a') as f:
-                f.write('exp_idx,tr_step,std_deviation_buffer,std_deviation_current,std_deviation_past,std_deviation_future,'
-                        'cosine_deviation_buffer,cosine_deviation_current,cosine_deviation_past,cosine_deviation_future\n')
+                f.write('exp_idx,tr_step,std_deviation_buffer,std_deviation_current,std_deviation_past,std_deviation_future,std_deviation_all,'
+                        'cosine_deviation_buffer,cosine_deviation_current,cosine_deviation_past,cosine_deviation_future,cosine_deviation_all\n')
 
             # Write uniformity loss analysis headers
             with open(os.path.join(self.e_save_pth, 'uniformity_loss.csv'), 'a') as f:
-                f.write('exp_idx,tr_step,loss_unif_buffer,loss_unif_current,loss_unif_past,loss_unif_future\n')
+                f.write('exp_idx,tr_step,loss_unif_buffer,loss_unif_current,loss_unif_past,loss_unif_future,loss_unif_all\n')
             with open(os.path.join(self.z_save_pth, 'uniformity_loss.csv'), 'a') as f:
-                f.write('exp_idx,tr_step,loss_unif_buffer,loss_unif_current,loss_unif_past,loss_unif_future\n')
+                f.write('exp_idx,tr_step,loss_unif_buffer,loss_unif_current,loss_unif_past,loss_unif_future,loss_unif_all\n')
 
             # Write overlap analysis headers
             with open(os.path.join(self.e_save_pth, 'overlap.csv'), 'a') as f:
-                f.write('exp_idx,tr_step,mult,overlap_b2b_list,overlap_b2c_list,overlap_b2p_list,overlap_b2f_list,'
+                f.write('exp_idx,tr_step,mult,'
+                        'overlap_b2b_list,overlap_b2c_list,overlap_b2p_list,overlap_b2f_list,'
                         'overlap_c2b_list,overlap_c2c_list,overlap_c2p_list,overlap_c2f_list,'
                         'overlap_p2b_list,overlap_p2c_list,overlap_p2p_list,overlap_p2f_list,'
-                        'overlap_f2b_list,overlap_f2c_list,overlap_f2p_list,overlap_f2f_list\n')
+                        'overlap_f2b_list,overlap_f2c_list,overlap_f2p_list,overlap_f2f_list,'
+                        'overlap_a2a_list\n')
             with open(os.path.join(self.z_save_pth, 'overlap.csv'), 'a') as f:
-                f.write('exp_idx,tr_step,mult,overlap_b2b_list,overlap_b2c_list,overlap_b2p_list,overlap_b2f_list,'
+                f.write('exp_idx,tr_step,mult,'
+                        'overlap_b2b_list,overlap_b2c_list,overlap_b2p_list,overlap_b2f_list,'
                         'overlap_c2b_list,overlap_c2c_list,overlap_c2p_list,overlap_c2f_list,'
                         'overlap_p2b_list,overlap_p2c_list,overlap_p2p_list,overlap_p2f_list,'
-                        'overlap_f2b_list,overlap_f2c_list,overlap_f2p_list,overlap_f2f_list\n')
-        
+                        'overlap_f2b_list,overlap_f2c_list,overlap_f2p_list,overlap_f2f_list,'
+                        'overlap_a2a_list\n')
+
             # Save configuration
             with open(save_pth + '/config.txt', 'a') as f:
                 f.write('\n')
@@ -124,11 +130,15 @@ class FeatureAnalyzer():
             angle_current = exp_metrics_dict_list[exp_idx]['mean_angle']
             mean_buffer = buffer_metrics_dict['mean']
             angle_buffer = buffer_metrics_dict['mean_angle']
+            mean_all = torch.cat([exp_metrics_dict['mean'] for exp_metrics_dict in exp_metrics_dict_list], dim=0)
+            angle_all = torch.cat([exp_metrics_dict['mean_angle'] for exp_metrics_dict in exp_metrics_dict_list], dim=0)
 
             cosine_deviation_current = exp_metrics_dict_list[exp_idx]['mean_cosine']
             cosine_deviation_buffer = buffer_metrics_dict['mean_cosine']
+            cosine_deviation_all = np.mean([exp_metrics_dict['mean_cosine'] for exp_metrics_dict in exp_metrics_dict_list])
             std_deviation_current = exp_metrics_dict_list[exp_idx]['std']
             std_deviation_buffer = buffer_metrics_dict['std']
+            std_deviation_all = np.mean([exp_metrics_dict['std'] for exp_metrics_dict in exp_metrics_dict_list])
 
             loss_unif_buffer = lunif(mean_buffer)
             loss_unif_current = lunif(mean_current)
@@ -136,6 +146,13 @@ class FeatureAnalyzer():
             overlap_c2c_list, _, _, _ = calculate_overlap_cosine(mean_current, mean_current, angle_current, angle_current, self.overlap_thresh_multipliers_cosine)
             overlap_b2c_list, overlap_c2b_list, _, _ = calculate_overlap_cosine(mean_buffer, mean_current, angle_buffer, angle_current, self.overlap_thresh_multipliers_cosine)
 
+            if self.analyze_overlap_all:
+                #  compuationally expensive
+                overlap_a2a_list, _, _, _ = calculate_overlap_cosine(mean_all, mean_all, angle_all, angle_all, self.overlap_thresh_multipliers_cosine)
+            else:
+                overlap_a2a_list = [0] * len(self.overlap_thresh_multipliers_cosine)
+
+            
             if exp_idx > 0:
                 # If not the first experience, aggregate past experiences
                 mean_past = torch.cat([exp_metrics_dict['mean'] for exp_metrics_dict in exp_metrics_dict_list[:exp_idx]], dim=0)
@@ -186,8 +203,9 @@ class FeatureAnalyzer():
 
             # Write deviation
             with open(os.path.join(folder, 'deviation.csv'), 'a') as f:
-                f.write(f'{exp_idx},{tr_step},{std_deviation_buffer},{std_deviation_current},{std_deviation_past},{std_deviation_future},'
-                        f'{cosine_deviation_buffer},{cosine_deviation_current},{cosine_deviation_past},{cosine_deviation_future}\n')
+                f.write(f'{exp_idx},{tr_step},'
+                        f'{std_deviation_buffer},{std_deviation_current},{std_deviation_past},{std_deviation_future},{std_deviation_all},'
+                        f'{cosine_deviation_buffer},{cosine_deviation_current},{cosine_deviation_past},{cosine_deviation_future},{cosine_deviation_all}\n')
 
 
             # Write uniformity loss
@@ -197,12 +215,13 @@ class FeatureAnalyzer():
             # Write overlap
             with open(os.path.join(folder, 'overlap.csv'), 'a') as f:
                 for i, mult in enumerate(self.overlap_thresh_multipliers_cosine):
-                    f.write(f'{exp_idx},{tr_step},{mult},{overlap_b2b_list[i]},{overlap_b2c_list[i]},{overlap_b2p_list[i]},{overlap_b2f_list[i]},'
+                    f.write(f'{exp_idx},{tr_step},{mult},'
+                            f'{overlap_b2b_list[i]},{overlap_b2c_list[i]},{overlap_b2p_list[i]},{overlap_b2f_list[i]},'
                             f'{overlap_c2b_list[i]},{overlap_c2c_list[i]},{overlap_c2p_list[i]},{overlap_c2f_list[i]},'
                             f'{overlap_p2b_list[i]},{overlap_p2c_list[i]},{overlap_p2p_list[i]},{overlap_p2f_list[i]},'
-                            f'{overlap_f2b_list[i]},{overlap_f2c_list[i]},{overlap_f2p_list[i]},{overlap_f2f_list[i]}\n')
+                            f'{overlap_f2b_list[i]},{overlap_f2c_list[i]},{overlap_f2p_list[i]},{overlap_f2f_list[i]},'
+                            f'{overlap_a2a_list[i]}\n')
 
-            
 
 
     def extract_intermediate_metrics(self, encoder, dataloader, projector=None):
@@ -251,7 +270,7 @@ class FeatureAnalyzer():
 
                 for x_views in per_sample_views_list:
                     e_views = encoder(x_views)
-                    # Compute mean and std of e_views
+                    # Compute mean and std of e_viewsstd_deviation_future
                     e_std_list.append(torch.std(e_views, correction=0))
                     e_mean_list.append(torch.mean(e_views, dim=0))
 

@@ -315,6 +315,7 @@ def exec_experiment(**kwargs):
             num_exp_samples=kwargs["num_exp_samples_feat_analysis"],
             mb_size=kwargs["mb_size_feat_analysis"],
             overlap_thresh_multipliers_cosine=kwargs["overlap_thresh_multipliers_cosine"],
+            analyze_overlap_all=kwargs["analyze_overlap_all"],
             device=device,
             save_pth=save_pth)                                                   
     else:

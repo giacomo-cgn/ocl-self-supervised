@@ -321,6 +321,7 @@ def read_command_line_args():
     parser.add_argument('--num-exp-samples-feat-analysis', type=int, default=500)
     parser.add_argument('--mb-size-feat-analysis', type=int, default=10)
     parser.add_argument('--overlap-thresh-multipliers-cosine', type=float, nargs='+', default=[0.1, 0.3, 1])
+    parser.add_argument('--analyze-overlap-all', type=str_to_bool, default=False)
     # Gradient analysis
     parser.add_argument('--analyze-gradients', type=str_to_bool, default=False)
 
