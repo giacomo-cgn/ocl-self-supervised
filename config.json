@@ -44,7 +44,7 @@
             "gamma-cosine-deviation-out": 0.0,
             "analyze-features": true,
             "analyze-overlap-all": false,
-            "analyze-gradients": true,
+            "analyze-gradients": false,
             "when-features-analysis": ["10","end"],
             "num-views-feat-analysis": 3,
             "overlap-thresh-multipliers-cosine": [0.1, 0.3, 1],

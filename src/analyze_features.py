@@ -21,7 +21,6 @@ class FeatureAnalyzer():
                  num_exp_samples: int = 500,
                  overlap_thresh_multipliers_cosine: list = [0.1, 0.3, 1],
                  mb_size: int=10,
-                 analyze_overlap_all: bool = False,
                  device: str ='cpu',
                  save_pth: str = None,
                  ):
@@ -30,7 +29,6 @@ class FeatureAnalyzer():
         self.overlap_thresh_multipliers_cosine = overlap_thresh_multipliers_cosine
         self.mb_size = mb_size
         self.num_exp_samples = num_exp_samples
-        self.analyze_overlap_all = analyze_overlap_all
         self.device = device
 
         # Select a subset for each experience and prepared dataloaders
@@ -68,6 +66,7 @@ class FeatureAnalyzer():
                         'overlap_c2b_list,overlap_c2c_list,overlap_c2p_list,overlap_c2f_list,'
                         'overlap_p2b_list,overlap_p2c_list,overlap_p2p_list,overlap_p2f_list,'
                         'overlap_f2b_list,overlap_f2c_list,overlap_f2p_list,overlap_f2f_list,'
+                        'overlap_b2a_list,overlap_c2a_list,overlap_f2a_list,overlap_p2a_list,'
                         'overlap_a2a_list\n')
             with open(os.path.join(self.z_save_pth, 'overlap.csv'), 'a') as f:
                 f.write('exp_idx,tr_step,mult,'
@@ -75,6 +74,7 @@ class FeatureAnalyzer():
                         'overlap_c2b_list,overlap_c2c_list,overlap_c2p_list,overlap_c2f_list,'
                         'overlap_p2b_list,overlap_p2c_list,overlap_p2p_list,overlap_p2f_list,'
                         'overlap_f2b_list,overlap_f2c_list,overlap_f2p_list,overlap_f2f_list,'
+                        'overlap_b2a_list,overlap_c2a_list,overlap_f2a_list,overlap_p2a_list,'
                         'overlap_a2a_list\n')
 
             # Save configuration
@@ -130,8 +130,6 @@ class FeatureAnalyzer():
             angle_current = exp_metrics_dict_list[exp_idx]['mean_angle']
             mean_buffer = buffer_metrics_dict['mean']
             angle_buffer = buffer_metrics_dict['mean_angle']
-            mean_all = torch.cat([exp_metrics_dict['mean'] for exp_metrics_dict in exp_metrics_dict_list], dim=0)
-            angle_all = torch.cat([exp_metrics_dict['mean_angle'] for exp_metrics_dict in exp_metrics_dict_list], dim=0)
 
             cosine_deviation_current = exp_metrics_dict_list[exp_idx]['mean_cosine']
             cosine_deviation_buffer = buffer_metrics_dict['mean_cosine']
@@ -145,12 +143,6 @@ class FeatureAnalyzer():
             overlap_b2b_list, _, _, _ = calculate_overlap_cosine(mean_buffer, mean_buffer, angle_buffer, angle_buffer, self.overlap_thresh_multipliers_cosine)
             overlap_c2c_list, _, _, _ = calculate_overlap_cosine(mean_current, mean_current, angle_current, angle_current, self.overlap_thresh_multipliers_cosine)
             overlap_b2c_list, overlap_c2b_list, _, _ = calculate_overlap_cosine(mean_buffer, mean_current, angle_buffer, angle_current, self.overlap_thresh_multipliers_cosine)
-
-            if self.analyze_overlap_all:
-                #  compuationally expensive
-                overlap_a2a_list, _, _, _ = calculate_overlap_cosine(mean_all, mean_all, angle_all, angle_all, self.overlap_thresh_multipliers_cosine)
-            else:
-                overlap_a2a_list = [0] * len(self.overlap_thresh_multipliers_cosine)
 
             
             if exp_idx > 0:
@@ -167,6 +159,7 @@ class FeatureAnalyzer():
                 loss_unif_past = 0
                 cosine_deviation_past = 0
                 std_deviation_past = 0
+                mean_past = torch.tensor([])
                 overlap_p2p_list = [0] * len(self.overlap_thresh_multipliers_cosine)
                 overlap_p2c_list = [0] * len(self.overlap_thresh_multipliers_cosine)
                 overlap_c2p_list = [0] * len(self.overlap_thresh_multipliers_cosine)
@@ -187,6 +180,7 @@ class FeatureAnalyzer():
                 loss_unif_future = 0
                 cosine_deviation_future = 0
                 std_deviation_future = 0
+                mean_future = torch.tensor([])
                 overlap_f2f_list = [0] * len(self.overlap_thresh_multipliers_cosine)
                 overlap_f2c_list = [0] * len(self.overlap_thresh_multipliers_cosine)
                 overlap_c2f_list = [0] * len(self.overlap_thresh_multipliers_cosine)
@@ -200,6 +194,17 @@ class FeatureAnalyzer():
             else:
                 overlap_p2f_list = [0] * len(self.overlap_thresh_multipliers_cosine)
                 overlap_f2p_list = [0] * len(self.overlap_thresh_multipliers_cosine)
+
+
+            # Overlap to all
+            overlap_b2a_list = np.array([sum(x) for x in zip(overlap_b2c_list, overlap_b2p_list, overlap_b2f_list)])
+            overlap_c2a_list = np.array([sum(x) for x in zip(overlap_c2c_list, overlap_c2p_list, overlap_c2f_list)])
+            overlap_f2a_list = np.array([sum(x) for x in zip(overlap_f2c_list, overlap_f2p_list, overlap_f2f_list)])
+            overlap_p2a_list = np.array([sum(x) for x in zip(overlap_p2c_list, overlap_p2p_list, overlap_p2f_list)])
+
+            sum_overlap_a2a_list = (overlap_p2a_list * len(mean_past)) + (overlap_c2a_list * len(mean_current)) + \
+                                    (overlap_f2a_list * len(mean_future))
+            overlap_a2a_list = sum_overlap_a2a_list / (len(mean_past) + len(mean_current) + len(mean_future))
 
             # Write deviation
             with open(os.path.join(folder, 'deviation.csv'), 'a') as f:
@@ -220,6 +225,7 @@ class FeatureAnalyzer():
                             f'{overlap_c2b_list[i]},{overlap_c2c_list[i]},{overlap_c2p_list[i]},{overlap_c2f_list[i]},'
                             f'{overlap_p2b_list[i]},{overlap_p2c_list[i]},{overlap_p2p_list[i]},{overlap_p2f_list[i]},'
                             f'{overlap_f2b_list[i]},{overlap_f2c_list[i]},{overlap_f2p_list[i]},{overlap_f2f_list[i]},'
+                            f'{overlap_b2a_list[i]},{overlap_c2a_list[i]},{overlap_f2a_list[i]},{overlap_p2a_list[i]},'
                             f'{overlap_a2a_list[i]}\n')
 
 
@@ -411,10 +417,10 @@ def calculate_overlap_cosine(
             Mean number of overlaps per sample in set 1, for each threshold multiplier.
         mean_num_overlap_2 (List[float]):
             Mean number of overlaps per sample in set 2, for each threshold multiplier.
-        std_num_overlap_1 (List[float]):
-            Standard deviation of overlaps per sample in set 1, for each threshold multiplier.
-        std_num_overlap_2 (List[float]):
-            Standard deviation of overlaps per sample in set 2, for each threshold multiplier.
+        cnt1_list (List[float]):
+            Number of overlaps per sample in set 1, for each threshold multiplier.
+        cnt2_list (List[float]):
+            Number of overlaps per sample in set 2, for each threshold multiplier.
     """
 
     N1, D = mean_features_1.shape
@@ -435,7 +441,7 @@ def calculate_overlap_cosine(
 
     phi_sum = phi1 + phi2                                # [N1, N2]
 
-    means1, means2, stds1, stds2 = [], [], [], []
+    means1_list, means2_list, cnt1_list, cnt2_list = [], [], [], []
 
     for k in thresh_multipliers:
         thresh   = k * phi_sum
@@ -444,12 +450,12 @@ def calculate_overlap_cosine(
         cnt1 = overlaps.sum(dim=0).float()             # [N1]
         cnt2 = overlaps.sum(dim=1).float()             # [N2]
 
-        means1.append(cnt1.mean().item())
-        stds1.append(cnt1.std(correction=0).item())
-        means2.append(cnt2.mean().item())
-        stds2.append(cnt2.std(correction=0).item())
+        means1_list.append(cnt1.mean().item())
+        means2_list.append(cnt2.mean().item())
+        cnt1_list.append(cnt1)
+        cnt2_list.append(cnt2)
 
-    return means1, means2, stds1, stds2
+    return means1_list, means2_list, cnt1_list, cnt2_list
 
 def calculate_per_sample_overlap_cosine(
     mean_features_1: torch.Tensor,  # [N1, D]
@@ -560,13 +566,16 @@ class OnlineFeatureMetrics:
         self.save_file_overlap_e = os.path.join(save_folder, 'e_online_overlap.csv')
         with open(self.save_file_overlap_e, 'a') as f:
             f.write('overlap_thresh_mult,ratio_mean_buff_overlaps\n')
-
         self.save_file_deviation_z = os.path.join(save_folder, 'z_online_deviation.csv')
         with open(self.save_file_deviation_z, 'a') as f:
             f.write('std_deviation_mean,cosine_deviation_mean\n')
         self.save_file_overlap_z = os.path.join(save_folder, 'z_online_overlap.csv')
         with open(self.save_file_overlap_z, 'a') as f:
             f.write('overlap_thresh_mult,ratio_mean_buff_overlaps\n')
+        
+        self.save_file_combined_metric = os.path.join(save_folder, 'combined_metric.csv')
+        with open(self.save_file_combined_metric, 'a') as f:
+            f.write('combined_oe_de,combined_oz_dz,combined_oz_de,combined_oe_dz\n')
 
     def calculate_stats_online(self, feature_list):
         std_list, mean_list =  [], []
@@ -593,15 +602,17 @@ class OnlineFeatureMetrics:
 
         # ENCODER FEATURE METRICS
         # Calculate buffer overlap
-        e_num_mean_buff_overlaps_list, _, _, _ = calculate_overlap_cosine(torch.stack(e_stats['mean']), torch.stack(e_stats['mean']),
+        e_num_mean_buff_overlaps_list, _, e_per_sample_num_overlap_list, _ = calculate_overlap_cosine(torch.stack(e_stats['mean']), torch.stack(e_stats['mean']),
                                                                         torch.stack(e_stats['angle']), torch.stack(e_stats['angle']),
                                                                         thresh_multipliers=THRESH_MULTIPLIERS)
         e_ratio_mean_buff_overlaps_list = [x/len(e_stats['mean']) for x in e_num_mean_buff_overlaps_list]
+        e_per_sample_ratio_overlap_list = [e_per_sample_num_overlap_list[i]/len(e_stats['mean']) for i in range(len(e_per_sample_num_overlap_list))]
         
         # Deviation
         e_std_deviation_mean = torch.mean(torch.stack(e_stats['std']))
         e_cosine_deviation_mean = torch.mean(torch.stack(e_stats['cos_dist']))
 
+        
         with open(self.save_file_deviation_e, 'a') as f:
             f.write(f'{e_std_deviation_mean},{e_cosine_deviation_mean}\n')
 
@@ -611,13 +622,15 @@ class OnlineFeatureMetrics:
 
            
         # PROJECTOR FEATURE METRICS
-        z_num_mean_buff_overlaps_list, _, _, _ = calculate_overlap_cosine(torch.stack(z_stats['mean']), torch.stack(z_stats['mean']),
+        z_num_mean_buff_overlaps_list, _, z_per_sample_num_overlap_list, _ = calculate_overlap_cosine(torch.stack(z_stats['mean']), torch.stack(z_stats['mean']),
                                                                         torch.stack(z_stats['angle']), torch.stack(z_stats['angle']),
                                                                         thresh_multipliers=THRESH_MULTIPLIERS)
         z_ratio_mean_buff_overlaps_list  = [x/len(z_stats['mean']) for x in z_num_mean_buff_overlaps_list]
+        z_per_sample_ratio_overlap_list = [z_per_sample_num_overlap_list[i]/len(z_stats['mean']) for i in range(len(z_per_sample_num_overlap_list))]
+
         # Deviation
         z_std_deviation_mean = torch.mean(torch.stack(z_stats['std']))
-        z_cosine_deviation_mean = torch.mean(torch.stack(z_stats['cos_dist']))
+        z_cosine_deviation_mean = torch.mean(torch.stack(z_stats['cos_dist']))        
 
         with open(self.save_file_deviation_z, 'a') as f:
             f.write(f'{z_std_deviation_mean},{z_cosine_deviation_mean}\n')
@@ -626,3 +639,10 @@ class OnlineFeatureMetrics:
             for i, mult in enumerate(THRESH_MULTIPLIERS):
                 f.write(f'{mult},{z_ratio_mean_buff_overlaps_list[i]}\n')
 
+        # Combined metric
+        combined_oe_de = ((1-e_per_sample_ratio_overlap_list[0]) * e_std_deviation_mean).mean().item()
+        combined_oz_dz = ((1-z_per_sample_ratio_overlap_list[0]) * z_std_deviation_mean).mean().item()
+        combined_oz_de = ((1-z_per_sample_ratio_overlap_list[0]) * e_std_deviation_mean).mean().item()
+        combined_oe_dz = ((1-e_per_sample_ratio_overlap_list[0]) * z_std_deviation_mean).mean().item()
+        with open(self.save_file_combined_metric, 'a') as f:
+            f.write(f'{combined_oe_de},{combined_oz_dz},{combined_oz_de},{combined_oe_dz}\n')
