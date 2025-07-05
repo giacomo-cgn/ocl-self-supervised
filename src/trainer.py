@@ -200,7 +200,7 @@ class Trainer():
 
 
 
-            if self.strategy.buffer is not None:
+            if hasattr(self.strategy, 'buffer') and self.strategy.buffer is not None:
                 csv_buffer, buffer_metrics = self.strategy.buffer.end()
                 if self.save_pth is not None:
                     buff_pth = os.path.join(self.save_pth, 'buffer', f'exp{exp_idx}')
