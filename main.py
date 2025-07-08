@@ -40,9 +40,9 @@ def exec_experiment(**kwargs):
         if kwargs["num_exps"] != 11:
             print(f'WARNING: Selected number of experiences {kwargs["num_exps"]} is different from default CLEAR100 experiences, resetting to 11 experiences.')
             kwargs["num_exps"] = 11
-        if kwargs["iid"]:
-            print(f'WARNING: IID pretraining is not supported for CLEAR100, resetting to False.')
-            kwargs["iid"] = False
+        # if kwargs["iid"]:
+        #     print(f'WARNING: IID pretraining is not supported for CLEAR100, resetting to False.')
+        #     kwargs["iid"] = False
 
     # Ratios of tr set used for training linear probe
     if kwargs["use_probing_tr_ratios"]:
