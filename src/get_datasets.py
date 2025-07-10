@@ -92,7 +92,7 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
             evaluation_protocol=evaluation_protocol_clear,
             feature_type=None,
             seed=seed%5, # allowed seed in 0-4 range
-            dataset_root=None,
+            dataset_root=dataset_root,
             train_transform=transforms.Compose([transforms.PILToTensor(),
                                                 transforms.Resize((224,224)),
                                                 transforms.CenterCrop(224)]),
