@@ -3,54 +3,38 @@
     {
         "gpu-idx": 0,
         "dataset": "cifar100",
-        "dataset-root": "/data/cossu/imagenet/imagenet",
-        "num-exps": 20,
-        "tr-mb-size": 10,
-        "repl-mb-size": 20,
-        "eval-mb-size": 256,
-        "epochs": 1,
+        "dataset-root": "/home/giacomo/Ai/clear100",
         "save-folder": "./logs",
-        "probing-separate": false,
-        "probing-torch": true,
-        "probing-rr": false,
-        "probing-all-exp": true,
+        "num-exps": 20,
         "mb-passes": 1,
-        "max-process": 1
+        "epochs": 1,
+        "tr-mb-size": 10,
+        "repl-mb-size": 128,
+        "iid": false,
+        "momentum-ema": 0.999,
+        "eval-mb-size": 256,
+        "probing-all-exp": true,
+        "probing-rr": false,
+        "probing-torch": true,
+        "probing-knn": false,
+        "probing-joint": true,
+        "probing-separate": false,
+        "save-model-every-exp": false,
+        "max-process": 2
+
+
     },
     "experiments":
     [
         {
-            "multiple_runs": {
-                "seeds": [1]
-            },
             "model": "simsiam",
-            "strategy" : "replay_buffer_priority",
-            "mb-passes": 3,
-            "online-transforms": true,
-            "mem-size": 200,
-            "buffer-type": "minred",
-            "name": "minred",
-            "insertion-policy": "loss",
-            "extraction-policy": "loss_stochastic",
-            "gamma-extraction": 0.0,
-            "gamma-loss": 0.0,
-            "gamma-overlap": 0.5,
-            "gamma-std-deviation": 0.5,
-            "gamma-cosine-deviation": 0.0,
-            "gamma-extraction-out": 0.0,
-            "gamma-loss-out": 0.0,
-            "gamma-overlap-out": 0.5,
-            "gamma-std-deviation-out": 0.5,
-            "gamma-cosine-deviation-out": 0.0,
-            "analyze-features": true,
-            "analyze-overlap-all": false,
-            "analyze-gradients": false,
-            "when-features-analysis": ["10","end"],
-            "num-views-feat-analysis": 3,
-            "overlap-thresh-multipliers-cosine": [0.1, 0.3, 1],
-            "fifo-buffer-size": 100,
-            "loss-aware-batch-size": 10
+            "strategy" : "replay_priority_overlap",
+            "buffer-type": "loss_aware",
+            "hyperparams_search": {
+                "lr": [0.3],
+                "overlap_omega": [3.0],
+                "overlap_num_buffer_samples": [500]
+            }
         }
-        
     ]
 }

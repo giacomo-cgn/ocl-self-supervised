@@ -12,7 +12,7 @@ from src.backbones import get_encoder
 
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE, SimSiamMultiview, BYOLMultiview, recover_ssl_model
 
-from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, CaSSLeR, ReplayEMP, ARPHybrid, ReplayBufferPriority
+from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, CaSSLeR, ReplayEMP, ARPHybrid, ReplayBufferPriority, ReplayPriorityOverlap
 from src.standalone_strategies import SCALE, DoubleResnet, OsirisR
 
 from src.trainer import Trainer
@@ -408,6 +408,12 @@ def exec_experiment(**kwargs):
         elif kwargs["strategy"] == 'replay_buffer_priority':
             strategy = ReplayBufferPriority(ssl_model=ssl_model, device=device, save_pth=save_pth,
                             buffer=buffer, replay_mb_size=kwargs["repl_mb_size"], stream_mb_size=kwargs["tr_mb_size"])
+            
+        elif kwargs["strategy"] == 'replay_priority_overlap':
+            strategy = ReplayPriorityOverlap(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"], stream_mb_size=kwargs["tr_mb_size"],
+                            use_buffer_overlap=kwargs["use_buffer_overlap"], clamp_overlap_loss=kwargs["clamp_overlap_loss"],
+                            overlap_omega=kwargs["overlap_omega"], overlap_num_buffer_samples=kwargs["overlap_num_buffer_samples"])
 
         else:
             raise Exception(f'Strategy {kwargs["strategy"]} not supported')

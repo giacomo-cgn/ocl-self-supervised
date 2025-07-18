@@ -324,8 +324,12 @@ def read_command_line_args():
     # Gradient analysis
     parser.add_argument('--analyze-gradients', type=str_to_bool, default=False)
 
-
-
+    # Overlap loss
+    parser.add_argument('--use-buffer-overlap', type=str_to_bool, default=True)
+    parser.add_argument('--clamp-overlap-loss', type=str_to_bool, default=True)
+    parser.add_argument('--overlap-omega', type=float, default=1.0)
+    parser.add_argument('--overlap-num-buffer-samples', type=int, default=500)
+    
 
     args = parser.parse_args()
 

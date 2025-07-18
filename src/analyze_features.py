@@ -577,11 +577,13 @@ class OnlineFeatureMetrics:
         with open(self.save_file_combined_metric, 'a') as f:
             f.write('combined_oe_de,combined_oz_dz,combined_oz_de,combined_oe_dz\n')
 
-    def calculate_stats_online(self, feature_list):
+    def calculate_stats_online(self, feature_list, detach=True):
         std_list, mean_list =  [], []
         mean_cos_dist_list, mean_angle_list = [], []
 
-        V = torch.stack(feature_list, dim=0).detach() # first stack current_mbatch_views → (v, b, d)
+        V = torch.stack(feature_list, dim=0) # first stack current_mbatch_views → (v, b, d)
+        if detach:
+            V = V.detach()
         per_sample_views_list = list(rearrange(V, 'v b ... -> b v ...').unbind(dim=0)) # then rearrange to (b, v, d) and unbind
 
         for feature_views in per_sample_views_list:
