@@ -12,7 +12,7 @@ from src.backbones import get_encoder
 
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE, SimSiamMultiview, BYOLMultiview, recover_ssl_model
 
-from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, CaSSLeR, ReplayEMP, ARPHybrid, ReplayBufferPriority, ReplayPriorityOverlap
+from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, CaSSLeR, ReplayEMP, ARPHybrid, ReplayBufferPriority, ReplayPriorityOverlap, ARPOverlap, APREOverlap
 from src.standalone_strategies import SCALE, DoubleResnet, OsirisR
 
 from src.trainer import Trainer
@@ -412,6 +412,24 @@ def exec_experiment(**kwargs):
         elif kwargs["strategy"] == 'replay_priority_overlap':
             strategy = ReplayPriorityOverlap(ssl_model=ssl_model, device=device, save_pth=save_pth,
                             buffer=buffer, replay_mb_size=kwargs["repl_mb_size"], stream_mb_size=kwargs["tr_mb_size"],
+                            use_buffer_overlap=kwargs["use_buffer_overlap"], clamp_overlap_loss=kwargs["clamp_overlap_loss"],
+                            overlap_omega=kwargs["overlap_omega"], overlap_num_buffer_samples=kwargs["overlap_num_buffer_samples"])
+            
+        elif kwargs["strategy"] == 'arp_overlap':
+            strategy = ARPOverlap(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                        buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                        omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
+                        use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
+                        aligner_dim=aligner_dim,
+                        use_buffer_overlap=kwargs["use_buffer_overlap"], clamp_overlap_loss=kwargs["clamp_overlap_loss"],
+                        overlap_omega=kwargs["overlap_omega"], overlap_num_buffer_samples=kwargs["overlap_num_buffer_samples"])
+
+        elif kwargs["strategy"] == 'apre_overlap':
+            strategy = APREOverlap(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                            buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                            omega=kwargs["omega"], align_criterion=kwargs["align_criterion"],
+                            use_aligner=kwargs["use_aligner"], align_after_proj=kwargs["align_after_proj"], 
+                            aligner_dim=aligner_dim, momentum_ema=kwargs["momentum_ema"],
                             use_buffer_overlap=kwargs["use_buffer_overlap"], clamp_overlap_loss=kwargs["clamp_overlap_loss"],
                             overlap_omega=kwargs["overlap_omega"], overlap_num_buffer_samples=kwargs["overlap_num_buffer_samples"])
 

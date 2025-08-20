@@ -12,3 +12,5 @@ from .replay_emp import ReplayEMP
 from .arp_hybrid import ARPHybrid
 from .replay_buffer_priority import ReplayBufferPriority
 from .replay_priority_overlap import ReplayPriorityOverlap
+from .apre_overlap import APREOverlap
+from .arp_overlap import ARPOverlap
