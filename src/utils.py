@@ -189,7 +189,12 @@ def read_command_line_args():
     parser.add_argument('--dim-proj', type=int, default=2048)
     parser.add_argument('--dim-pred', type=int, default=512)
     parser.add_argument('--epochs', type=int, default=1)
-    
+
+    # Scheduler
+    parser.add_argument('--use-scheduler', type=str_to_bool, default=False)
+    parser.add_argument('--scheduler-warmup-epochs', type=int, default=5)
+    parser.add_argument('--scheduler-min-lr', type=float, default=0.0)
+
     parser.add_argument('--mb-passes', type=int, default=3)
     parser.add_argument('--tr-mb-size', type=int, default=32)
     parser.add_argument('--online-transforms', type=str_to_bool, default=True)

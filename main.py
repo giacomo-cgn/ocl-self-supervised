@@ -439,6 +439,8 @@ def exec_experiment(**kwargs):
         # Set up the trainer wrapper
         trainer = Trainer(ssl_model=ssl_model, strategy=strategy, optim=kwargs["optim"], lr=kwargs["lr"], momentum=kwargs["optim_momentum"],
                           lars_eta= kwargs["lars_eta"],
+                          use_scheduler=kwargs["use_scheduler"], scheduler_warmup_epochs=kwargs["scheduler_warmup_epochs"],
+                          scheduler_min_lr=kwargs["scheduler_min_lr"],
                           weight_decay=kwargs["weight_decay"], train_mb_size=kwargs["tr_mb_size"], train_epochs=kwargs["epochs"],
                           mb_passes=kwargs["mb_passes"], device=device, dataset_name=kwargs["dataset"], save_pth=save_pth,
                           save_model=kwargs["save_model_every_exp"], online_transforms=kwargs["online_transforms"],

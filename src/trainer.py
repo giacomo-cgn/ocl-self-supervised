@@ -4,6 +4,8 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 
+from src.scheduler import LinearWarmupCosineAnnealingLR
+
 from .utils import UnsupervisedDataset
 from .transforms import get_transforms
 from .ssl_models import AbstractSSLModel
@@ -24,6 +26,9 @@ class Trainer():
                  momentum: float = 0.9,
                  weight_decay: float = 1e-4,
                  lars_eta: float = 0.005,
+                 use_scheduler: bool = False,
+                 scheduler_warmup_epochs: int = 5,
+                 scheduler_min_lr: float = 0.0,
                  train_mb_size: int = 32,
                  train_epochs: int = 1,
                  mb_passes: int = 3,
@@ -47,6 +52,8 @@ class Trainer():
         self.momentum = momentum
         self.weight_decay = weight_decay
         self.lars_eta = lars_eta
+        self.scheduler_warmup_epochs = scheduler_warmup_epochs
+        self.scheduler_min_lr = scheduler_min_lr
         self.train_mb_size = train_mb_size
         self.train_epochs = train_epochs
         self.mb_passes = mb_passes
@@ -75,6 +82,15 @@ class Trainer():
         self.optimizer = init_optim(optim, self.params_to_optimize, lr=self.lr, momentum=self.momentum,
                                     weight_decay=self.weight_decay, lars_eta=self.lars_eta)
 
+        if use_scheduler:
+            self.scheduler = LinearWarmupCosineAnnealingLR(self.optimizer, warmup_epochs=self.scheduler_warmup_epochs,
+                                                           max_epochs=self.train_epochs, eta_min=self.scheduler_min_lr,
+                                                           warmup_start_lr=self.lr/self.scheduler_warmup_epochs if self.scheduler_warmup_epochs>0 else self.lr)
+            with open(os.path.join(self.save_pth, 'scheduler.txt'), 'w') as f:
+                f.write(f'exp,epoch,lr\n')
+        else:
+            self.scheduler = None
+
 
         if self.save_pth is not None:
             # Save model configuration
@@ -88,6 +104,10 @@ class Trainer():
                 f.write(f'weight_decay: {self.weight_decay}\n')
                 if optim == 'lars':
                     f.write(f'lars_eta: {self.lars_eta}\n')
+                if use_scheduler:
+                    f.write(f'using cosine warmup scheduler\n')
+                    f.write(f'scheduler_warmup_epochs: {self.scheduler_warmup_epochs}\n')
+                    f.write(f'scheduler_min_lr: {self.scheduler_min_lr}\n')
                 f.write(f'num_views: {self.num_views}\n')
                 f.write(f'train_mb_size: {self.train_mb_size}\n')
                 f.write(f'train_epochs: {self.train_epochs}\n')
@@ -164,7 +184,6 @@ class Trainer():
                         self.optimizer.zero_grad()
                         loss_strategy.backward()
                         self.optimizer.step()
-
                     self.ssl_model.after_backward()
                     self.strategy.after_backward()
 
@@ -196,21 +215,27 @@ class Trainer():
                                                                                     exp_idx=exp_idx, tr_step=mb_idx,
                                                                                     projector=self.ssl_model.get_projector())
                         else:
-                            print('>>> No buffer to analyze features')    
+                            print('>>> No buffer to analyze features') 
+            
+
+            # Update scheduler after each epoch
+            if self.scheduler is not None:
+                with open(os.path.join(self.save_pth, 'scheduler.txt'), 'a') as f:
+                    f.write(f'{exp_idx},{epoch},{self.scheduler.get_last_lr()[0]}\n')
+                self.scheduler.step()
 
 
+        if hasattr(self.strategy, 'buffer') and self.strategy.buffer is not None:
+            csv_buffer, buffer_metrics = self.strategy.buffer.end()
+            if self.save_pth is not None:
+                buff_pth = os.path.join(self.save_pth, 'buffer', f'exp{exp_idx}')
+                if not os.path.exists(buff_pth):
+                    os.makedirs(buff_pth)
+                with open(os.path.join(buff_pth, 'buffer.csv'), 'w') as f:
+                    f.write(csv_buffer)
+                with open(os.path.join(buff_pth, 'buffer_metrics.txt'), 'w') as f:
+                    f.write(buffer_metrics)
 
-            if hasattr(self.strategy, 'buffer') and self.strategy.buffer is not None:
-                csv_buffer, buffer_metrics = self.strategy.buffer.end()
-                if self.save_pth is not None:
-                    buff_pth = os.path.join(self.save_pth, 'buffer', f'exp{exp_idx}')
-                    if not os.path.exists(buff_pth):
-                        os.makedirs(buff_pth)
-                    with open(os.path.join(buff_pth, 'buffer.csv'), 'w') as f:
-                        f.write(csv_buffer)
-                    with open(os.path.join(buff_pth, 'buffer_metrics.txt'), 'w') as f:
-                        f.write(buffer_metrics)
-                    
 
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:
