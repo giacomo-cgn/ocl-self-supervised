@@ -334,7 +334,10 @@ def read_command_line_args():
     parser.add_argument('--clamp-overlap-loss', type=str_to_bool, default=True)
     parser.add_argument('--overlap-omega', type=float, default=1.0)
     parser.add_argument('--overlap-num-buffer-samples', type=int, default=500)
-    
+
+    # INaturalist
+    parser.add_argument('--inaturalist-train-labels-pth', type=str, default='../inaturalist_labels_tr.csv')
+    parser.add_argument('--inaturalist-eval-labels-pth', type=str, default='../inaturalist_labels_test.csv')
 
     args = parser.parse_args()
 

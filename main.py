@@ -111,6 +111,8 @@ def exec_experiment(**kwargs):
         seed=kwargs["dataset_seed"],
         val_ratio=kwargs["probing_val_ratio"],
         evaluation_protocol_clear=kwargs["evaluation_protocol_clear"],
+        inaturalist_train_labels_pth=kwargs["inaturalist_train_labels_pth"],
+        inaturalist_eval_labels_pth=kwargs["inaturalist_eval_labels_pth"]
     )
     if kwargs["iid"]:
         iid_tr_dataset = get_iid_dataset(benchmark)

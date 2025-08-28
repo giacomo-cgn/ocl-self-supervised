@@ -11,9 +11,12 @@ from avalanche.benchmarks.classic import SplitCIFAR100, SplitCIFAR10, SplitImage
 from torchvision.datasets import SVHN, StanfordCars
 # from avalanche.benchmarks.classic.clear import CLEAR
 from .clear_dataset import CLEAR
+from .inaturalist_dataset import INaturalist
 
 from .benchmark import Benchmark
-def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.1, evaluation_protocol_clear='iid'):
+def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.1, evaluation_protocol_clear='iid',
+                  inaturalist_train_labels_pth='../inaturalist_labels_tr.csv',
+                  inaturalist_eval_labels_pth='../inaturalist_labels_test.csv'):
 
     return_task_id = False
     shuffle = True
@@ -102,12 +105,30 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
         )
         image_size = 224
 
+    elif dataset_name == 'inaturalist':
+            benchmark = INaturalist(
+                root=dataset_root,
+                download=False,
+                train_transform=transforms.Compose([transforms.PILToTensor(),
+                                                    transforms.Resize((224,224)),
+                                                    transforms.CenterCrop(224)]),
+                eval_transform=transforms.Compose([transforms.PILToTensor(),
+                                                    transforms.Resize((224,224)),
+                                                    transforms.CenterCrop(224)]),
+                train_labels_pth=inaturalist_train_labels_pth,
+                eval_labels_pth=inaturalist_eval_labels_pth
+            )
+            image_size = 224
+
     # Create Benchmark object with tr, test (and validation) streams
     tr_stream = []
     valid_stream = []    
     for experience in benchmark.train_stream:
         if val_ratio > 0:
-            tr_exp_dataset, val_exp_dataset = class_balanced_split(val_ratio, experience)
+            if dataset_name == 'inaturalist':
+                tr_exp_dataset, val_exp_dataset = torch_val_split(val_ratio, experience)
+            else:
+                tr_exp_dataset, val_exp_dataset = class_balanced_split(val_ratio, experience)
             tr_stream.append(tr_exp_dataset)
             valid_stream.append(val_exp_dataset)
         else:

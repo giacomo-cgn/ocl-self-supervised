@@ -4,3 +4,4 @@ old
 __pycache__
 configs
 data
+.vscode
