@@ -28,7 +28,7 @@ class UnsupervisedDataset(Dataset):
         return unique_labels
 
     def __getitem__(self, idx):
-        input_tensor, _, _ = self.data[idx]
+        input_tensor, *_ = self.data[idx]
         if self.transforms is None:
             return input_tensor
         else:
