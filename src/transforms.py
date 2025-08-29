@@ -1,9 +1,6 @@
 import torch
 from torchvision import transforms
 
-from PIL import ImageFilter, ImageOps
-import random
-
 
 def get_dataset_normalize(dataset: str):
     """Get corresponding normalization transform for each dataset."""
@@ -19,6 +16,9 @@ def get_dataset_normalize(dataset: str):
             (0.485, 0.456, 0.406), (0.228, 0.224, 0.225))
     elif dataset in ['clear10', 'clear100']:
         return transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+    elif dataset == 'inaturalist':
+        return transforms.Normalize(
+            (0.485, 0.456, 0.406), (0.228, 0.224, 0.225))
     elif dataset == 'svhn':
         return transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     elif dataset == 'cars':
@@ -26,7 +26,7 @@ def get_dataset_normalize(dataset: str):
             (0.4707, 0.4602, 0.4550), (0.2638, 0.2629, 0.2678))    
 
     else:
-        raise ValueError(f'Base Trandforms for dataset "{dataset}" not supported')
+        raise ValueError(f'Base Transforms for dataset "{dataset}" not supported')
 
 
 def get_dataset_crop(dataset: str):
@@ -38,7 +38,7 @@ def get_dataset_crop(dataset: str):
     elif dataset == 'cifar10':
         # return transforms.RandomCrop(32, padding=4)
         return transforms.RandomResizedCrop(32, scale=(0.2, 1.), antialias=True)
-    elif dataset in ['imagenet100', 'imagenet', 'clear100']:
+    elif dataset in ['imagenet100', 'imagenet', 'clear100', 'inaturalist']:
         # return transforms.RandomCrop(64, padding=8)
         return transforms.RandomResizedCrop(224, scale=(0.2, 1.), antialias=True)
     else:
