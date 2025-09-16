@@ -5,6 +5,8 @@ import torch.nn.functional as F
 
 from ..ssl_models import AbstractSSLModel
 from ..strategies.abstract_strategy import AbstractStrategy
+from ..analyze_features import OnlineFeatureMetrics
+
 
 class OsirisR(AbstractStrategy, AbstractSSLModel):
 
@@ -26,6 +28,8 @@ class OsirisR(AbstractStrategy, AbstractSSLModel):
         self.save_pth = save_pth
         self.model_name = 'simsiam'
         self.dim_projector = dim_proj
+
+        self.online_feature_metrics = OnlineFeatureMetrics(save_pth)
 
         self.strategy_name = 'osiris_r'
         self.model_name = 'osiris_r' 

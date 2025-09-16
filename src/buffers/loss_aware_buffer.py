@@ -222,8 +222,8 @@ class LossAwareBuffer:
         return batch_x, batch_features, indices
     
     # Update features of buffer samples at given indices
-    def update_features(self, batch_features, batch_loss, indices, e_stats=None, z_stats=None):
-        assert batch_features.size(0) == len(indices) == batch_loss.size(0)
+    def update_features(self, batch_features, indices, batch_loss, e_stats=None, z_stats=None):
+        assert batch_features.size(0) == len(indices)
 
         batch_features = batch_features.to(self.device)
         batch_loss = batch_loss.to(self.device)

@@ -101,7 +101,7 @@ class HybridFIFOLossBuffer():
         return batch_x, batch_features, indices
     
      # Update features of buffer samples at given indices
-    def update_features(self, batch_features, batch_loss, indices, e_stats=None, z_stats=None):
+    def update_features(self, batch_features, indices, batch_loss, e_stats=None, z_stats=None):
         assert batch_features.size(0) == len(indices)
 
         loss_aware_features = batch_features[:self.loss_aware_curr_batch_size]
@@ -123,8 +123,8 @@ class HybridFIFOLossBuffer():
         fifo_features = batch_features[self.loss_aware_curr_batch_size:]
         fifo_loss = batch_loss[self.loss_aware_curr_batch_size:]
         fifo_indices = indices[self.loss_aware_curr_batch_size:]
-        self.loss_aware_buffer.update_features(loss_aware_features, loss_aware_loss, loss_aware_indices, e_stats=loss_aware_e_stats, z_stats=loss_aware_z_stats)
-        self.fifo_buffer.update_features(fifo_features, fifo_loss, fifo_indices, e_stats=fifo_e_stats, z_stats=fifo_z_stats)
+        self.loss_aware_buffer.update_features(loss_aware_features, loss_aware_indices, loss_aware_loss, e_stats=loss_aware_e_stats, z_stats=loss_aware_z_stats)
+        self.fifo_buffer.update_features(fifo_features, fifo_indices, fifo_loss, e_stats=fifo_e_stats, z_stats=fifo_z_stats)
 
 
     def end(self):

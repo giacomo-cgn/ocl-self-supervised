@@ -24,7 +24,7 @@ class MinRedBuffer:
 
 
     # Add a batch of samples to the buffer
-    def add(self, batch_x, batch_features, batch_loss, e_stats=None, z_stats=None):
+    def add(self, batch_x, batch_features, batch_loss=None, e_stats=None, z_stats=None):
         assert batch_x.size(0) == batch_features.size(0)
 
         # Add +1 to all lifetimes
@@ -114,7 +114,7 @@ class MinRedBuffer:
         return batch_x, batch_features, indices
     
     # Update features of buffer samples at given indices
-    def update_features(self, batch_features, batch_loss, indices, e_stats=None, z_stats=None):
+    def update_features(self, batch_features, indices, batch_loss=None, e_stats=None, z_stats=None):
         assert batch_features.size(0) == len(indices)
 
         batch_features = batch_features.to(self.device)

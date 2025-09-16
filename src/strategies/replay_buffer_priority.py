@@ -93,7 +93,7 @@ class ReplayBufferPriority(AbstractStrategy):
             e_stats = {"std": e_std, "mean": e_mean, "cos_dist": e_cos_dist, "angle": e_angle}
             z_stats = {"std": z_std, "mean": z_mean, "cos_dist": z_cos_dist, "angle": z_angle}
 
-            self.buffer.update_features(avg_replayed_z.detach(), replay_loss.detach(), self.replay_indices, 
+            self.buffer.update_features(avg_replayed_z.detach(), self.replay_indices, replay_loss.detach(),
                                         e_stats=e_stats, z_stats=z_stats)
 
         if self.count_mb_passes == 0:

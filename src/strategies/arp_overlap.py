@@ -160,7 +160,7 @@ class ARPOverlap(AbstractStrategy):
             e_stats = {"std": e_std[:self.replay_mb_size], "mean": e_mean[:self.replay_mb_size], "cos_dist": e_cos_dist[:self.replay_mb_size], "angle": e_angle[:self.replay_mb_size]}
             z_stats = {"std": z_std[:self.replay_mb_size], "mean": z_mean[:self.replay_mb_size], "cos_dist": z_cos_dist[:self.replay_mb_size], "angle": z_angle[:self.replay_mb_size]} 
 
-            self.buffer.update_features(avg_replayed_z.detach(), replay_loss.detach(), self.replay_indices,
+            self.buffer.update_features(avg_replayed_z.detach(), self.replay_indices, replay_loss.detach(),
                                         e_stats=e_stats, z_stats=z_stats)
 
             # Compute alignment loss between aligned features and EMA features

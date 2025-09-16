@@ -160,16 +160,13 @@ class APRE(AbstractStrategy):
             e_stats = {"std": e_std, "mean": e_mean, "cos_dist": e_cos_dist, "angle": e_angle}
             z_stats = {"std": z_std, "mean": z_mean, "cos_dist": z_cos_dist, "angle": z_angle}  
 
-            self.buffer.update_features(avg_replayed_z.detach(), replay_loss.detach(), self.replay_indices,
+            self.buffer.update_features(avg_replayed_z.detach(), self.replay_indices, replay_loss.detach(),
                                         e_stats=e_stats, z_stats=z_stats)
 
             # Compute alignment loss between aligned features and EMA features
             loss_align = self.align_criterion(aligned_features, ema_z)
             loss += self.omega * loss_align.mean()
 
-            # # Update replayed samples with avg of last extracted features
-            # avg_replayed_z = sum(z_list_replay)/len(z_list_replay)
-            # self.buffer.update_features(avg_replayed_z.detach(), self.replay_indices)
         
         return loss
         

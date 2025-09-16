@@ -106,7 +106,7 @@ class ReplayPriorityOverlap(AbstractStrategy):
             e_stats = {"std": e_std.detach(), "mean": e_mean_replay.detach(), "cos_dist": e_cos_dist.detach(), "angle": e_angle_replay.detach()}
             z_stats = {"std": z_std, "mean": z_mean, "cos_dist": z_cos_dist, "angle": z_angle}
 
-            self.buffer.update_features(avg_replayed_z.detach(), replay_loss.detach(), self.replay_indices, 
+            self.buffer.update_features(avg_replayed_z.detach(), self.replay_indices, replay_loss.detach(),
                                         e_stats=e_stats, z_stats=z_stats)
         else:
             # If no replay, do not update buffer features
