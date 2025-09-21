@@ -177,7 +177,9 @@ class Trainer():
                         self.gradient_analyzer.analyze_gradients(buffer_losses=buffer_losses, stream_losses=stream_losses,
                                                                  params=self.params_to_optimize, exp_idx=exp_idx, tr_step=mb_idx)
 
-                    loss_strategy = loss_strategy.mean()
+                    # If per-sample loss is returned, average it
+                    if loss_strategy is not None and len(loss_strategy.shape)>0:
+                        loss_strategy = loss_strategy.mean()
 
                     if loss_strategy is not None:
                         # Backward pass

@@ -30,7 +30,9 @@ class Memory(object):
                  mem_size=2000,
                  mem_max_classes=10,
                  mem_max_new_ratio=0.1,
-                 device = "cpu"
+                 device = "cpu",
+                 use_ema_embeddings = False,
+                 ema_embeddings_decay = 0.5
                  ):
         """
         Initialize memory.
@@ -44,7 +46,10 @@ class Memory(object):
                 - 'reservoir': Reservoir sampling
                 - 'simil': Similarity-based selection
             mem_update_class_based (bool): Whether to cluster and update memory separately per class.
-            mem_max_new_ratio (float): Maximum ratio of new samples if 'mo_rdn' update type is used. 
+            mem_max_new_ratio (float): Maximum ratio of new samples if 'mo_rdn' update type is used.
+            device (str): Device to perform computations on.
+            use_ema_embeddings (bool): Whether to use EMA embeddings or recompute embeddings for similarity-based selection.
+            ema_embeddings_decay (float): Decay rate for EMA embeddings if used.
     """
 
         self.max_classes = mem_max_classes
@@ -53,8 +58,11 @@ class Memory(object):
         self.mem_update_type = mem_update_type
         self.max_new_ratio = mem_max_new_ratio
         self.device = device
+        self.use_ema_embeddings = use_ema_embeddings
+        self.ema_embeddings_decay = ema_embeddings_decay
 
         self.images = []  # A list of numpy arrays
+        self.embeddings = []  # A list of numpy arrays
         self.labels_set = []  # Pseud labels assisting memory update
         self.true_labels = []  # Same organization as self.images for true labels record
         self.update_cnt = 0
@@ -169,17 +177,19 @@ class Memory(object):
             # and sz_per_lb - size upperbound for each class
             self.sampling(lb, old_sz, new_sz, self.size_per_class)
 
-    def update_wo_labels(self, new_images, model=None):
+    def update_wo_labels(self, new_images, new_embeddings, model=None):
         """
         Update memory samples.
         Args:
             new_images: torch array, new incoming images
+            new_embeddings: torch array, new incoming embeddings
             model: network model being trained, used in kmeans and spectral cluster type
 
         Return:
             select_indices: numpy array of selected indices in all_images
         """
         new_images = new_images.detach().numpy()
+        new_embeddings = new_embeddings.cpu().detach().numpy()
         self.num_seen_examples += new_images.shape[0]
 
         if len(self.images) > 0:  # Not first-time insertion
@@ -196,16 +206,32 @@ class Memory(object):
         old_ind = np.zeros(all_images.shape[0], dtype=bool)
         old_ind[:old_sz] = 1
 
-        # Get latent embeddings
-        feed_images = torch.from_numpy(all_images).to(self.device, non_blocking=True)
-        # ATTENTION! ADDITIONAL FORWARD PASS FOR ALL MEMORY SAMPLES! IS THIS TRICK ILLEGAL?
-        all_embeddings = model(feed_images).detach().cpu().numpy()
-        # all_embeddings_mean = np.mean(all_embeddings, axis=0, keepdims=True)
-        # all_embeddings = (all_embeddings - all_embeddings_mean) * 1e4
+        # ALTERNATIVE: USE EMA EMBEDDINGS LIKE CLA, INSTEAD OF FULL FORWARD PASS OF BUFFER
+        if self.use_ema_embeddings:
+            # assert same number of old embeddings as old images
+            assert len(self.embeddings) == len(self.images)
+
+            if len(self.embeddings) > 0:  # Not first-time insertion
+                old_embeddings = np.concatenate(self.embeddings)
+                old_sz = old_embeddings.shape[0]
+                all_embeddings = np.concatenate((old_embeddings, new_embeddings), axis=0)
+            else:  # first-time insertion
+                old_sz = 0
+                all_embeddings = new_embeddings
+
+        else:
+            # Get latent embeddings
+            # feed_images = torch.from_numpy(all_images).to(self.device, non_blocking=True)
+            feed_images = torch.from_numpy(all_images).float().div(255).to(self.device, non_blocking=True)
+
+            # ATTENTION! ADDITIONAL FORWARD PASS FOR ALL MEMORY SAMPLES! IS THIS TRICK ILLEGAL?
+            all_embeddings = model(feed_images).detach().cpu().numpy()
+            # all_embeddings_mean = np.mean(all_embeddings, axis=0, keepdims=True)
+            # all_embeddings = (all_embeddings - all_embeddings_mean) * 1e4
 
         # PSA clustering
         # Clustering
-        simil_matrix = tsne_simil(all_embeddings, metric='cosine')
+        # simil_matrix = tsne_simil(all_embeddings, metric='cosine')
 
         # Init selected indices as all indices
         select_indices = np.arange(all_embeddings.shape[0])
@@ -216,6 +242,7 @@ class Memory(object):
             select_indices.sort()
 
         self.images = [all_images[select_indices]]
+        self.embeddings = [all_embeddings[select_indices]]
         self.labels_set = [0]
 
 
@@ -276,10 +303,26 @@ class Memory(object):
             sample_cnt = min(mem_len, replay_batch_size)
             select_ind = np.random.choice(range(mem_len), sample_cnt, replace=False)
 
-            return torch.from_numpy(mem_images[select_ind])
+            return torch.from_numpy(mem_images[select_ind]), select_ind
         else:
-            return None
-        
+            return None, None
+
+    def update_embeddings(self, new_embeddings, replay_indices):
+        """
+        Update EMA embeddings for samples in the buffer.
+        Args:
+            new_embeddings: torch array, new incoming embeddings
+            replay_indices: list of indices of samples in the buffer to update
+        """
+        new_embeddings = new_embeddings.cpu().detach().numpy()
+        assert len(self.embeddings) > 0, "No embeddings to update!"
+       
+        for i, repl_idx in enumerate(replay_indices):
+            self.embeddings[0][repl_idx] = self.ema_embeddings_decay * self.embeddings[0][repl_idx] + (1 - self.ema_embeddings_decay) * new_embeddings[i]
+
+    def end(self):
+        return '', ''
+
 
 def tsne_simil(x, metric='euclidean', sigma=1.0):
     dist_matrix = pairwise_distances(x, metric=metric)

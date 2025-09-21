@@ -26,7 +26,6 @@ class OsirisR(AbstractStrategy, AbstractSSLModel):
         self.save_pth = save_pth
         self.replay_mb_size = replay_mb_size
         self.save_pth = save_pth
-        self.model_name = 'simsiam'
         self.dim_projector = dim_proj
 
         self.online_feature_metrics = OnlineFeatureMetrics(save_pth)

@@ -11,26 +11,20 @@ from ..utils import UnsupervisedDataset
 from ..transforms import get_transforms
 from ..optims import init_optim
 
-class SCALE():
+
+from ..ssl_models import AbstractSSLModel
+from ..strategies.abstract_strategy import AbstractStrategy
+
+class SCALE(AbstractStrategy, AbstractSSLModel):
 
     def __init__(self,
-                 encoder: nn.Module = None,
+                 encoder: nn.Module,
                  dim_backbone_features: int = 512,
                  buffer = None,
                  buffer_type: str = 'scale',
-                 optim: str = 'SGD',
-                 lr: float = 5e-4,
-                 momentum: float = 0.9,
-                 weight_decay: float = 1e-4,
-                 train_mb_size: int = 32,
-                 train_epochs: int = 1,
-                 mb_passes: int = 3,
                  device = 'cpu',
-                 dataset_name: str = 'cifar100',
                  save_pth: str  = None,
-                 save_model: bool = False,
-                 common_transforms: bool = True,
-                 mem_size: int = 2000,
+                 train_mb_size: int = 32,
                  replay_mb_size: int = 32,
 
                  temperature_cont: float = 0.1,
@@ -41,7 +35,8 @@ class SCALE():
                  tsne_thresh_ratio: float = 0.1,
                  dim_features: int = 128,
     ):           
-        
+        super().__init__()
+
         if encoder is None:
             raise Exception(f'This strategy requires an encoder.')
         if buffer is None:
@@ -49,19 +44,10 @@ class SCALE():
         
         self.encoder = encoder.to(device)
 
-        self.lr = lr
         self.buffer = buffer
-        self.momentum = momentum
-        self.weight_decay = weight_decay
-        self.train_mb_size = train_mb_size
-        self.train_epochs = train_epochs
-        self.mb_passes = mb_passes
         self.device = device
-        self.dataset_name = dataset_name
         self.save_pth = save_pth
-        self.save_model = save_model
-        self.common_transforms = common_transforms
-        self.mem_size = mem_size
+        self.train_mb_size = train_mb_size
         self.replay_mb_size = replay_mb_size
 
         self.temperature_cont = temperature_cont
@@ -78,13 +64,10 @@ class SCALE():
             self.use_scale_buffer = False
 
         self.strategy_name = 'SCALE'
+        self.model_name = 'SCALE' 
 
-        # Set up transforms
-        if self.common_transforms:
-            self.transforms = get_transforms(dataset=self.dataset_name, model='common')
-        else:
-            self.transforms = get_transforms(dataset=self.dataset_name, model=self.strategy_name)
 
+    
         self.tr_distill_power = 0.0
 
         prev_dim = dim_backbone_features
@@ -107,16 +90,6 @@ class SCALE():
                             current_temperature=self.temperature_curr,
                             past_temperature=self.temperature_past, device=self.device).to(self.device)
         
-        # Set up optimizer
-        all_parameters = [{
-            'name': 'backbone',
-            'params': [param for name, param in self.encoder.named_parameters()],
-        }, {
-            'name': 'heads',
-            'params': [param for name, param in self.criterion.named_parameters()],
-        }]
-        self.optimizer = init_optim(optim, all_parameters, lr=self.lr,
-                                   momentum=self.momentum, weight_decay=self.weight_decay, lars_eta=0.005)           
 
         self.losses_contrast = AverageMeter()
         self.losses_distill = AverageMeter()
@@ -129,13 +102,6 @@ class SCALE():
                 f.write('\n')
                 f.write('---- STRATEGY CONFIG ----\n')
                 f.write(f'STRATEGY: {self.strategy_name}\n')
-                f.write(f'optim: {optim}\n') 
-                f.write(f'Learning Rate: {self.lr}\n')
-                f.write(f'optim-momentum: {self.momentum}\n')
-                f.write(f'weight_decay: {self.weight_decay}\n')
-                f.write(f'train_mb_size: {self.train_mb_size}\n')
-                f.write(f'train_epochs: {self.train_epochs}\n')
-                f.write(f'mb_passes: {self.mb_passes}\n')
                 f.write(f'replay_mb_size: {self.replay_mb_size}\n')
 
                 f.write(f'temperature_cont: {self.temperature_cont}\n')
@@ -148,131 +114,151 @@ class SCALE():
                 f.write(f'use_scale_buffer: {self.use_scale_buffer}\n')
 
 
-                # Write loss file column names
-                with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
-                    f.write('loss,exp_idx,epoch,mb_idx,mb_pass\n')
-
                 with open(os.path.join(self.save_pth, 'tr_distill_power.csv'), 'a') as f:
                     f.write('loss,exp_idx,epoch,mb_idx,mb_pass\n')
 
+                self.already_got_params = False
 
-    def train_experience(self, 
-                         dataset,
-                         exp_idx: int
-                         ):
-        # Prepare data
-        exp_data = UnsupervisedDataset(dataset)  
-        data_loader = DataLoader(exp_data, batch_size=self.train_mb_size, shuffle=True, num_workers=8)
-
-        self.encoder.train()
-        
-        for epoch in range(self.train_epochs):
-            for mb_idx, mbatch in tqdm(enumerate(data_loader)):
-
-                mbatch = mbatch.to(self.device)
-                new_mbatch = mbatch
-
-                for k in range(self.mb_passes):
-                    
-                    self.past_encoder = copy.deepcopy(self.encoder) # CHECKED! ONLY THE ENCODERS ARE COPIED, NOT THE PROJECTION HEADS!
-                    self.past_encoder.eval().to(self.device)
-
-                    if self.use_scale_buffer:
-                        # Try sampling from scale buffer
-                        replay_batch = self.buffer.sample(self.replay_mb_size)
-                        if replay_batch is None:
-                            # Not enough elements in buffer
-                            combined_batch = mbatch
-                        else:
-                            # Concat buffer with stream samples
-                            combined_batch = torch.cat((replay_batch.to(self.device), mbatch), dim=0)
-                    else:
-                        # Try sampling from default buffer
-                        if self.buffer.get_curr_len() > self.replay_mb_size:
-                            use_replay = True
-                            # Sample from buffer and concat
-                            replay_batch, _, replay_indices = self.buffer.sample(self.replay_mb_size)
-                            replay_batch = replay_batch.to(self.device)
-                            combined_batch = torch.cat((replay_batch, mbatch), dim=0)
-                        else:
-                            use_replay = False
-                            # Do not sample buffer if not enough elements in it
-                            combined_batch = mbatch
-
-                    # Apply transforms
-                    x1, x2 = self.transforms(combined_batch)
-
-                    all_x = torch.cat((x1, x2), dim=0)
-
-                    combined_batch_size = combined_batch.shape[0]
-                    loss_distill = .0
-
-                    x1_logits, loss_distill = self.criterion_reg(self.encoder, self.past_encoder, x1)
-                    self.losses_distill.update(loss_distill.item(), combined_batch_size)
-
-                    features_all = self.encoder(all_x)
-                    contrast_mask = similarity_mask_old(features_all, combined_batch_size,
-                                                        self.device, self.temp_tsne, self.tsne_thresh_ratio, self.train_mb_size)
-                    loss_contrast = self.criterion(self.encoder, self.encoder, x1, x2,
-                                            mask=contrast_mask)
-                    
-                    self.losses_contrast.update(loss_contrast.item(), combined_batch_size)
-
-                    if self.tr_distill_power <= 0.0 and loss_distill > 0.0:
-                        self.tr_distill_power = self.losses_contrast.avg * self.distill_power / self.losses_distill.avg
-
-                    loss = loss_contrast + self.tr_distill_power * loss_distill
-
-                    if not self.use_scale_buffer and use_replay:
-                        replay_z_new_1 = features_all[:replay_batch.shape[0]]
-                        replay_z_new_2 = features_all[combined_batch_size:combined_batch_size+replay_batch.shape[0]]
-
-                        # Update replayed samples with avg of last extracted features
-                        self.buffer.update_features(((replay_z_new_1+replay_z_new_2)/2).detach(), replay_indices)
-
-
-                    # Backward pass
-                    self.optimizer.zero_grad()
-                    loss.backward()
-                    self.optimizer.step()
-
-                    # Save loss, exp_idx, epoch, mb_idx and k in csv
-                    if self.save_pth is not None:
-                        with open(os.path.join(self.save_pth, 'pretr_loss.csv'), 'a') as f:
-                            f.write(f'{loss.item()},{exp_idx},{epoch},{mb_idx},{k}\n')
-
-                        # Save distill power
-                        with open(os.path.join(self.save_pth, 'tr_distill_power.csv'), 'a') as f:
-                            f.write(f'{self.tr_distill_power},{exp_idx},{epoch},{mb_idx},{k}\n')
-
-
-                # Update buffer with new samples
-                if self.use_scale_buffer:
-                    all_embeddings, select_indexes = self.buffer.update_wo_labels(new_mbatch.detach().cpu(), self.encoder)
-                else:
-                    if use_replay:
-                        start_idx = replay_batch.shape[0]
-                    else:
-                        start_idx = 0
-                    self.buffer.add(new_mbatch.detach(), features_all[start_idx:combined_batch_size].detach())
-
-            
-            
-        # Save model and optimizer state
-        if self.save_model and self.save_pth is not None:
-            torch.save({
-                'encoder_state_dict': self.encoder.state_dict(),
-                'proj_state_dict': self.criterion.projector.state_dict(),
-                'optimizer_state_dict': self.optimizer.state_dict()
-            }, os.path.join(self.save_pth, f'model_exp{exp_idx}.pth'))
-
-        return self
+    def get_params(self):
+        if self.already_got_params == False:
+            all_parameters = [{
+                'name': 'backbone',
+                'params': [param for name, param in self.encoder.named_parameters()],
+            }, {
+                'name': 'heads',
+                'params': [param for name, param in self.criterion.named_parameters()],
+            }]
+            self.already_got_params = True
+        else:
+            all_parameters = []
+        return all_parameters
     
+    def before_forward(self, stream_mbatch):
+        self.stream_mbatch = stream_mbatch
+
+        self.past_encoder = copy.deepcopy(self.encoder) # CHECKED! ONLY THE ENCODERS ARE COPIED, NOT THE PROJECTION HEADS!
+        self.past_encoder.eval().to(self.device)
+
+        if self.use_scale_buffer:
+            # Try sampling from SCALE buffer
+            replay_batch, replay_indices = self.buffer.sample(self.replay_mb_size)
+            if replay_batch is None:
+                # Not enough elements in buffer
+                combined_batch = stream_mbatch
+                self.use_replay = False
+            else:
+                # Concat buffer with stream samples
+                combined_batch = torch.cat((replay_batch.to(self.device), stream_mbatch), dim=0)
+                self.use_replay = True
+                self.replay_indices = replay_indices
+        else:
+            # Try sampling from default buffer
+            if self.buffer.get_curr_len() > self.replay_mb_size:
+                self.use_replay = True
+                # Sample from buffer and concat
+                self.replay_batch, _, replay_indices = self.buffer.sample(self.replay_mb_size)
+                self.replay_batch = self.replay_batch.to(self.device)
+                combined_batch = torch.cat((self.replay_batch, self.stream_mbatch), dim=0)
+                 # Save buffer indices of replayed samples
+                self.replay_indices = replay_indices
+            else:
+                self.use_replay = False
+                # Do not sample buffer if not enough elements in it
+                combined_batch = stream_mbatch
+
+        return combined_batch
+    
+    def forward(self, x_views_list):
+        x1 = x_views_list[0]
+        x2 = x_views_list[1]
+
+        all_x = torch.cat((x1, x2), dim=0)
+
+        combined_batch_size = x1.shape[0]
+        loss_distill = .0
+
+        x1_logits, loss_distill = self.criterion_reg(self.encoder, self.past_encoder, x1)
+        self.losses_distill.update(loss_distill.item(), combined_batch_size)
+
+        features_all = self.encoder(all_x)
+        contrast_mask = similarity_mask_old(features_all, combined_batch_size,
+                                            self.device, self.temp_tsne, self.tsne_thresh_ratio, self.train_mb_size)
+        loss_contrast, z1, z2 = self.criterion(self.encoder, self.encoder, x1, x2,
+                                mask=contrast_mask)
+        
+        self.losses_contrast.update(loss_contrast.item(), combined_batch_size)
+
+        if self.tr_distill_power <= 0.0 and loss_distill > 0.0:
+            self.tr_distill_power = self.losses_contrast.avg * self.distill_power / self.losses_distill.avg
+
+        loss = loss_contrast + self.tr_distill_power * loss_distill
+
+        # Split features_all in features1 and features2
+        e1 = features_all[:combined_batch_size]
+        e2 = features_all[combined_batch_size:]
+
+        return loss, [z1, z2], [e1, e2]
+
+    def after_forward(self, x_views_list, loss_batch, z_list, e_list):
+
+        # Save distill power
+        with open(os.path.join(self.save_pth, 'tr_distill_power.csv'), 'a') as f:
+            f.write(f'{self.tr_distill_power},0,0,0,0\n')
+
+        self.z_list = z_list
+        self.e_list = e_list
+        if self.use_replay:
+            if self.use_scale_buffer:
+                e_list_replay = [e[:self.replay_mb_size] for e in e_list]
+                avg_replayed_e = sum(e_list_replay)/len(e_list_replay)
+                self.buffer.update_embeddings(avg_replayed_e.detach(), self.replay_indices)
+
+            else:
+                # Take only the features from the replay batch (for each view minibatch in z_list,
+                #  take only the first replay_mb_size elements)
+                z_list_replay = [z[:self.replay_mb_size] for z in z_list]
+                # Update replayed samples with avg of last extracted features
+                avg_replayed_z = sum(z_list_replay)/len(z_list_replay)
+
+                self.buffer.update_features(avg_replayed_z.detach(), self.replay_indices)
+
+    def after_mb_passes(self):
+        # Update buffer with new samples
+        if self.use_scale_buffer:
+            e_list_stream = [e[-len(self.stream_mbatch):] for e in self.e_list]
+            avg_stream_e = sum(e_list_stream)/len(e_list_stream)
+            all_embeddings, select_indexes = self.buffer.update_wo_labels(self.stream_mbatch.detach().cpu(), avg_stream_e.detach(), self.encoder)
+        else:
+            # Get features only of the streaming mbatch and their avg across views
+            z_list_stream = [z[-len(self.stream_mbatch):] for z in self.z_list]
+            z_stream_avg = sum(z_list_stream)/len(z_list_stream)
+
+            # Update buffer with new stream samples and avg features
+            self.buffer.add(self.stream_mbatch.detach(), z_stream_avg.detach())
+
     def get_encoder(self):
-        return self.encoder
+       return self.encoder
     
     def get_encoder_for_eval(self):
-        return self.encoder 
+        return self.encoder
+    
+    def get_projector(self):
+        return self.projector
+        
+    def get_embedding_dim(self):
+        return self.projector[0].weight.shape[1]
+    
+    def get_projector_dim(self):
+        return self.features_dim
+    
+    def get_criterion(self):
+        return None, False
+    
+    def get_name(self):
+        return self.model_name
+    
+    def get_params(self):
+        return list(self.parameters())
 
 
 
@@ -362,8 +348,8 @@ class SupConLoss(nn.Module):
         stream_mask = torch.zeros_like(loss).float().to(self.device)
         stream_mask[:, :self.stream_bsz] = 1
         loss = (stream_mask * loss).sum() / stream_mask.sum()
-        return loss
-    
+        return loss, z_stu, z_tch
+
 
 class IRDLoss(nn.Module):
     """Instance-wise Relation Distillation (IRD) Loss for Contrastive Continual Learning

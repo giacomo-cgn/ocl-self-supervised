@@ -29,6 +29,8 @@ def get_buffer(buffer_type: str,
                gamma_cosine_deviation_out=0.5, # only for metrics aware buffer
                fifo_buffer_size: int = 200, # only for hybrid fifo loss-aware buffer
                loss_aware_batch_size: int = 128, # only for hybrid fifo loss-aware buffer
+               scale_use_ema_embeddings: bool = False, # only for scale buffer
+               scale_ema_embeddings_decay: float = 0.5, # only for scale buffer
                ):
     
     if buffer_type == 'reservoir':
@@ -42,7 +44,7 @@ def get_buffer(buffer_type: str,
     elif buffer_type == 'augmented_representations':
         return AugmentedRepresentationsBuffer(mem_size, device=device)
     elif buffer_type == 'scale':
-        return Memory(mem_size=mem_size, device=device)
+        return Memory(mem_size=mem_size, device=device, use_ema_embeddings=scale_use_ema_embeddings, ema_embeddings_decay=scale_ema_embeddings_decay)
     elif buffer_type == 'aug_rep':
         return AugmentedRepresentationsBuffer(mem_size, device=device)
     elif buffer_type == 'hybrid_minred_fifo':
