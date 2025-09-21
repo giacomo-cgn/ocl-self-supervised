@@ -154,9 +154,14 @@ class ReplayPriorityOverlap(AbstractStrategy):
                 # Get the indices of top loss samples in the buffer, excluding self.replay_indices
                 if self.replay_indices is not None:
                     # Exclude replay indices, do not want duplicate them in the overlap loss
-                    mask = torch.ones_like(self.buffer.buffer_loss, dtype=torch.bool)
+                    if isinstance(self.buffer.buffer_loss, list):
+                        # If self.buffer.buffer_loss is a list, convert to tensor
+                        buffer_loss_tensor = torch.stack(self.buffer.buffer_loss)
+                    else:
+                        buffer_loss_tensor = self.buffer.buffer_loss
+                    mask = torch.ones_like(buffer_loss_tensor, dtype=torch.bool)
                     mask[self.replay_indices] = False
-                    masked_buffer = self.buffer.buffer_loss[mask]
+                    masked_buffer = buffer_loss_tensor[mask]
                     buffer_indices = torch.topk(masked_buffer, min(self.overlap_num_buffer_samples, masked_buffer.size(0)), largest=True).indices
                     buffer_indices = torch.nonzero(mask, as_tuple=False)[buffer_indices].squeeze()
                 else:

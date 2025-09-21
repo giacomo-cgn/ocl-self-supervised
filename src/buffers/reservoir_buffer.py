@@ -11,6 +11,7 @@ class ReservoirBuffer:
         self.buffer_size = buffer_size # Maximum size of the buffer
         self.buffer = torch.empty(0,1).to(device) # Buffer for input samples only (e.g. images)
         self.buffer_features = torch.empty(0,1).to(device) # Buffer for corresponding sample features
+        self.buffer_loss = torch.empty(0,1).to(device) # Buffer for corresponding sample losses
         self.alpha_ema = alpha_ema # 1.0 = do not update stored features, 0.0 = substitute with new features
         self.device = device
 
@@ -32,6 +33,8 @@ class ReservoirBuffer:
         self.lifetimes += 1
 
         batch_x, batch_features = batch_x.to(self.device), batch_features.to(self.device)
+        if batch_loss is not None:
+            batch_loss = batch_loss.to(self.device)
 
         # Initialize empty buffers
         if self.buffer.size(0) == 0:
@@ -44,6 +47,12 @@ class ReservoirBuffer:
             buffer_shape = list(batch_features.size())
             buffer_shape[0] = 0
             self.buffer_features = torch.empty(buffer_shape, dtype=batch_features.dtype).to(self.device)
+
+            if batch_loss is not None:
+                # Extend buffer_loss to have same dim of batch_loss
+                buffer_shape = list(batch_loss.size())
+                buffer_shape[0] = 0
+                self.buffer_loss = torch.empty(buffer_shape, dtype=batch_loss.dtype).to(self.device)
 
             # Initialize empty lists for e_stats and z_stats
             if e_stats is not None:
@@ -61,6 +70,8 @@ class ReservoirBuffer:
                 # If there is enough space in the buffer, add all the samples
                 self.buffer = torch.cat((self.buffer, batch_x), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features), dim=0)
+                if batch_loss is not None:
+                    self.buffer_loss = torch.cat((self.buffer_loss, batch_loss), dim=0)
                 self.lifetimes = torch.cat((self.lifetimes, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 if e_stats is not None:
@@ -75,6 +86,8 @@ class ReservoirBuffer:
                 remaining_space = self.buffer_size - self.seen_samples
                 self.buffer = torch.cat((self.buffer, batch_x[:remaining_space]), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features[:remaining_space]), dim=0)
+                if batch_loss is not None:
+                    self.buffer_loss = torch.cat((self.buffer_loss, batch_loss[:remaining_space]), dim=0)
                 self.lifetimes = torch.cat((self.lifetimes, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
                 self.extractions = torch.cat((self.extractions, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
                 if e_stats is not None:
@@ -92,6 +105,8 @@ class ReservoirBuffer:
                 if replace_index < self.buffer_size:
                     self.buffer[replace_index] = batch_x[i]
                     self.buffer_features[replace_index] = batch_features[i]
+                    if batch_loss is not None:
+                        self.buffer_loss[replace_index] = batch_loss[i]
                     if e_stats is not None:
                         for key in e_stats.keys():
                             self.buffer_e_stats[key][replace_index] = e_stats[key][i]
@@ -127,15 +142,22 @@ class ReservoirBuffer:
         assert batch_features.size(0) == len(indices)
 
         batch_features = batch_features.to(self.device)
+        if batch_loss is not None:
+            batch_loss = batch_loss.to(self.device)
 
         for i, idx in enumerate(indices):
             if self.buffer_features[idx] is not None:
                 # There are already features stored for that sample
                 # EMA update of features
                 self.buffer_features[idx] = self.alpha_ema * self.buffer_features[idx] + (1 - self.alpha_ema) * batch_features[i]
+                # EMA update of loss
+                if batch_loss is not None and self.buffer_loss[idx] is not None:
+                    self.buffer_loss[idx] = self.alpha_ema * self.buffer_loss[idx] + (1 - self.alpha_ema) * batch_loss[i]
             else:
                 # No features stored yet, store newly passed features
                 self.buffer_features[idx] = batch_features[i]
+                if batch_loss is not None:
+                    self.buffer_loss[idx] = batch_loss[i]
 
             if e_stats is not None:
                 for key in e_stats.keys():
