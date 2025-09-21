@@ -221,6 +221,8 @@ class SCALE(AbstractStrategy, AbstractSSLModel):
                 avg_replayed_z = sum(z_list_replay)/len(z_list_replay)
 
                 self.buffer.update_features(avg_replayed_z.detach(), self.replay_indices)
+                
+        return loss_batch
 
     def after_mb_passes(self):
         # Update buffer with new samples
