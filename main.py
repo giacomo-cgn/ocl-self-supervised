@@ -186,6 +186,7 @@ def exec_experiment(**kwargs):
                             gamma_cosine_deviation_out=kwargs["gamma_cosine_deviation_out"],
                             fifo_buffer_size=kwargs["fifo_buffer_size"], loss_aware_batch_size=kwargs["loss_aware_batch_size"],
                             scale_use_ema_embeddings=kwargs["scale_use_ema_embeddings"], scale_ema_embeddings_decay=kwargs["scale_ema_embeddings_decay"],
+                            scale_use_torch_psa=kwargs["scale_use_torch_psa"],
                             device=device)
 
         # Save buffer configs

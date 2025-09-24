@@ -289,6 +289,7 @@ def read_command_line_args():
     parser.add_argument('--scale-distill-power', type=float, default=0.15)
     parser.add_argument('--scale-use-ema-embeddings', type=str_to_bool, default=False)
     parser.add_argument('--scale-ema-embeddings-decay', type=float, default=0.5)
+    parser.add_argument('--scale-use-torch-psa', type=str_to_bool, default=False)
 
     # LUMP params
     parser.add_argument('--alpha-lump', type=float, default=0.4)

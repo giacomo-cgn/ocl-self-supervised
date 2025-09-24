@@ -3,7 +3,7 @@ from sklearn.metrics import pairwise_distances
 
 import torch
 
-
+from time import time
 import diversipy
 
 
@@ -32,7 +32,8 @@ class Memory(object):
                  mem_max_new_ratio=0.1,
                  device = "cpu",
                  use_ema_embeddings = False,
-                 ema_embeddings_decay = 0.5
+                 ema_embeddings_decay = 0.5,
+                 use_torch_psa = True
                  ):
         """
         Initialize memory.
@@ -50,6 +51,7 @@ class Memory(object):
             device (str): Device to perform computations on.
             use_ema_embeddings (bool): Whether to use EMA embeddings or recompute embeddings for similarity-based selection.
             ema_embeddings_decay (float): Decay rate for EMA embeddings if used.
+            use_torch_psa (bool): Whether to use GPU-accelerated PSA clustering.
     """
 
         self.max_classes = mem_max_classes
@@ -60,6 +62,7 @@ class Memory(object):
         self.device = device
         self.use_ema_embeddings = use_ema_embeddings
         self.ema_embeddings_decay = ema_embeddings_decay
+        self.use_torch_psa = use_torch_psa
 
         self.images = []  # A list of numpy arrays
         self.embeddings = []  # A list of numpy arrays
@@ -237,8 +240,20 @@ class Memory(object):
         select_indices = np.arange(all_embeddings.shape[0])
 
         if all_embeddings.shape[0] > self.max_size:  # needs subset selection
-            selected_embeddings = diversipy.subset.psa_select(all_embeddings, self.max_size) # psa_select() returns already selected embeddings, not indices
-            select_indices = np.where(np.all(all_embeddings[:, None, :] == selected_embeddings[None, :, :], axis=-1).any(axis=1))[0] # convert embeddings to indices
+            if self.use_torch_psa:
+                selected_embeddings = gpu_psa_select(
+                    points=all_embeddings,
+                    num_selected_points=self.max_size,
+                    available_points_indices=None,
+                    selection_target="centroid_of_hypercube",
+                    tournament_size=0,
+                    device=self.device
+                )  # gpu_psa_select() returns already selected embeddings, not indices
+            else:
+                # Use diversipy package
+                selected_embeddings = diversipy.subset.psa_select(all_embeddings, self.max_size)  # psa_select() returns already selected embeddings, not indices
+
+            select_indices = np.where(np.all(all_embeddings[:, None, :] == selected_embeddings[None, :, :], axis=-1).any(axis=1))[0]  # convert embeddings to indices
             select_indices.sort()
 
         self.images = [all_images[select_indices]]
@@ -342,3 +357,167 @@ def tsne_simil(x, metric='euclidean', sigma=1.0):
     p = p + p.T
     p /= 2 * x.shape[0]
     return p
+
+
+######################################################################################################################################
+
+# GPU implementation of PSA clustering is in diversipy package
+import torch
+import numpy as np
+from typing import Optional, List, Union, Dict, Any
+import heapq
+from dataclasses import dataclass
+import matplotlib.pyplot as plt
+
+# Try to import diversipy for comparison
+try:
+    from diversipy.subset import psa_select as diversipy_psa_select
+    from diversipy.subset import psa_partition as diversipy_psa_partition
+    DIVERSIPY_AVAILABLE = True
+except ImportError:
+    DIVERSIPY_AVAILABLE = False
+    print("Warning: diversipy not available. Install with 'pip install diversipy' for comparison.")
+
+
+@dataclass
+class GPUMinBoundingBox:
+    """GPU-accelerated minimum bounding box for PSA clustering."""
+    
+    def __init__(self, points: torch.Tensor, member_indices: torch.Tensor, device: str = 'cuda'):
+        self.device = device
+        self.member_indices = member_indices
+        self.member_points = points[member_indices]
+        
+        # Calculate bounds
+        self.min_bounds = torch.min(self.member_points, dim=0)[0]
+        self.max_bounds = torch.max(self.member_points, dim=0)[0]
+        
+        # Calculate range and find dimension with maximum range
+        self.ranges = self.max_bounds - self.min_bounds
+        self.dim_index = torch.argmax(self.ranges).item()
+        self.max_range = self.ranges[self.dim_index].item()
+        
+        # Center of hypercube
+        self.center = (self.min_bounds + self.max_bounds) / 2.0
+        
+    def __lt__(self, other):
+        """For heap ordering - larger range = higher priority"""
+        return self.max_range > other.max_range
+        
+    def obtain_representative(self, selection_target: str = "centroid_of_hypercube", 
+                            tournament_size: int = 0) -> int:
+        """Select representative point from cluster."""
+        if len(self.member_indices) == 1:
+            return self.member_indices[0].item()
+            
+        if selection_target == "random_uniform":
+            idx = torch.randint(0, len(self.member_indices), (1,), device=self.device)
+            return self.member_indices[idx].item()
+        elif selection_target == "centroid_of_hypercube":
+            # Find point closest to center of hypercube
+            distances = torch.sum((self.member_points - self.center) ** 2, dim=1)
+            best_idx = torch.argmin(distances)
+            return self.member_indices[best_idx].item()
+        elif selection_target == "center_of_mass":
+            # Find point closest to center of mass
+            center_of_mass = torch.mean(self.member_points, dim=0)
+            distances = torch.sum((self.member_points - center_of_mass) ** 2, dim=1)
+            best_idx = torch.argmin(distances)
+            return self.member_indices[best_idx].item()
+        elif selection_target == "max_dist_from_boundary":
+            # Find point with maximum minimum distance to boundary
+            min_dists_to_boundary = torch.minimum(
+                self.member_points - self.min_bounds,
+                self.max_bounds - self.member_points
+            )
+            min_dists = torch.min(min_dists_to_boundary, dim=1)[0]
+            best_idx = torch.argmax(min_dists)
+            return self.member_indices[best_idx].item()
+        else:
+            raise ValueError(f"Unknown selection target: {selection_target}")
+
+
+def gpu_psa_partition(points: torch.Tensor, num_clusters: int, 
+                     available_points_indices: Optional[torch.Tensor] = None,
+                     device: str = 'cuda') -> List[GPUMinBoundingBox]:
+    """GPU-accelerated PSA partitioning."""
+    if available_points_indices is None:
+        available_points_indices = torch.arange(len(points), device=device)
+    
+    assert num_clusters <= len(available_points_indices)
+    assert num_clusters > 0
+    
+    clusters = []
+    most_dissimilar_cluster = GPUMinBoundingBox(points, available_points_indices, device)
+    
+    while len(clusters) + 1 < num_clusters:
+        split_index = most_dissimilar_cluster.dim_index
+        lower_bound = most_dissimilar_cluster.min_bounds[split_index]
+        upper_bound = most_dissimilar_cluster.max_bounds[split_index]
+        split_position = (lower_bound + upper_bound) / 2.0
+        
+        # Vectorized splitting
+        member_points_split_dim = points[most_dissimilar_cluster.member_indices, split_index]
+        mask = member_points_split_dim < split_position
+        
+        indices1 = most_dissimilar_cluster.member_indices[mask]
+        indices2 = most_dissimilar_cluster.member_indices[~mask]
+        
+        # Handle edge case where all points go to one side
+        if len(indices1) == 0:
+            # Move one point from indices2 to indices1
+            indices1 = indices2[:1]
+            indices2 = indices2[1:]
+        elif len(indices2) == 0:
+            # Move one point from indices1 to indices2
+            indices2 = indices1[:1]
+            indices1 = indices1[1:]
+        
+        cluster1 = GPUMinBoundingBox(points, indices1, device)
+        cluster2 = GPUMinBoundingBox(points, indices2, device)
+        
+        heapq.heappush(clusters, cluster1)
+        most_dissimilar_cluster = heapq.heappushpop(clusters, cluster2)
+    
+    heapq.heappush(clusters, most_dissimilar_cluster)
+    return clusters
+
+
+def gpu_psa_select(points: Union[torch.Tensor, np.ndarray], 
+                   num_selected_points: int,
+                   available_points_indices: Optional[Union[torch.Tensor, np.ndarray]] = None,
+                   selection_target: str = "centroid_of_hypercube",
+                   tournament_size: int = 0,
+                   device: str = 'cuda') -> Union[torch.Tensor, np.ndarray]:
+    """GPU-accelerated PSA selection."""
+    # Convert to torch tensor if needed
+    original_was_numpy = isinstance(points, np.ndarray)
+    if original_was_numpy:
+        points_tensor = torch.from_numpy(points).float().to(device)
+    else:
+        points_tensor = points.to(device)
+    
+    if available_points_indices is not None:
+        if isinstance(available_points_indices, np.ndarray):
+            available_points_indices = torch.from_numpy(available_points_indices).long().to(device)
+        else:
+            available_points_indices = available_points_indices.to(device)
+    
+    # Perform partitioning
+    clusters = gpu_psa_partition(points_tensor, num_selected_points, available_points_indices, device)
+    
+    # Select representatives
+    representative_indices = []
+    for cluster in clusters:
+        representative_idx = cluster.obtain_representative(selection_target, tournament_size)
+        representative_indices.append(representative_idx)
+    
+    # Get representative points
+    representative_indices_tensor = torch.tensor(representative_indices, device=device)
+    representatives = points_tensor[representative_indices_tensor]
+    
+    # Convert back to numpy if input was numpy
+    if original_was_numpy:
+        return representatives.cpu().numpy()
+    else:
+        return representatives
