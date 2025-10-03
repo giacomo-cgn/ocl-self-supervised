@@ -565,13 +565,9 @@ def exec_experiment(**kwargs):
             torch.save(encoder.state_dict(),
                     os.path.join(chkpt_pth, f'final_model_state.pth'))
         else:
-            if kwargs['strategy'] in standalone_strategies:
-                torch.save(trained_ssl_model.get_encoder_for_eval().state_dict(),
-                        os.path.join(chkpt_pth, f'final_model_state.pth'))
-            else:
-                # Default case:
-                torch.save(trained_ssl_model.state_dict(),
-                        os.path.join(chkpt_pth, f'final_model_state.pth'))
+            # Default case:
+            torch.save(trained_ssl_model.state_dict(),
+                    os.path.join(chkpt_pth, f'final_model_state.pth'))
 
 
     return save_pth
