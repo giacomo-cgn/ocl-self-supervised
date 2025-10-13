@@ -57,6 +57,11 @@ class SimCLR(nn.Module, AbstractSSLModel):
         # [2*B]
         pos_sim = torch.cat([pos_sim, pos_sim], dim=0)
         loss = (- torch.log(pos_sim / sim_matrix.sum(dim=-1)))
+        
+        # Average loss across the 2 views to get [B] instead of [2*B]
+        loss_view1 = loss[:batch_size]  # Loss for samples from first view
+        loss_view2 = loss[batch_size:]  # Loss for samples from second view
+        loss = (loss_view1 + loss_view2) / 2
         return loss
 
     def forward(self, x_views_list):
