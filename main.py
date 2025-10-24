@@ -473,7 +473,7 @@ def exec_experiment(**kwargs):
         probes.append(ProbingPytorch(device=device, mb_size=kwargs["eval_mb_size"], config_save_pth=save_pth,
                                  dim_encoder_features=dim_encoder_features, lr=kwargs["probe_lr"],
                                  lr_patience=kwargs["probe_lr_patience"], lr_factor=kwargs["probe_lr_factor"],
-                                 lr_min=kwargs["probe_lr_min"], probing_epochs=kwargs["probe_epochs"]))
+                                 lr_min=kwargs["probe_lr_min"], probing_epochs=kwargs["probe_epochs"], extra_metrics=kwargs["probing_extra_metrics"]))
        
 
     if kwargs["downstream"]:

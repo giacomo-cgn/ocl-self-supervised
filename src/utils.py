@@ -237,6 +237,7 @@ def read_command_line_args():
     parser.add_argument('--probe-lr-factor', type=float, default=3.0)
     parser.add_argument('--probe-lr-min', type=float, default=1e-4)
     parser.add_argument('--probe-epochs', type=int, default=100)
+    parser.add_argument('--probing-extra-metrics', type=str_to_bool, default=False)
     
 
     # Replay params

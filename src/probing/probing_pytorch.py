@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader, random_split
 from torch.utils.data.dataset import Dataset
 import torch.nn.functional as F
 
+from sklearn.metrics import classification_report
+
 from .abstract_probe import AbstractProbe
 from ..utils import SupervisedDataset
 class ProbingPytorch(AbstractProbe):
@@ -20,7 +22,8 @@ class ProbingPytorch(AbstractProbe):
                  lr_patience: int = 5,
                  lr_factor: int = 3,
                  lr_min: float = 1e-4,
-                 probing_epochs: int = 100
+                 probing_epochs: int = 100,
+                 extra_metrics: bool = False
     ):
         
         self.device = device
@@ -34,6 +37,7 @@ class ProbingPytorch(AbstractProbe):
         self.lr_factor = lr_factor
         self.lr_min = lr_min
         self.probing_epochs = probing_epochs
+        self.extra_metrics = extra_metrics
 
         self.criterion = nn.CrossEntropyLoss()
 
@@ -50,6 +54,7 @@ class ProbingPytorch(AbstractProbe):
                 f.write(f'Probing lr factor: {self.lr_factor}\n')
                 f.write(f'Probing lr min: {self.lr_min}\n')
                 f.write(f'Probing epochs: {self.probing_epochs}\n')
+                f.write(f'Extra metrics: {self.extra_metrics}\n')
 
     def get_name(self) -> str:
         return self.probe_type
@@ -242,6 +247,10 @@ class ProbingPytorch(AbstractProbe):
             test_loss = 0.0
             acc_correct = 0
             acc_all = 0
+
+            all_test_preds = []
+            all_test_labels = []
+
             singelite = False if len(test_activations) > self.mb_size else True
             index = 0
             while index + self.mb_size < len(test_activations) or singelite:
@@ -259,13 +268,17 @@ class ProbingPytorch(AbstractProbe):
                 acc_all += n_all
                 index += test_loader.batch_size
                 singelite = False
-        
+
+                # Store predictions and labels
+                if self.extra_metrics:
+                    all_test_preds.append(mlp_preds.argmax(1).cpu())
+                    all_test_labels.append(y.cpu())
+
             # mean test loss
             test_loss = val_loss / acc_all
             test_acc = acc_correct / acc_all
 
-            print(f'Test loss: {test_loss}, test acc: {test_acc}')
-
+        
         if self.save_file is not None:
             with open(self.save_file, 'a') as f:
                 if val_dataset is None:
@@ -278,6 +291,22 @@ class ProbingPytorch(AbstractProbe):
                         f.write(f'{self.exp_idx},{best_val_acc:.4f},{test_acc:.4f}\n')
                     else:
                         f.write(f'{best_val_acc:.4f},{test_acc:.4f}\n')
+
+        if self.extra_metrics:
+            all_test_preds = torch.cat(all_test_preds, dim=0)
+            all_test_labels = torch.cat(all_test_labels, dim=0)
+
+            print(f'dim of all_test_labels: {len(all_test_labels)}, dim of all_test_preds: {len(all_test_preds)}')
+
+            # In the same folder as save_file, save classification report
+            report = classification_report(all_test_labels.cpu().numpy(), all_test_preds.cpu().numpy(), digits=4)
+
+            report_file = self.save_file.replace('.csv','_clf_report.txt')
+            with open(report_file, 'a') as f:
+                f.write(report)
+           
+            
+
 
 
 
