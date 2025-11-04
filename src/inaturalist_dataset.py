@@ -2,6 +2,8 @@ import torchvision
 from torch.utils.data import Subset
 import pandas as pd
 
+from .utils import SubsetWithTargets
+
 TRAIN_VERSION = '2021_train_mini'
 VALID_VERSION = '2021_valid'
 
@@ -29,18 +31,11 @@ def INaturalist(root, download=False, train_transform=None, eval_transform=None,
     for task in task_labels:
         # Indices of samples for this task
         task_indices = train_labels_csv[included_samples_idxs & (train_labels_csv['task_label'] == task)].index.tolist()
-        # Labels of samples for this task
-        task_labels = train_labels_csv.loc[task_indices, 'target_label'].tolist()
-        # Create subset dataset for this task
-        tr_datasets[task] = Subset(dataset_tr, task_indices)
-        # Substitute labels in the subset to be the 'target_label' from the csv
-        if hasattr(tr_datasets[task], 'targets'):
-            tr_datasets[task].targets = task_labels
-        elif hasattr(tr_datasets[task], 'labels'):
-            tr_datasets[task].labels = task_labels
-        else:  
-            raise AttributeError("Subset train dataset has no attribute 'targets' or 'labels', here are all attributes: ", dir(tr_datasets[task]))
-
+        # Target labels of samples for this task
+        task_targets = train_labels_csv.loc[task_indices, 'target_label'].tolist()
+        # Create subset dataset for this task with modified targets
+        tr_datasets[task] = SubsetWithTargets(dataset_tr, task_indices, task_targets)
+        
     # List of task datasets, ordered by task label
     tr_stream = [tr_datasets[task] for task in sorted(task_labels)]
     #  Print how many samples in each task
@@ -61,17 +56,10 @@ def INaturalist(root, download=False, train_transform=None, eval_transform=None,
     for task in task_labels:
         # Indices of samples for this task
         task_indices = test_labels_csv[included_samples_idxs & (test_labels_csv['task_label'] == task)].index.tolist()
-        # Labels of samples for this task
-        task_labels = test_labels_csv.loc[task_indices, 'target_label'].tolist()
-        # Create subset dataset for this task
-        test_datasets[task] = Subset(dataset_test, task_indices)
-        # Substitute labels in the subset to be the 'target_label' from the csv
-        if hasattr(test_datasets[task], 'targets'):
-            test_datasets[task].targets = task_labels
-        elif hasattr(test_datasets[task], 'labels'):
-            test_datasets[task].labels = task_labels
-        else:  
-            raise AttributeError("Subset test dataset has no attribute 'targets' or 'labels', here are all attributes: ", dir(test_datasets[task]))
+        # Target labels of samples for this task
+        task_targets = test_labels_csv.loc[task_indices, 'target_label'].tolist()
+        # Create subset dataset for this task with modified targets
+        test_datasets[task] = SubsetWithTargets(dataset_test, task_indices, task_targets)
         
     # List of task datasets, ordered by task label
     test_stream = [test_datasets[task] for task in sorted(task_labels)]

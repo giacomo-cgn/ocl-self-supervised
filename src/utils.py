@@ -4,7 +4,7 @@ import pandas as pd
 import argparse
 
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 from torchvision import transforms
 
 
@@ -53,6 +53,34 @@ class SupervisedDataset(Dataset):
             input_tensor, label = self.data[idx]
             
         return self.augs(input_tensor), label
+    
+class SubsetWithTargets(Subset):
+    """
+    A wrapper around torch.utils.data.Subset that optionally overrides the targets returned
+    by the underlying dataset for the selected subset of indices.
+
+    Parameters
+    ----------
+    
+    dataset : torch.utils.data.Dataset
+        The original dataset to wrap.
+    indices : Sequence[int]
+        Sequence of indices from the original dataset that define the subset.
+    targets : Sequence, optional
+        If provided, a sequence of target values with the same length as `indices`. When
+        present, __getitem__ will return the corresponding value from `targets` instead of
+        the target provided by the underlying dataset. If None, the original dataset's
+        target is returned.
+    """
+    def __init__(self, dataset, indices, targets=None):
+        super().__init__(dataset, indices)
+        self.targets = targets
+    
+    def __getitem__(self, idx):
+        image, _ = self.dataset[self.indices[idx]]
+        if self.targets is not None:
+            return image, self.targets[idx]
+        return image, _
 
 
 @torch.no_grad() 
