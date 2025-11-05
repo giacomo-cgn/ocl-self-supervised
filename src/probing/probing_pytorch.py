@@ -1,5 +1,6 @@
 import os
 import copy
+import json
 
 import torch
 import torch.nn as nn
@@ -298,14 +299,18 @@ class ProbingPytorch(AbstractProbe):
 
             print(f'dim of all_test_labels: {len(all_test_labels)}, dim of all_test_preds: {len(all_test_preds)}')
 
-            # In the same folder as save_file, save classification report
+            # In the same folder as save_file, save classification report txt
             report = classification_report(all_test_labels.cpu().numpy(), all_test_preds.cpu().numpy(), digits=4)
 
             report_file = self.save_file.replace('.csv','_clf_report.txt')
             with open(report_file, 'a') as f:
                 f.write(report)
-           
-            
+
+            # Save the classification report as a dict too
+            report_dict = classification_report(all_test_labels.cpu().numpy(), all_test_preds.cpu().numpy(), output_dict=True)
+            report_file_dict = self.save_file.replace('.csv','_clf_report.json')
+            with open(report_file_dict, 'a') as f:
+                json.dump(report_dict, f)
 
 
 
