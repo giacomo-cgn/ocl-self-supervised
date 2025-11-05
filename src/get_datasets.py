@@ -132,14 +132,20 @@ def get_benchmark(dataset_name, dataset_root, num_exps=20, seed=42, val_ratio=0.
             tr_stream.append(tr_exp_dataset)
             valid_stream.append(val_exp_dataset)
         else:
-            tr_stream.append(experience.dataset)
+            if dataset_name == 'inaturalist':
+                tr_stream.append(experience)
+            else:
+                tr_stream.append(experience.dataset)
     
     if num_exps != len(tr_stream):
         print(f'WARNING: Selected number of experiences {num_exps} is different from default CLEAR100 experiences, resetting to {len(tr_stream)} experiences.')
 
     test_stream = []
     for experience in benchmark.test_stream:
-        test_stream.append(experience.dataset)
+        if dataset_name == 'inaturalist':
+            test_stream.append(experience)
+        else:
+            test_stream.append(experience.dataset)
     
     if val_ratio > 0:
         benchmark = Benchmark(train_stream=tr_stream, test_stream=test_stream, valid_stream=valid_stream, dataset_name=dataset_name)
