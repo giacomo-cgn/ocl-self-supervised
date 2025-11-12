@@ -9,6 +9,7 @@ from .loss_aware_buffer import LossAwareBuffer
 from .hybrid_fifo_loss_buffer import HybridFIFOLossBuffer
 from .metrics_aware_buffer import MetricsAwareBuffer
 from .lars_buffer import LARSBuffer
+from .per_buffer import PERBuffer
 
 def get_buffer(buffer_type: str,
                mem_size: int = 2000,
@@ -32,7 +33,11 @@ def get_buffer(buffer_type: str,
                loss_aware_batch_size: int = 128, # only for hybrid fifo loss-aware buffer
                scale_use_ema_embeddings: bool = False, # only for scale buffer
                scale_ema_embeddings_decay: float = 0.5, # only for scale buffer
-               scale_use_torch_psa: bool = False # only for scale buffer
+               scale_use_torch_psa: bool = False, # only for scale buffer
+               alpha_per: float = 0.6, # only for PER buffer
+               epsilon_per: float = 1e-6, # only for PER buffer
+               rank_based_per: bool = False # only for PER buffer
+
                ):
     
     if buffer_type == 'reservoir':
@@ -73,6 +78,9 @@ def get_buffer(buffer_type: str,
                                extraction_policy=extraction_policy, device=device, gamma_extraction=gamma_extraction)
     elif buffer_type == 'lars':
         return LARSBuffer(mem_size, alpha_ema=alpha_ema, device=device)
+    elif buffer_type == 'per':
+        return PERBuffer(mem_size, alpha_ema=alpha_ema, alpha_ema_loss=alpha_ema_loss,
+                         alpha_per=alpha_per, epsilon_per=epsilon_per, rank_based_per=rank_based_per)
     
     else:
         raise Exception(f'Buffer type {buffer_type} is not supported')
