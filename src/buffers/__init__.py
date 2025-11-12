@@ -8,6 +8,7 @@ from .hybrid_minred_fifo_buffer import HybridMinRedFIFOBuffer
 from .loss_aware_buffer import LossAwareBuffer
 from .hybrid_fifo_loss_buffer import HybridFIFOLossBuffer
 from .metrics_aware_buffer import MetricsAwareBuffer
+from .lars_buffer import LARSBuffer
 
 def get_buffer(buffer_type: str,
                mem_size: int = 2000,
@@ -70,6 +71,8 @@ def get_buffer(buffer_type: str,
         return HybridFIFOLossBuffer(fifo_buffer_size=fifo_buffer_size, total_buffer_size=mem_size, loss_aware_batch_size=loss_aware_batch_size,
                                      alpha_ema=alpha_ema, alpha_ema_loss=alpha_ema_loss, insertion_policy=insertion_policy, 
                                extraction_policy=extraction_policy, device=device, gamma_extraction=gamma_extraction)
+    elif buffer_type == 'lars':
+        return LARSBuffer(mem_size, alpha_ema=alpha_ema, device=device)
     
     else:
         raise Exception(f'Buffer type {buffer_type} is not supported')
