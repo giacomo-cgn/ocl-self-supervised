@@ -15,6 +15,8 @@ from .probing import exec_probing
 from .analyze_features import FeatureAnalyzer
 from .analyze_gradients import GradientAnalyzer
 
+from time import time
+
 
 class Trainer():
 
@@ -138,6 +140,8 @@ class Trainer():
             eval_every_steps = int(tot_tr_steps / iid_intermediate_eval_dict["num_exps"])
             eval_idx = 0
 
+        start_time = time()
+
         self.ssl_model.train()
         self.strategy.train()
 
@@ -227,17 +231,13 @@ class Trainer():
                 self.scheduler.step()
 
 
-        if hasattr(self.strategy, 'buffer') and self.strategy.buffer is not None:
-            csv_buffer, buffer_metrics = self.strategy.buffer.end()
-            if self.save_pth is not None:
-                buff_pth = os.path.join(self.save_pth, 'buffer', f'exp{exp_idx}')
-                if not os.path.exists(buff_pth):
-                    os.makedirs(buff_pth)
-                with open(os.path.join(buff_pth, 'buffer.csv'), 'w') as f:
-                    f.write(csv_buffer)
-                with open(os.path.join(buff_pth, 'buffer_metrics.txt'), 'w') as f:
-                    f.write(buffer_metrics)
 
+        
+        endtime = time()
+        print(f'>>> Training time for experience {exp_idx}: {endtime-start_time} seconds')
+        #  Save to file
+        with open(os.path.join(self.save_pth, 'training_time.txt'), 'a') as f:
+            f.write(f'Experience {exp_idx}: {endtime-start_time} seconds\n')
 
         # Save model and optimizer state
         if self.save_model and self.save_pth is not None:

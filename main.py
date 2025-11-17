@@ -520,6 +520,9 @@ def exec_experiment(**kwargs):
         # Self supervised training over the experiences
         training_time_start = time.time()
         for exp_idx, exp_dataset in enumerate(benchmark.train_stream):
+            if exp_idx == 3:
+                return # EARLY STOP FOR TIME ESTIMATION
+
             print(f'==== Beginning self supervised training for experience: {exp_idx} ====')
             trained_ssl_model = trainer.train_experience(exp_dataset, exp_idx)
             training_time_tot += time.time() - training_time_start
