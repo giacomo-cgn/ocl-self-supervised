@@ -8,6 +8,7 @@ from .hybrid_minred_fifo_buffer import HybridMinRedFIFOBuffer
 from .loss_aware_buffer import LossAwareBuffer
 from .hybrid_fifo_loss_buffer import HybridFIFOLossBuffer
 from .metrics_aware_buffer import MetricsAwareBuffer
+from .metrics_aware_buffer_mean import MetricsAwareBufferMean
 from .lars_buffer import LARSBuffer
 from .per_buffer import PERBuffer
 
@@ -71,6 +72,11 @@ def get_buffer(buffer_type: str,
                                gamma_loss_out=gamma_loss_out, gamma_extraction_out=gamma_extraction_out,
                                gamma_overlap_out=gamma_overlap_out, gamma_std_deviation_out=gamma_std_deviation_out,
                                gamma_cosine_deviation_out=gamma_cosine_deviation_out)
+    elif buffer_type == 'metrics_aware_mean':
+        return MetricsAwareBufferMean(mem_size, alpha_ema, alpha_ema_loss=alpha_ema_loss,
+                                      device=device, gamma_extraction=gamma_extraction,
+                                      gamma_loss=gamma_loss,
+                                      gamma_loss_out=gamma_loss_out, gamma_extraction_out=gamma_extraction_out)
     
     elif buffer_type == 'hybrid_fifo_loss':
         return HybridFIFOLossBuffer(fifo_buffer_size=fifo_buffer_size, total_buffer_size=mem_size, loss_aware_batch_size=loss_aware_batch_size,
