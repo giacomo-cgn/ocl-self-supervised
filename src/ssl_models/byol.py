@@ -86,7 +86,7 @@ class BYOL(nn.Module, AbstractSSLModel):
 
         loss = self.criterion(p1, z2_mom.detach()) + self.criterion(p2, z1_mom.detach())
 
-        return loss.mean(), [z1_onl, z2_onl], [e1_onl, e2_onl]
+        return loss, [z1_onl, z2_onl], [e1_onl, e2_onl]
     
     @torch.no_grad()
     def update_momentum(self):
