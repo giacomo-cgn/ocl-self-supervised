@@ -14,3 +14,4 @@ from .replay_buffer_priority import ReplayBufferPriority
 from .replay_priority_overlap import ReplayPriorityOverlap
 from .apre_overlap import APREOverlap
 from .arp_overlap import ARPOverlap
+from .replay_manual_switch_buffer import ReplayManualSwitchBuffer

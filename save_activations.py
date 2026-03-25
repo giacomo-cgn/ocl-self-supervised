@@ -59,84 +59,23 @@ def parse_config(file_path):
     
     return config
 
-
-def save_activations(args, device):
-    # Read config.txt inside saved model to get model infos
-    config = parse_config(args.model_config_pth)
-
-    print(f'config: {config}')
-
-    # Set seed
-    torch.manual_seed(config['seed'])
-    np.random.default_rng(config['seed'])
-
-    # Get dataset
-    benchmark, image_size = get_benchmark(dataset_name=config['dataset'],
-                              dataset_root=args.dataset_root, 
-                              num_exps=config['num_exps'],
-                              seed=config['dataset_seed'],
-                              val_ratio=config['val_ratio'])
-    
-    # Make train dataset iid
-    iid_tr_dataset = SupervisedDataset(get_iid_dataset(benchmark), config['dataset'])
-
-    # Create joint test and val datasets
-    joint_test_dataset = SupervisedDataset(ConcatDataset(benchmark.test_stream), config['dataset'])
-    if config['val_ratio'] > 0:
-        joint_val_dataset = SupervisedDataset(ConcatDataset(benchmark.valid_stream), config['dataset'])
-
-
-
-    # Get encoder with saved weights
-    encoder, dim_encoder_features = get_encoder(config['encoder'],
-                                                image_size=image_size,
-                                                ssl_model_name="-", # not needed because always has to return the feature extractor
-                                                vit_avg_pooling=config['vit_avg_pooling'])
-    encoder = encoder.to(device)
-
-    saved_weights = torch.load(args.model_pth, map_location=device)
-    if config['model'] in ['simsiam', 'barlow_twins', 'emp']:
-        encoder_saved_weights = {k[len('encoder.'):]: v for k, v in saved_weights['model_state_dict'].items() if k.startswith('encoder.')}
-    elif config['model'] == 'byol':
-        encoder_saved_weights = {k[len('online_encoder.'):]: v for k, v in saved_weights.items() if k.startswith('online_encoder.')}
-    else:
-        raise ValueError(f"Model {config['model']} not supported for activation saving.")
-    
-    # compare encoder and encoder_saved_weights keys
-    encoder_keys = set(encoder.state_dict().keys())
-    saved_keys = set(encoder_saved_weights.keys())
-    if encoder_keys != saved_keys:
-        missing_keys = encoder_keys - saved_keys
-        extra_keys = saved_keys - encoder_keys
-
-        if missing_keys:
-            print(f"MISSING KEYS: {missing_keys}")
-            print('\n')
-            print(f"ENCODER KEYS: {encoder_keys}")
-            print('\n')
-            print(f"SAVED WEIGHTS KEYS: {saved_keys}")
-            print('\n')
-            print(f"FULL SAVED WEIGHTS: {saved_weights.keys()}")
-        if extra_keys:
-            print(f"EXTRA KEYS: {extra_keys}")
-        raise ValueError("Mismatch between encoder keys and saved weights keys.")
-    encoder.load_state_dict(encoder_saved_weights)
-
+def extract_activations(encoder, tr_dataset, test_dataset, device, config, dest_pth, val_dataset=None):
     # labels and activations save paths
-    labels_save_pth = os.path.join(args.dest_pth, "labels")
-    activations_save_pth = os.path.join(args.dest_pth, "activations")
+    labels_save_pth = os.path.join(dest_pth, "labels")
+    activations_save_pth = os.path.join(dest_pth, "activations")
     if not os.path.exists(labels_save_pth):
         os.makedirs(labels_save_pth)
     if not os.path.exists(activations_save_pth):
         os.makedirs(activations_save_pth)
 
+
     with torch.no_grad():
         encoder.eval()
 
-        train_loader = DataLoader(dataset=iid_tr_dataset, batch_size=EVAL_MB_SIZE, shuffle=False, num_workers=8)
-        test_loader = DataLoader(dataset=joint_test_dataset, batch_size=EVAL_MB_SIZE, shuffle=False, num_workers=8)
+        train_loader = DataLoader(dataset=tr_dataset, batch_size=EVAL_MB_SIZE, shuffle=False, num_workers=8)
+        test_loader = DataLoader(dataset=test_dataset, batch_size=EVAL_MB_SIZE, shuffle=False, num_workers=8)
         if config['val_ratio'] > 0:
-            val_loader = DataLoader(dataset=joint_val_dataset, batch_size=EVAL_MB_SIZE, shuffle=False, num_workers=8)
+            val_loader = DataLoader(dataset=val_dataset, batch_size=EVAL_MB_SIZE, shuffle=False, num_workers=8)
 
         # Get encoder activations for train dataloader
         train_activations_list = []
@@ -188,6 +127,89 @@ def save_activations(args, device):
             np.save(val_labels_path, val_labels)
             np.save(val_activations_path, val_activations)
 
+
+def save_activations(args, device):
+    # Read config.txt inside saved model to get model infos
+    config = parse_config(args.model_config_pth)
+
+    print(f'config: {config}')
+
+    # Set seed
+    torch.manual_seed(config['seed'])
+    np.random.default_rng(config['seed'])
+
+    # Get dataset
+    benchmark, image_size = get_benchmark(dataset_name=config['dataset'],
+                              dataset_root=args.dataset_root, 
+                              num_exps=config['num_exps'],
+                              seed=config['dataset_seed'],
+                              val_ratio=config['val_ratio'])
+    
+    if not args.use_exps:
+        # Make train dataset iid
+        iid_tr_dataset = SupervisedDataset(get_iid_dataset(benchmark), config['dataset'])
+
+        # Create joint test and val datasets
+        joint_test_dataset = SupervisedDataset(ConcatDataset(benchmark.test_stream), config['dataset'])
+        if config['val_ratio'] > 0:
+            joint_val_dataset = SupervisedDataset(ConcatDataset(benchmark.valid_stream), config['dataset'])
+
+
+
+    # Get encoder with saved weights
+    encoder, dim_encoder_features = get_encoder(config['encoder'],
+                                                image_size=image_size,
+                                                ssl_model_name="-", # not needed because always has to return the feature extractor
+                                                vit_avg_pooling=config['vit_avg_pooling'])
+    encoder = encoder.to(device)
+
+    saved_weights = torch.load(args.model_pth, map_location=device)
+    if config['model'] in ['simsiam', 'barlow_twins', 'emp']:
+        encoder_saved_weights = {k[len('encoder.'):]: v for k, v in saved_weights['model_state_dict'].items() if k.startswith('encoder.')}
+    elif config['model'] == 'byol':
+        encoder_saved_weights = {k[len('online_encoder.'):]: v for k, v in saved_weights.items() if k.startswith('online_encoder.')}
+    else:
+        raise ValueError(f"Model {config['model']} not supported for activation saving.")
+    
+    # compare encoder and encoder_saved_weights keys
+    encoder_keys = set(encoder.state_dict().keys())
+    saved_keys = set(encoder_saved_weights.keys())
+    if encoder_keys != saved_keys:
+        missing_keys = encoder_keys - saved_keys
+        extra_keys = saved_keys - encoder_keys
+
+        if missing_keys:
+            print(f"MISSING KEYS: {missing_keys}")
+            print('\n')
+            print(f"ENCODER KEYS: {encoder_keys}")
+            print('\n')
+            print(f"SAVED WEIGHTS KEYS: {saved_keys}")
+            print('\n')
+            print(f"FULL SAVED WEIGHTS: {saved_weights.keys()}")
+        if extra_keys:
+            print(f"EXTRA KEYS: {extra_keys}")
+        raise ValueError("Mismatch between encoder keys and saved weights keys.")
+    encoder.load_state_dict(encoder_saved_weights)
+
+
+    if not args.use_exps:
+        # Joint datasets
+        extract_activations(encoder, iid_tr_dataset, joint_test_dataset, device, config, args.dest_pth, val_dataset=joint_val_dataset if config['val_ratio'] > 0 else None)
+
+    else:
+        # Experience datasets
+        for exp_id in range(config['num_exps']):
+            print(f"Processing experience {exp_id}...")
+            exp_tr_dataset = SupervisedDataset(benchmark.train_stream[exp_id], config['dataset'])
+            exp_test_dataset = SupervisedDataset(benchmark.test_stream[exp_id], config['dataset'])
+            if config['val_ratio'] > 0:
+                exp_val_dataset = SupervisedDataset(benchmark.valid_stream[exp_id], config['dataset'])
+            else:
+                exp_val_dataset = None
+            
+            exp_dest_pth = os.path.join(args.dest_pth, f"experience_{exp_id}")
+            extract_activations(encoder, exp_tr_dataset, exp_test_dataset, device, config, exp_dest_pth, val_dataset=exp_val_dataset)
+
         
 
 
@@ -199,6 +221,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset-root', type=str, default='/data/cossu/imagenet/imagenet')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
     parser.add_argument('--dest-pth', type=str, default='./activations')
+    parser.add_argument('--use-exps', action='store_true', help='Whether to use experiences or joint datasets for activation saving')
     args = parser.parse_args()
 
     if args.device == 'cpu':

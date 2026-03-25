@@ -272,6 +272,7 @@ def read_command_line_args():
     parser.add_argument('--buffer-type', type=str, default='default')
     parser.add_argument('--mem-size', type=int, default=2000)
     parser.add_argument('--repl-mb-size', type=int, default=32)
+    parser.add_argument('--switch-replay-buffer-exp', type=int, default=10)
 
     # Align params
     parser.add_argument('--omega', type=float, default=0.1) # Used for CaSSLe distillation strength too! CaSSLe default is 1.0

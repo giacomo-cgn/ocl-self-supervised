@@ -12,7 +12,7 @@ from src.backbones import get_encoder
 
 from src.ssl_models import BarlowTwins, SimSiam, BYOL, MoCo, SimCLR, EMP, MAE, SimSiamMultiview, BYOLMultiview, recover_ssl_model
 
-from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, CaSSLeR, ReplayEMP, ARPHybrid, ReplayBufferPriority, ReplayPriorityOverlap, ARPOverlap, APREOverlap
+from src.strategies import NoStrategy, Replay, ARP, AEP, APRE, LUMP, MinRed, CaSSLe, CaSSLeR, ReplayEMP, ARPHybrid, ReplayBufferPriority, ReplayPriorityOverlap, ARPOverlap, APREOverlap, ReplayManualSwitchBuffer
 from src.standalone_strategies import SCALE, DoubleResnet, OsirisR
 
 from src.trainer import Trainer
@@ -81,6 +81,7 @@ def exec_experiment(**kwargs):
         f.write(f'Num Epochs: {kwargs["epochs"]}\n')
         f.write(f'Train MB Size: {kwargs["tr_mb_size"]}\n')
         f.write(f'Replay MB Size: {kwargs["repl_mb_size"]}\n')
+        f.write(f'Replay Buffer Switch Experience: {kwargs["switch_replay_buffer_exp"]}\n')
         f.write(f'IID pretraining: {kwargs["iid"]}\n')
         f.write(f'Save final model: {kwargs["save_model_final"]}\n')
         f.write(f'-- Pretrained weights initialization configs --\n')
@@ -345,6 +346,12 @@ def exec_experiment(**kwargs):
     elif kwargs["strategy"] == 'replay':
         strategy = Replay(ssl_model=ssl_model, device=device, save_pth=save_pth,
                         buffer=buffer, replay_mb_size=kwargs["repl_mb_size"])
+
+    elif kwargs["strategy"] == 'replay_manual_switch_buffer':
+        assert kwargs["buffer_type"] in ["default", "reservoir"], "Buffer type must be 'default' or 'reservoir' for 'replay_manual_switch_buffer'"
+        strategy = ReplayManualSwitchBuffer(ssl_model=ssl_model, device=device, save_pth=save_pth,
+                        buffer=buffer, replay_mb_size=kwargs["repl_mb_size"],
+                        switch_exp_idx=kwargs["switch_replay_buffer_exp"])
         
     elif kwargs["strategy"] == 'arp':
         strategy = ARP(ssl_model=ssl_model, device=device, save_pth=save_pth,

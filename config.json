@@ -9,11 +9,11 @@
         "mb-passes": 1,
         "epochs": 1,
         "tr-mb-size": 10,
-        "repl-mb-size": 128,
+        "repl-mb-size": 10,
         "iid": false,
         "momentum-ema": 0.999,
         "eval-mb-size": 256,
-        "probing-all-exp": true,
+        "probing-all-exp": false,
         "probing-rr": false,
         "probing-torch": true,
         "probing-knn": false,
@@ -28,12 +28,11 @@
     [
         {
             "model": "simsiam",
-            "strategy" : "replay_priority_overlap",
-            "buffer-type": "loss_aware",
+            "strategy" : "replay_manual_switch_buffer",
+            "buffer-type": "reservoir",
+            "switch-replay-buffer-exp": 2,
             "hyperparams_search": {
-                "lr": [0.3],
-                "overlap_omega": [3.0],
-                "overlap_num_buffer_samples": [500]
+                "lr": [0.3]
             }
         }
     ]
