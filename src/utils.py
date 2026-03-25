@@ -90,37 +90,77 @@ def update_ema_params(model_params, ema_model_params, momentum):
 
 
 def calculate_forgetting(save_pth, num_exps, probing_tr_ratio_arr=[1]):
-     # Init forgetting
-    forgetting_val = Forgetting()
-    forgetting_test = Forgetting()
     for probe_tr_ratio in probing_tr_ratio_arr:
+        # Init forgetting metrics for this probing ratio
+        forgetting_val_initial = Forgetting()
+        forgetting_test_initial = Forgetting()
+        forgetting_val_max = Forgetting()
+        forgetting_test_max = Forgetting()
+
         separate_pth = os.path.join(save_pth, f'probing_separate/probing_ratio{probe_tr_ratio}')
         forgetting_folder = os.path.join(save_pth, f'forgetting/probing_ratio{probe_tr_ratio}')
         if not os.path.exists(forgetting_folder):
             os.makedirs(forgetting_folder)
-        with open(os.path.join(forgetting_folder, 'forgetting.csv'), 'a') as f:
-            f.write('exp_idx,val_forgetting,test_forgetting\n')
-        final_df = pd.read_csv(os.path.join(separate_pth, f'probe_exp_{num_exps-1}.csv'))
+
+        probe_dfs = []
+        for probe_exp_idx in range(num_exps):
+            probe_dfs.append(pd.read_csv(os.path.join(separate_pth, f'probe_exp_{probe_exp_idx}.csv')))
+
+        final_df = probe_dfs[-1]
+        forgetting_csv = os.path.join(forgetting_folder, 'forgetting.csv')
+        with open(forgetting_csv, 'w') as f:
+            f.write(
+                'exp_idx,'
+                'val_forgetting_from_initial,test_forgetting_from_initial,'
+                'val_forgetting_from_max,test_forgetting_from_max\n'
+            )
+
         for exp_idx in range(num_exps):
-            initial_df = pd.read_csv(os.path.join(separate_pth, f'probe_exp_{exp_idx}.csv'))
+            initial_df = probe_dfs[exp_idx]
             # Take the row where probing_exp_idx = exp_idx  
             initial_score_val = initial_df[initial_df['probing_exp_idx'] == exp_idx]['val_acc'].values[0]
             initial_score_test = initial_df[initial_df['probing_exp_idx'] == exp_idx]['test_acc'].values[0]
-            forgetting_val.update_initial(k=exp_idx, v=initial_score_val)
-            forgetting_test.update_initial(k=exp_idx, v=initial_score_test)
+
+            past_val_scores = [
+                probe_dfs[p_idx][probe_dfs[p_idx]['probing_exp_idx'] == exp_idx]['val_acc'].values[0]
+                for p_idx in range(exp_idx, num_exps)
+            ]
+            past_test_scores = [
+                probe_dfs[p_idx][probe_dfs[p_idx]['probing_exp_idx'] == exp_idx]['test_acc'].values[0]
+                for p_idx in range(exp_idx, num_exps)
+            ]
+            max_past_score_val = max(past_val_scores)
+            max_past_score_test = max(past_test_scores)
+
+            forgetting_val_initial.update_initial(k=exp_idx, v=initial_score_val)
+            forgetting_test_initial.update_initial(k=exp_idx, v=initial_score_test)
+            forgetting_val_max.update_initial(k=exp_idx, v=max_past_score_val)
+            forgetting_test_max.update_initial(k=exp_idx, v=max_past_score_test)
+
             final_score_val = final_df[final_df['probing_exp_idx'] == exp_idx]['val_acc'].values[0]
             final_score_test = final_df[final_df['probing_exp_idx'] == exp_idx]['test_acc'].values[0]
-            forgetting_val.update_last(k=exp_idx, v=final_score_val)
-            forgetting_test.update_last(k=exp_idx, v=final_score_test)
+            forgetting_val_initial.update_last(k=exp_idx, v=final_score_val)
+            forgetting_test_initial.update_last(k=exp_idx, v=final_score_test)
+            forgetting_val_max.update_last(k=exp_idx, v=final_score_val)
+            forgetting_test_max.update_last(k=exp_idx, v=final_score_test)
 
-            with open(os.path.join(forgetting_folder, 'forgetting.csv'), 'a') as f:
-                f.write(f'{exp_idx},{forgetting_val.result()[exp_idx]},{forgetting_test.result()[exp_idx]}\n')
+            with open(forgetting_csv, 'a') as f:
+                f.write(
+                    f'{exp_idx},'
+                    f'{forgetting_val_initial.result()[exp_idx]},{forgetting_test_initial.result()[exp_idx]},'
+                    f'{forgetting_val_max.result()[exp_idx]},{forgetting_test_max.result()[exp_idx]}\n'
+                )
 
-        with open(os.path.join(forgetting_folder, 'avg_forgetting.csv'), 'a') as f:
-            f.write('val_avg_forgetting,test_avg_forgetting\n')
-            avg_val = sum(forgetting_val.result().values()) / len(forgetting_val.result().values())
-            avg_test = sum(forgetting_test.result().values()) / len(forgetting_test.result().values())
-            f.write(f'{avg_val},{avg_test}\n')
+        with open(os.path.join(forgetting_folder, 'avg_forgetting.csv'), 'w') as f:
+            f.write(
+                'val_avg_forgetting_from_initial,test_avg_forgetting_from_initial,'
+                'val_avg_forgetting_from_max,test_avg_forgetting_from_max\n'
+            )
+            avg_val_initial = sum(forgetting_val_initial.result().values()) / len(forgetting_val_initial.result().values())
+            avg_test_initial = sum(forgetting_test_initial.result().values()) / len(forgetting_test_initial.result().values())
+            avg_val_max = sum(forgetting_val_max.result().values()) / len(forgetting_val_max.result().values())
+            avg_test_max = sum(forgetting_test_max.result().values()) / len(forgetting_test_max.result().values())
+            f.write(f'{avg_val_initial},{avg_test_initial},{avg_val_max},{avg_test_max}\n')
 
 def save_avg_stream_acc(probe, save_pth):
     """
