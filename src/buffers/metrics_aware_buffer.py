@@ -13,7 +13,6 @@ class MetricsAwareBuffer:
                  gamma_loss=0.5, gamma_extraction=0.5, gamma_overlap=0.5, gamma_std_deviation=0.5, gamma_cosine_deviation=0.5,
                  gamma_loss_out=0.5, gamma_extraction_out=0.5, gamma_overlap_out=0.5, gamma_std_deviation_out=0.5, gamma_cosine_deviation_out=0.5
                  ):
-        
         self.buffer_size = buffer_size # Maximum size of the buffer
         self.buffer = torch.empty(0,1).to(device) # Buffer for input samples only (e.g. images)
         self.buffer_features = torch.empty(0,1).to(device) # Buffer for corresponding sample features
@@ -43,6 +42,10 @@ class MetricsAwareBuffer:
         self.extractions = torch.empty(0, dtype=torch.int) # Buffer for the number of times each sample has been extracted
         self.finished_lifetimes = []
         self.finished_extractions = []
+        self.entry_losses = []  # Raw loss at insertion, aligned with buffer slots.
+        self.exit_losses = []  # Latest observed raw loss (not EMA-smoothed).
+        self.finished_entry_losses = []
+        self.finished_exit_losses = []
 
         self.seen_samples = 0 # Samples seen so far
 
@@ -89,6 +92,8 @@ class MetricsAwareBuffer:
                 self.buffer = torch.cat((self.buffer, batch_x), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features), dim=0)
                 self.buffer_loss = torch.cat((self.buffer_loss, batch_loss), dim=0)
+                self.entry_losses.extend(batch_loss.detach().cpu().reshape(-1).tolist())
+                self.exit_losses.extend(batch_loss.detach().cpu().reshape(-1).tolist())
                 self.lifetimes = torch.cat((self.lifetimes, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 self.seen_samples += batch_size
@@ -104,6 +109,8 @@ class MetricsAwareBuffer:
                 self.buffer = torch.cat((self.buffer, batch_x[:remaining_space]), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features[:remaining_space]), dim=0)
                 self.buffer_loss = torch.cat((self.buffer_loss, batch_loss[:remaining_space]), dim=0)
+                self.entry_losses.extend(batch_loss[:remaining_space].detach().cpu().reshape(-1).tolist())
+                self.exit_losses.extend(batch_loss[:remaining_space].detach().cpu().reshape(-1).tolist())
                 self.lifetimes = torch.cat((self.lifetimes, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
                 self.extractions = torch.cat((self.extractions, torch.zeros(remaining_space, dtype=torch.int)), dim=0)
                 self.seen_samples += remaining_space
@@ -124,6 +131,10 @@ class MetricsAwareBuffer:
                         # Replace sample in buffer with the minimum loss
                         replace_index = self.calculate_scores().argmin().item()
 
+                        self.finished_entry_losses.append(self.entry_losses[replace_index])
+                        self.finished_exit_losses.append(self.exit_losses[replace_index])
+                        self.entry_losses[replace_index] = batch_loss[i].item()
+                        self.exit_losses[replace_index] = batch_loss[i].item()
                         self.finished_lifetimes.append(self.lifetimes[replace_index].item())
                         self.lifetimes[replace_index] = 0
                         self.finished_extractions.append(self.extractions[replace_index].item())
@@ -145,6 +156,8 @@ class MetricsAwareBuffer:
                 self.buffer = torch.cat((self.buffer, batch_x), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features), dim=0)
                 self.buffer_loss = torch.cat((self.buffer_loss, batch_loss), dim=0)
+                self.entry_losses.extend(batch_loss.detach().cpu().reshape(-1).tolist())
+                self.exit_losses.extend(batch_loss.detach().cpu().reshape(-1).tolist())
                 if e_stats is not None:
                     for key in e_stats.keys():
                         self.buffer_e_stats[key] += e_stats[key]
@@ -156,10 +169,14 @@ class MetricsAwareBuffer:
                 self.extractions = torch.cat((self.extractions, torch.zeros(batch_size, dtype=torch.int)), dim=0)
                 # Find the batch_size samples with minimum loss and remove them
                 indices_to_remove = self.calculate_scores().argsort()[:batch_size].cpu()
+                self.finished_entry_losses += [self.entry_losses[j] for j in indices_to_remove]
+                self.finished_exit_losses += [self.exit_losses[j] for j in indices_to_remove]
                 self.finished_lifetimes += self.lifetimes[indices_to_remove].tolist()
                 self.finished_extractions += self.extractions[indices_to_remove].tolist()
 
                 indices_to_keep = self.calculate_scores().argsort()[batch_size:].cpu()
+                self.entry_losses = [self.entry_losses[j] for j in indices_to_keep]
+                self.exit_losses = [self.exit_losses[j] for j in indices_to_keep]
                 self.buffer = self.buffer[indices_to_keep]
                 self.buffer_features = self.buffer_features[indices_to_keep]
                 self.buffer_loss = self.buffer_loss[indices_to_keep]
@@ -173,14 +190,17 @@ class MetricsAwareBuffer:
                     for key in z_stats.keys():
                         self.buffer_z_stats[key] = [self.buffer_z_stats[key][j] for j in indices_to_keep]
 
-                
             elif self.insertion_policy == 'fifo':
                 # remove batch_size samples from the buffer with the minimum loss
                 indices_to_remove = self.calculate_scores().argsort()[:batch_size].cpu()
+                self.finished_entry_losses += [self.entry_losses[j] for j in indices_to_remove]
+                self.finished_exit_losses += [self.exit_losses[j] for j in indices_to_remove]
                 self.finished_lifetimes += self.lifetimes[indices_to_remove].tolist()
                 self.finished_extractions += self.extractions[indices_to_remove].tolist()
 
                 indices_to_keep = self.calculate_scores().argsort()[batch_size:].cpu()
+                self.entry_losses = [self.entry_losses[j] for j in indices_to_keep]
+                self.exit_losses = [self.exit_losses[j] for j in indices_to_keep]
                 self.buffer = self.buffer[indices_to_keep]
                 self.buffer_features = self.buffer_features[indices_to_keep]
                 self.buffer_loss = self.buffer_loss[indices_to_keep]
@@ -197,6 +217,8 @@ class MetricsAwareBuffer:
                 self.buffer = torch.cat((self.buffer, batch_x), dim=0)
                 self.buffer_features = torch.cat((self.buffer_features, batch_features), dim=0)
                 self.buffer_loss = torch.cat((self.buffer_loss, batch_loss), dim=0)
+                self.entry_losses.extend(batch_loss.detach().cpu().reshape(-1).tolist())
+                self.exit_losses.extend(batch_loss.detach().cpu().reshape(-1).tolist())
                 if e_stats is not None:
                     for key in e_stats.keys():
                         self.buffer_e_stats[key] += e_stats[key]
@@ -247,6 +269,7 @@ class MetricsAwareBuffer:
         batch_loss = batch_loss.to(self.device)
 
         for i, idx in enumerate(indices):
+            self.exit_losses[idx] = batch_loss[i].item()
             if self.buffer_features[idx] is not None:
                 # There are already features stored for that sample
                 # EMA update of features
@@ -306,7 +329,6 @@ class MetricsAwareBuffer:
                 + self.gamma_std_deviation_out * norm_z_std_deviation + self.gamma_cosine_deviation_out * norm_z_cosine_deviation
         return scores
 
-        
 
     def end(self):
         results_lifetimes = []
@@ -322,18 +344,17 @@ class MetricsAwareBuffer:
         avg_extraction = np.mean(results_extractions)
         metrics_buffer = f"Average lifetime: {avg_lifetime:.2f}\nAverage extraction: {avg_extraction:.2f}\n"
 
-        csv_buffer = "lifetime,extraction\n"
+        results_entry_losses = self.entry_losses + self.finished_entry_losses
+        results_exit_losses = self.exit_losses + self.finished_exit_losses
+        csv_buffer = "lifetime,extraction,entry_loss,exit_loss\n"
         for i in range(len(results_lifetimes)):
-            csv_buffer += str(results_lifetimes[i]) + "," + str(results_extractions[i]) + "\n"
+            csv_buffer += str(results_lifetimes[i]) + "," + str(results_extractions[i]) + "," + str(results_entry_losses[i]) + "," + str(results_exit_losses[i]) + "\n"
 
         return csv_buffer, metrics_buffer
-    
     def get_curr_len(self):
         return len(self.buffer)
-    
     def get_buffer_data(self):
         return self.buffer
-    
 
     def calculate_overlaps(self):
 
@@ -342,7 +363,6 @@ class MetricsAwareBuffer:
         e_num_overlaps, _ = calculate_per_sample_overlap_cosine(torch.stack(self.buffer_e_stats['mean']), torch.stack(self.buffer_e_stats['mean']),
                                                                         torch.stack(self.buffer_e_stats['angle']), torch.stack(self.buffer_e_stats['angle']),
                                                                         )
-           
         # PROJECTOR FEATURE METRICS
         z_num_overlaps, _ = calculate_per_sample_overlap_cosine(torch.stack(self.buffer_z_stats['mean']), torch.stack(self.buffer_z_stats['mean']),
                                                                         torch.stack(self.buffer_z_stats['angle']), torch.stack(self.buffer_z_stats['angle']),
